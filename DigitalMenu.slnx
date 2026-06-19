@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/backend/">
+    <Project Path="backend/DigitalMenu.Api/DigitalMenu.Api.csproj" />
+    <Project Path="backend/DigitalMenu.Application/DigitalMenu.Application.csproj" />
+    <Project Path="backend/DigitalMenu.Domain/DigitalMenu.Domain.csproj" />
+    <Project Path="backend/DigitalMenu.Infrastructure/DigitalMenu.Infrastructure.csproj" />
+    <Project Path="backend/DigitalMenu.Tests/DigitalMenu.Tests.csproj" />
+  </Folder>
+</Solution>
