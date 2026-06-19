@@ -32,6 +32,12 @@ export class App {
   private readonly destroyRef = inject(DestroyRef);
   readonly restaurants = restaurants;
   readonly themes = themeOptions;
+  readonly platformWeeklyViews = [
+    { day: 'Pon', views: 620 }, { day: 'Uto', views: 740 }, { day: 'Sri', views: 680 },
+    { day: 'Čet', views: 860 }, { day: 'Pet', views: 790 }, { day: 'Sub', views: 980 }, { day: 'Ned', views: 910 },
+  ];
+  readonly platformChartTicks = [1000, 750, 500, 250, 0];
+  readonly ownerChartTicks = [240, 180, 120, 60, 0];
   readonly adminTabs: { id: AdminTab; label: string }[] = [
     { id: 'dashboard', label: 'Pregled' }, { id: 'restaurants', label: 'Restorani' },
     { id: 'themes', label: 'Teme' }, { id: 'qr-codes', label: 'QR kodovi' },
@@ -76,6 +82,18 @@ export class App {
     );
   }
 
+  get ownerWeeklyViews(): { day: string; views: number }[] {
+    const data: Record<string, number[]> = {
+      'old-town': [118, 146, 132, 174, 168, 221, 198],
+      'pizzeria-roma': [142, 171, 158, 196, 187, 234, 218],
+      'caffe-central': [74, 96, 89, 112, 108, 146, 131],
+    };
+    return (data[this.restaurant.id] ?? data['old-town']).map((views, index) => ({
+      day: ['Pon', 'Uto', 'Sri', 'Čet', 'Pet', 'Sub', 'Ned'][index],
+      views,
+    }));
+  }
+
   enter(view: AppView, restaurantId?: string): void {
     const id = restaurantId ?? this.selectedRestaurantId;
     const commands: string[] = view === 'super-admin'
@@ -117,6 +135,10 @@ export class App {
 
   formatPrice(price: number): string {
     return new Intl.NumberFormat('bs-BA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(price) + ' KM';
+  }
+
+  chartHeight(value: number, maximum: number): number {
+    return Math.max(4, Math.round((value / maximum) * 100));
   }
 
   qrCells(seed: string): number[] {
