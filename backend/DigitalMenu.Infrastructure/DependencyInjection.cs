@@ -11,15 +11,16 @@ namespace DigitalMenu.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration, bool isDevelopment = false)
     {
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.Section));
         services.AddDbContext<ApplicationDbContext>(o => o.UseNpgsql(configuration.GetConnectionString("Database")));
         services.AddIdentityCore<ApplicationUser>(o =>
         {
-            o.Password.RequiredLength = 8;
-            o.Password.RequireDigit = true;
-            o.Password.RequireUppercase = true;
+            o.Password.RequiredLength = isDevelopment ? 5 : 8;
+            o.Password.RequireDigit = !isDevelopment;
+            o.Password.RequireUppercase = !isDevelopment;
+            o.Password.RequireNonAlphanumeric = !isDevelopment;
             o.User.RequireUniqueEmail = true;
         }).AddRoles<IdentityRole<Guid>>().AddEntityFrameworkStores<ApplicationDbContext>();
         var jwt = configuration.GetSection(JwtOptions.Section).Get<JwtOptions>() ?? throw new InvalidOperationException("JWT configuration is missing.");

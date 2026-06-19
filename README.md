@@ -1,27 +1,50 @@
 # MeniSpot
 
-Platforma za digitalne menije restorana, kafića i barova s QR pristupom, prilagodljivim temama i jednostavnim upravljanjem ponudom.
+MeniSpot is a digital menu platform for restaurants, cafes, and bars. It provides QR-based access, customizable themes, menu management, special offers, and subscription control from a central administration panel.
 
-## Tehnologije
+## Technology Stack
 
-- .NET 10 i ASP.NET Core Web API
-- PostgreSQL i Entity Framework Core
-- ASP.NET Core Identity i JWT
+- Angular 20 and Tailwind CSS
+- ASP.NET Core Web API on .NET 10
+- PostgreSQL and Entity Framework Core
+- ASP.NET Core Identity and JWT authentication
 - xUnit
-- Angular 20 i Tailwind CSS
 
-## Lokalno pokretanje
+## Project Structure
+
+- `frontend`: Angular application
+- `backend/DigitalMenu.Domain`: domain entities and business rules
+- `backend/DigitalMenu.Application`: contracts and service interfaces
+- `backend/DigitalMenu.Infrastructure`: Entity Framework Core, Identity, JWT, and service implementations
+- `backend/DigitalMenu.Api`: HTTP API and application configuration
+- `backend/DigitalMenu.Tests`: automated tests
+
+## Local Development
+
+### Database
+
+Start PostgreSQL with Docker:
+
+```powershell
+docker compose up -d
+```
 
 ### Backend
 
 ```powershell
-docker compose up -d
-$env:SeedAdmin__Email="admin@example.com"
-$env:SeedAdmin__Password="ChangeMe123!"
 dotnet run --project backend/DigitalMenu.Api
 ```
 
-Swagger je u development okruženju dostupan na `/swagger`. Početna migracija se automatski primjenjuje pri pokretanju API-ja.
+Swagger is available at `/swagger` in the Development environment. The initial database migration is applied automatically when the API starts.
+
+Development administrator credentials:
+
+```text
+Email: admin@admin.com
+Password: admin
+```
+
+These credentials are intended for local development only. Production credentials must be provided through environment variables or a secure secret store.
 
 ### Frontend
 
@@ -30,15 +53,8 @@ cd frontend
 pnpm start
 ```
 
-Angular aplikacija je dostupna na `http://localhost:4200`.
+The Angular application is available at `http://localhost:4200`.
 
-Produkcijske vrijednosti za konekciju, JWT ključ i administratorski račun postavljaju se kroz environment varijable ili secret store. Razvojne vrijednosti iz `appsettings.json` ne koriste se u produkciji.
+## Production Configuration
 
-## Struktura
-
-- `DigitalMenu.Domain`: entiteti i domenska pravila
-- `DigitalMenu.Application`: API ugovori i servisni interfejsi
-- `DigitalMenu.Infrastructure`: EF Core, Identity, JWT i implementacije servisa
-- `DigitalMenu.Api`: HTTP rute i konfiguracija aplikacije
-- `DigitalMenu.Tests`: automatizovani testovi
-- `frontend`: Angular aplikacija
+Provide the database connection string, JWT signing key, and administrator credentials through environment variables or a secure secret store. Do not use the development values from this repository in production.
