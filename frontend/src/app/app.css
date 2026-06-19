@@ -1,5 +1,9 @@
 :host { display: block; min-height: 100vh; }
 
+.brand-wordmark { width: 190px; height: 58px; object-fit: contain; object-position: left center; }
+.brand-mark { width: 44px; height: 44px; border-radius: 12px; object-fit: contain; }
+.brand-mark-small { width: 36px; height: 36px; border-radius: 10px; object-fit: contain; }
+
 .role-card { display: block; min-height: 300px; border: 1px solid #e2e8f0; border-radius: 24px; background: white; padding: 28px; text-align: left; box-shadow: 0 10px 35px rgba(15,23,42,.04); transition: .2s ease; }
 .role-card:hover { transform: translateY(-4px); border-color: #cbd5e1; box-shadow: 0 20px 50px rgba(15,23,42,.09); }
 .role-icon, .stat-icon { display: grid; width: 48px; height: 48px; margin-bottom: 22px; place-items: center; border-radius: 14px; }

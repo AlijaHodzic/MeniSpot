@@ -2,10 +2,7 @@
   <main class="min-h-screen bg-[#f7f8fa] text-slate-900">
     <header class="border-b border-slate-200 bg-white">
       <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-        <div class="flex items-center gap-3">
-          <div class="grid h-10 w-10 place-items-center rounded-xl bg-amber-500 text-white"><svg lucideUtensilsCrossed [size]="21"></svg></div>
-          <div><p class="font-display text-lg font-bold">MeniSpot</p><p class="text-xs text-slate-500">QR meni platforma</p></div>
-        </div>
+        <img class="brand-wordmark" src="/menispot-wordmark.png" alt="MeniSpot - Digital menus. Smarter service.">
         <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Angular UI prototip</span>
       </div>
     </header>
@@ -47,7 +44,7 @@
 @if (view === 'super-admin') {
   <div class="app-shell">
     <aside class="sidebar" [class.sidebar-open]="mobileNav">
-      <div class="flex items-center gap-3 px-5 py-6"><span class="grid h-10 w-10 place-items-center rounded-xl bg-violet-600 text-white"><svg lucideShield [size]="20"></svg></span><div><p class="font-display font-bold">MeniSpot</p><p class="text-xs text-slate-400">Super Admin</p></div></div>
+      <div class="flex items-center gap-3 px-5 py-6"><img class="brand-mark" src="/menispot-mark.png" alt="MeniSpot"><div><p class="font-display font-bold">MeniSpot</p><p class="text-xs text-slate-400">Super Admin</p></div></div>
       <nav class="space-y-1 px-3">
         @for (item of adminTabs; track item.id) { <button class="nav-item" [class.nav-active]="adminTab === item.id" (click)="selectAdminTab(item.id)">{{ item.label }}</button> }
       </nav>
@@ -94,7 +91,7 @@
 @if (view === 'restaurant-owner') {
   <div class="app-shell owner-shell" [style.--brand]="restaurant.themeColor">
     <aside class="sidebar" [class.sidebar-open]="mobileNav">
-      <div class="border-b border-slate-200 p-5"><div class="flex items-center gap-3"><img class="h-11 w-11 rounded-xl object-cover" [src]="restaurant.logo"><div class="min-w-0"><p class="truncate font-display font-bold">{{ restaurant.name }}</p><p class="text-xs text-slate-400">Vlasnički panel</p></div></div></div>
+      <div class="border-b border-slate-200 p-5"><div class="mb-4 flex items-center gap-2"><img class="brand-mark-small" src="/menispot-mark.png" alt="MeniSpot"><span class="font-display text-sm font-bold">MeniSpot</span></div><div class="flex items-center gap-3"><img class="h-11 w-11 rounded-xl object-cover" [src]="restaurant.logo"><div class="min-w-0"><p class="truncate font-display font-bold">{{ restaurant.name }}</p><p class="text-xs text-slate-400">Vlasnički panel</p></div></div></div>
       <nav class="space-y-1 px-3 py-4">@for (item of ownerTabs; track item.id) { <button class="nav-item" [class.nav-active]="ownerTab === item.id" (click)="selectOwnerTab(item.id)">{{ item.label }}</button> }</nav>
       <div class="mt-auto border-t border-slate-200 p-3"><button class="nav-item" (click)="enter('public-menu', restaurant.id)"><svg lucideEye [size]="17"></svg> Pregled menija</button><button class="nav-item" (click)="enter('login')"><svg lucideLogOut [size]="17"></svg> Odjava</button></div>
     </aside>
@@ -154,7 +151,7 @@
       <div class="sticky-tools"><div class="menu-search"><svg lucideSearch [size]="18"></svg><input [(ngModel)]="search" placeholder="Pretraži meni..."></div><div class="category-scroll"><button [class.active]="selectedCategory === 'all'" (click)="selectedCategory = 'all'">Sve</button>@for (category of restaurant.categories; track category.id) { <button [class.active]="selectedCategory === category.id" (click)="selectedCategory = category.id">{{ category.icon }} {{ category.name }}</button> }</div></div>
       <div class="menu-sections">@for (category of restaurant.categories; track category.id) { @if ((selectedCategory === 'all' || selectedCategory === category.id) && productsFor(category.id).length) { <section><div class="category-heading"><span>{{ category.icon }}</span><div><h2>{{ category.name }}</h2><p>{{ productsFor(category.id).length }} proizvoda</p></div></div><div class="public-product-grid">@for (product of productsFor(category.id); track product.id) { <article class="menu-product" [class.sold-out]="!product.available"><div class="product-image"><img [src]="product.image" [alt]="product.name">@if (!product.available) { <span>Trenutno nedostupno</span> }</div><div class="product-content"><div class="badge-row">@for (badge of product.badges; track badge) { <span [attr.data-badge]="badge">@if (badge === 'spicy') { <svg lucideFlame [size]="10"></svg> } @if (badge === 'vegetarian') { <svg lucideLeaf [size]="10"></svg> } @if (badge === 'chefs-choice') { <svg lucideAward [size]="10"></svg> } {{ badgeLabel(badge) }}</span> }</div><h3>{{ product.name }}</h3><p>{{ product.description }}</p>@if (product.allergens.length) { <small>Alergeni: {{ product.allergens.join(', ') }}</small> }<b>{{ formatPrice(product.price) }}</b></div></article> }</div></section> } }</div>
     </section>
-    <footer class="menu-footer"><div class="grid h-9 w-9 place-items-center rounded-xl bg-amber-500 text-white"><svg lucideUtensilsCrossed [size]="18"></svg></div><p><b>MeniSpot</b><span>Brz i jednostavan QR meni</span></p></footer>
+    <footer class="menu-footer"><img class="brand-mark-small" src="/menispot-mark.png" alt="MeniSpot"><p><b>MeniSpot</b><span>Digital menus. Smarter service.</span></p></footer>
   </main>
 }
 

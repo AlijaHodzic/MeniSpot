@@ -1,6 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { NavigationEnd, Router } from '@angular/router';
+import { filter } from 'rxjs';
 import {
   LucideArrowLeft, LucideAward, LucideCalendar, LucideChefHat, LucideClock, LucideEdit2,
   LucideEye, LucideFlame, LucideGlobe, LucideLeaf, LucideLogOut,
@@ -25,6 +28,8 @@ import { AdminTab, AppView, BadgeType, OwnerTab, Product, Restaurant, ThemeType 
   styleUrl: './app.css',
 })
 export class App {
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   readonly restaurants = restaurants;
   readonly themes = themeOptions;
   readonly adminTabs: { id: AdminTab; label: string }[] = [
@@ -48,6 +53,13 @@ export class App {
   showProductModal = false;
   productMap: Record<string, Product[]> = structuredClone(initialProducts);
 
+  constructor() {
+    this.syncRoute(this.router.url);
+    this.router.events
+      .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd), takeUntilDestroyed(this.destroyRef))
+      .subscribe((event) => this.syncRoute(event.urlAfterRedirects));
+  }
+
   get restaurant(): Restaurant {
     return this.restaurants.find((item) => item.id === this.selectedRestaurantId) ?? this.restaurants[0];
   }
@@ -65,15 +77,19 @@ export class App {
   }
 
   enter(view: AppView, restaurantId?: string): void {
-    if (restaurantId) this.selectedRestaurantId = restaurantId;
-    this.view = view;
-    this.mobileNav = false;
-    this.search = '';
-    this.selectedCategory = 'all';
+    const id = restaurantId ?? this.selectedRestaurantId;
+    const commands: string[] = view === 'super-admin'
+      ? ['/admin', 'dashboard']
+      : view === 'restaurant-owner'
+        ? ['/restaurant', id, 'dashboard']
+        : view === 'public-menu'
+          ? ['/menu', id]
+          : ['/'];
+    void this.router.navigate(commands);
   }
 
-  selectAdminTab(tab: AdminTab): void { this.adminTab = tab; this.mobileNav = false; }
-  selectOwnerTab(tab: OwnerTab): void { this.ownerTab = tab; this.mobileNav = false; }
+  selectAdminTab(tab: AdminTab): void { void this.router.navigate(['/admin', tab]); }
+  selectOwnerTab(tab: OwnerTab): void { void this.router.navigate(['/restaurant', this.restaurant.id, tab]); }
 
   toggleRestaurant(restaurant: Restaurant): void {
     restaurant.status = restaurant.status === 'active' ? 'paused' : 'active';
@@ -107,5 +123,38 @@ export class App {
     const values: number[] = [];
     for (let i = 0; i < 225; i++) values.push((seed.charCodeAt(i % seed.length) + i * 7) % 3 ? 1 : 0);
     return values;
+  }
+
+  private syncRoute(url: string): void {
+    const segments = url.split('?')[0].split('/').filter(Boolean).map(decodeURIComponent);
+    if (segments[0] === 'admin') {
+      this.view = 'super-admin';
+      this.adminTab = this.isAdminTab(segments[1]) ? segments[1] : 'dashboard';
+    } else if (segments[0] === 'restaurant') {
+      this.view = 'restaurant-owner';
+      this.selectedRestaurantId = this.validRestaurantId(segments[1]);
+      this.ownerTab = this.isOwnerTab(segments[2]) ? segments[2] : 'dashboard';
+    } else if (segments[0] === 'menu') {
+      this.view = 'public-menu';
+      this.selectedRestaurantId = this.validRestaurantId(segments[1]);
+    } else {
+      this.view = 'login';
+    }
+
+    this.mobileNav = false;
+    this.search = '';
+    this.selectedCategory = 'all';
+  }
+
+  private validRestaurantId(value?: string): string {
+    return this.restaurants.some((restaurant) => restaurant.id === value) ? value! : this.restaurants[0].id;
+  }
+
+  private isAdminTab(value?: string): value is AdminTab {
+    return this.adminTabs.some((tab) => tab.id === value);
+  }
+
+  private isOwnerTab(value?: string): value is OwnerTab {
+    return this.ownerTabs.some((tab) => tab.id === value);
   }
 }
