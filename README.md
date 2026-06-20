@@ -55,6 +55,3 @@ pnpm start
 
 The Angular application is available at `http://localhost:4200`.
 
-## Production Configuration
-
-Provide the database connection string, JWT signing key, and administrator credentials through environment variables or a secure secret store. Do not use the development values from this repository in production.
