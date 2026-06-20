@@ -3,26 +3,28 @@ import { Component, DestroyRef, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router } from '@angular/router';
-import { filter } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { filter, finalize } from 'rxjs';
 import {
   LucideArrowLeft, LucideAward, LucideCalendar, LucideChefHat, LucideClock, LucideEdit2,
-  LucideEye, LucideFlame, LucideGlobe, LucideLeaf, LucideLogOut,
+  LucideEye, LucideEyeOff, LucideFlame, LucideGlobe, LucideLeaf, LucideLock, LucideLogIn, LucideLogOut, LucideMail,
   LucideMapPin, LucideMenu, LucidePalette, LucidePercent, LucidePhone, LucidePlus,
   LucidePower, LucideQrCode, LucideSearch, LucideShield, LucideSparkles,
   LucideStar, LucideStore, LucideTrash2, LucideTrendingUp, LucideUtensilsCrossed, LucideX,
 } from '@lucide/angular';
 import { products as initialProducts, restaurants, themeOptions } from './demo-data';
 import { AdminTab, AppView, BadgeType, OwnerTab, Product, Restaurant, ThemeType } from './models';
+import { AuthService } from './core/auth/auth.service';
 
 @Component({
   selector: 'app-root',
   imports: [
     CommonModule, FormsModule, LucideArrowLeft, LucideAward, LucideCalendar, LucideChefHat,
     LucideClock, LucideEdit2, LucideEye, LucideFlame, LucideGlobe,
-    LucideLeaf, LucideLogOut, LucideMapPin, LucideMenu, LucidePalette, LucidePercent,
+    LucideLeaf, LucideLock, LucideLogIn, LucideLogOut, LucideMail, LucideMapPin, LucideMenu, LucidePalette, LucidePercent,
     LucidePhone, LucidePlus, LucidePower, LucideQrCode, LucideSearch,
     LucideShield, LucideSparkles, LucideStar, LucideStore, LucideTrash2, LucideTrendingUp,
-    LucideUtensilsCrossed, LucideX,
+    LucideUtensilsCrossed, LucideX, LucideEyeOff,
   ],
   templateUrl: './app.html',
   styleUrl: './app.css',
@@ -30,6 +32,7 @@ import { AdminTab, AppView, BadgeType, OwnerTab, Product, Restaurant, ThemeType 
 export class App {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  readonly auth = inject(AuthService);
   readonly restaurants = restaurants;
   readonly themes = themeOptions;
   readonly platformWeeklyViews = [
@@ -57,6 +60,11 @@ export class App {
   mobileNav = false;
   showHours = false;
   showProductModal = false;
+  showPassword = false;
+  loginEmail = '';
+  loginPassword = '';
+  loginLoading = false;
+  loginError = '';
   productMap: Record<string, Product[]> = structuredClone(initialProducts);
 
   constructor() {
@@ -96,7 +104,9 @@ export class App {
 
   enter(view: AppView, restaurantId?: string): void {
     const id = restaurantId ?? this.selectedRestaurantId;
-    const commands: string[] = view === 'super-admin'
+    const commands: string[] = view === 'auth-login'
+      ? ['/auth/login']
+      : view === 'super-admin'
       ? ['/admin', 'dashboard']
       : view === 'restaurant-owner'
         ? ['/restaurant', id, 'dashboard']
@@ -104,6 +114,35 @@ export class App {
           ? ['/menu', id]
           : ['/'];
     void this.router.navigate(commands);
+  }
+
+  openLogin(): void {
+    this.loginError = '';
+    void this.router.navigate(['/auth/login']);
+  }
+
+  submitLogin(): void {
+    if (!this.loginEmail.trim() || !this.loginPassword) {
+      this.loginError = 'Unesi email adresu i lozinku.';
+      return;
+    }
+
+    this.loginLoading = true;
+    this.loginError = '';
+    this.auth.login({ email: this.loginEmail.trim(), password: this.loginPassword })
+      .pipe(finalize(() => this.loginLoading = false))
+      .subscribe({
+        next: (session) => void this.router.navigate(this.auth.dashboardUrl(session)),
+        error: (error: HttpErrorResponse) => {
+          this.loginError = error.status === 401
+            ? 'Email ili lozinka nisu ispravni.'
+            : 'Prijava trenutno nije dostupna. Provjeri da li je backend pokrenut.';
+        },
+      });
+  }
+
+  logout(): void {
+    this.auth.logout();
   }
 
   selectAdminTab(tab: AdminTab): void { void this.router.navigate(['/admin', tab]); }
@@ -149,7 +188,9 @@ export class App {
 
   private syncRoute(url: string): void {
     const segments = url.split('?')[0].split('/').filter(Boolean).map(decodeURIComponent);
-    if (segments[0] === 'admin') {
+    if (segments[0] === 'auth' && segments[1] === 'login') {
+      this.view = 'auth-login';
+    } else if (segments[0] === 'admin') {
       this.view = 'super-admin';
       this.adminTab = this.isAdminTab(segments[1]) ? segments[1] : 'dashboard';
     } else if (segments[0] === 'restaurant') {

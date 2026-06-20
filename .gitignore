@@ -13,3 +13,6 @@
 .env.*
 !.env.example
 appsettings.Production.json
+*.db
+*.db-shm
+*.db-wal

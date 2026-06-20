@@ -8,19 +8,19 @@
     </header>
     <section class="mx-auto max-w-7xl px-5 py-14 lg:py-20">
       <div class="mx-auto max-w-3xl text-center">
-        <span class="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800"><svg lucideSparkles [size]="15"></svg> Jednostavan digitalni meni za svaki ugostiteljski objekat</span>
-        <h1 class="font-display mt-6 text-4xl font-bold tracking-tight sm:text-5xl">Jedna platforma.<br><span class="text-amber-600">Svaki restoran poseban.</span></h1>
+        <span class="inline-flex items-center gap-2 rounded-full border border-lime-200 bg-lime-50 px-4 py-2 text-sm font-semibold text-lime-800"><svg lucideSparkles [size]="15"></svg> Jednostavan digitalni meni za svaki ugostiteljski objekat</span>
+        <h1 class="font-display mt-6 text-4xl font-bold tracking-tight sm:text-5xl">Jedna platforma.<br><span class="text-lime-600">Svaki restoran poseban.</span></h1>
         <p class="mx-auto mt-5 max-w-2xl text-lg leading-8 text-slate-500">Pregledaj sva tri korisnička iskustva iz Figma dizajna. Podaci su trenutno demo i ne komuniciraju s backendom.</p>
       </div>
 
       <div class="mt-12 grid gap-5 lg:grid-cols-3">
-        <button class="role-card group" (click)="enter('super-admin')">
-          <span class="role-icon bg-violet-100 text-violet-700"><svg lucideShield [size]="25"></svg></span>
-          <span class="block font-display text-xl font-bold">Super Admin</span>
-          <span class="mt-2 block text-sm leading-6 text-slate-500">Upravljanje restoranima, licencama, temama i QR kodovima.</span>
-          <span class="mt-6 flex items-center font-semibold text-violet-700">Otvori platformu <span class="ml-auto text-xl transition group-hover:translate-x-1">→</span></span>
+        <button class="role-card group" (click)="openLogin()">
+          <span class="role-icon bg-lime-100 text-lime-700"><svg lucideShield [size]="25"></svg></span>
+          <span class="block font-display text-xl font-bold">Prijava u sistem</span>
+          <span class="mt-2 block text-sm leading-6 text-slate-500">Siguran pristup administraciji i panelu vašeg objekta.</span>
+          <span class="mt-6 flex items-center font-semibold text-lime-700">Prijavi se <span class="ml-auto text-xl transition group-hover:translate-x-1">→</span></span>
         </button>
-        <button class="role-card group" (click)="enter('restaurant-owner', selectedRestaurantId)">
+        <button class="role-card group" (click)="openLogin()">
           <span class="role-icon bg-amber-100 text-amber-700"><svg lucideStore [size]="25"></svg></span>
           <span class="block font-display text-xl font-bold">Vlasnik restorana</span>
           <span class="mt-2 block text-sm leading-6 text-slate-500">Kategorije, proizvodi, ponude, postavke i pregled menija.</span>
@@ -41,6 +41,29 @@
   </main>
 }
 
+@if (view === 'auth-login') {
+  <main class="auth-page">
+    <section class="auth-brand-panel">
+      <a class="auth-logo" href="/" aria-label="MeniSpot početna stranica"><img src="/menispot-wordmark.png" alt="MeniSpot - Digital menus. Smarter service."></a>
+      <div class="auth-brand-copy"><span>Sigurna administracija</span><h1>Vaš meni.<br><strong>Vaša kontrola.</strong></h1><p>Upravljajte ponudom, cijenama i izgledom digitalnog menija s jednog mjesta.</p></div>
+      <p class="auth-copyright">© 2026 MeniSpot</p>
+    </section>
+    <section class="auth-form-panel">
+      <form class="auth-card" (ngSubmit)="submitLogin()">
+        <div class="auth-mobile-logo"><img src="/menispot-wordmark.png" alt="MeniSpot"></div>
+        <p class="eyebrow">Dobro došli</p>
+        <h2>Prijavite se</h2>
+        <p class="auth-intro">Unesite pristupne podatke za nastavak.</p>
+        <label>Email adresa<div class="auth-input"><svg lucideMail [size]="18"></svg><input name="email" type="email" autocomplete="username" [(ngModel)]="loginEmail" placeholder="ime@primjer.ba" required></div></label>
+        <label>Lozinka<div class="auth-input"><svg lucideLock [size]="18"></svg><input name="password" [type]="showPassword ? 'text' : 'password'" autocomplete="current-password" [(ngModel)]="loginPassword" placeholder="Unesite lozinku" required><button type="button" (click)="showPassword = !showPassword" [attr.aria-label]="showPassword ? 'Sakrij lozinku' : 'Prikaži lozinku'">@if (showPassword) { <svg lucideEyeOff [size]="18"></svg> } @else { <svg lucideEye [size]="18"></svg> }</button></div></label>
+        @if (loginError) { <div class="auth-error">{{ loginError }}</div> }
+        <button class="auth-submit" type="submit" [disabled]="loginLoading">@if (loginLoading) { <span class="auth-spinner"></span> Prijava... } @else { <svg lucideLogIn [size]="18"></svg> Prijavi se }</button>
+        <button class="auth-back" type="button" (click)="enter('login')"><svg lucideArrowLeft [size]="15"></svg> Nazad na početnu</button>
+      </form>
+    </section>
+  </main>
+}
+
 @if (view === 'super-admin') {
   <div class="app-shell">
     <aside class="sidebar" [class.sidebar-open]="mobileNav">
@@ -48,7 +71,7 @@
       <nav class="space-y-1 px-3">
         @for (item of adminTabs; track item.id) { <button class="nav-item" [class.nav-active]="adminTab === item.id" (click)="selectAdminTab(item.id)">{{ item.label }}</button> }
       </nav>
-      <div class="mt-auto border-t border-slate-200 p-3"><button class="nav-item" (click)="enter('login')"><svg lucideLogOut [size]="17"></svg> Nazad na demo</button></div>
+      <div class="mt-auto border-t border-slate-200 p-3"><button class="nav-item" (click)="logout()"><svg lucideLogOut [size]="17"></svg> Odjava</button></div>
     </aside>
     <section class="main-panel">
       <header class="topbar"><button class="icon-button lg:hidden" (click)="mobileNav = !mobileNav"><svg lucideMenu [size]="21"></svg></button><div><p class="text-sm text-slate-500">Administracija platforme</p><h1 class="font-display text-xl font-bold">{{ adminTitle }}</h1></div><div class="ml-auto hidden items-center gap-3 sm:flex"><span class="h-9 w-9 rounded-full bg-violet-100"></span><div><p class="text-sm font-semibold">Alija Hodžić</p><p class="text-xs text-slate-400">Super administrator</p></div></div></header>
@@ -93,7 +116,7 @@
     <aside class="sidebar" [class.sidebar-open]="mobileNav">
       <div class="border-b border-slate-200 p-5"><div class="mb-4 flex items-center gap-2"><img class="brand-mark-small" src="/menispot-mark.png" alt="MeniSpot"><span class="font-display text-sm font-bold">MeniSpot</span></div><div class="flex items-center gap-3"><img class="h-11 w-11 rounded-xl object-cover" [src]="restaurant.logo"><div class="min-w-0"><p class="truncate font-display font-bold">{{ restaurant.name }}</p><p class="text-xs text-slate-400">Vlasnički panel</p></div></div></div>
       <nav class="space-y-1 px-3 py-4">@for (item of ownerTabs; track item.id) { <button class="nav-item" [class.nav-active]="ownerTab === item.id" (click)="selectOwnerTab(item.id)">{{ item.label }}</button> }</nav>
-      <div class="mt-auto border-t border-slate-200 p-3"><button class="nav-item" (click)="enter('public-menu', restaurant.id)"><svg lucideEye [size]="17"></svg> Pregled menija</button><button class="nav-item" (click)="enter('login')"><svg lucideLogOut [size]="17"></svg> Odjava</button></div>
+      <div class="mt-auto border-t border-slate-200 p-3"><button class="nav-item" (click)="enter('public-menu', restaurant.id)"><svg lucideEye [size]="17"></svg> Pregled menija</button><button class="nav-item" (click)="logout()"><svg lucideLogOut [size]="17"></svg> Odjava</button></div>
     </aside>
     <section class="main-panel">
       <header class="topbar"><button class="icon-button lg:hidden" (click)="mobileNav = !mobileNav"><svg lucideMenu [size]="21"></svg></button><div><p class="text-sm text-slate-500">{{ restaurant.name }}</p><h1 class="font-display text-xl font-bold">{{ ownerTitle }}</h1></div><div class="ml-auto flex items-center gap-3"><span class="status-pill" [class.status-paused]="restaurant.status === 'paused'">{{ restaurant.status === 'active' ? 'Meni aktivan' : 'Meni pauziran' }}</span><button class="secondary-button hidden sm:flex" (click)="enter('public-menu', restaurant.id)"><svg lucideEye [size]="16"></svg> Pregled</button></div></header>

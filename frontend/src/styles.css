@@ -1,7 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap');
 @import "tailwindcss";
 
-:root { color-scheme: light; font-family: 'DM Sans', system-ui, sans-serif; font-synthesis: none; }
+:root {
+  color-scheme: light;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-synthesis: none;
+  --menispot-green: #84cc16;
+  --menispot-green-dark: #4d7c0f;
+  --menispot-green-soft: #f7fee7;
+}
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; background: #f8fafc; }
