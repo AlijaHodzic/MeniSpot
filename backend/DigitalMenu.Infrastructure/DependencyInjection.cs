@@ -14,13 +14,8 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration, bool isDevelopment = false)
     {
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.Section));
-        var useSqlite = isDevelopment && string.Equals(configuration["DatabaseProvider"], "Sqlite", StringComparison.OrdinalIgnoreCase);
         services.AddDbContext<ApplicationDbContext>(options =>
-        {
-            var connectionString = configuration.GetConnectionString("Database");
-            if (useSqlite) options.UseSqlite(connectionString);
-            else options.UseNpgsql(connectionString);
-        });
+            options.UseNpgsql(configuration.GetConnectionString("Database")));
         services.AddIdentityCore<ApplicationUser>(o =>
         {
             o.Password.RequiredLength = isDevelopment ? 5 : 8;
@@ -55,8 +50,7 @@ public static class DatabaseInitializer
     {
         await using var scope = services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        if (db.Database.IsSqlite()) await db.Database.EnsureCreatedAsync();
-        else await db.Database.MigrateAsync();
+        await db.Database.MigrateAsync();
         var roles = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
         foreach (var role in new[] { Roles.SuperAdmin, Roles.RestaurantOwner, Roles.RestaurantStaff })
             if (!await roles.RoleExistsAsync(role)) await roles.CreateAsync(new IdentityRole<Guid>(role));

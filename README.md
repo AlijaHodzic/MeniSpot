@@ -6,7 +6,7 @@ MeniSpot is a digital menu platform for restaurants, cafes, and bars. It provide
 
 - Angular 20 and Tailwind CSS
 - ASP.NET Core Web API on .NET 10
-- PostgreSQL, SQLite, and Entity Framework Core
+- PostgreSQL and Entity Framework Core
 - ASP.NET Core Identity and JWT authentication
 - xUnit
 
@@ -21,13 +21,40 @@ MeniSpot is a digital menu platform for restaurants, cafes, and bars. It provide
 
 ## Local Development
 
+### Database
+
+Start PostgreSQL in Docker:
+
+```powershell
+docker compose up -d
+```
+
+Check or stop the database:
+
+```powershell
+docker compose ps
+docker compose down
+```
+
+The database is available to local tools such as DBeaver with these settings:
+
+```text
+Host: localhost
+Port: 5432
+Database: digital_menu
+Username: postgres
+Password: postgres
+```
+
+Database data is stored in the `digital-menu-postgres` Docker volume and remains available when the container is stopped or recreated.
+
 ### Backend
 
 ```powershell
 dotnet run --project backend/DigitalMenu.Api
 ```
 
-Swagger is available at `/swagger` in the Development environment. Local development uses SQLite and creates `menispot-dev.db` automatically, so PostgreSQL or Docker is not required. Production uses PostgreSQL.
+Swagger is available at `/swagger` in the Development environment. Database migrations and development administrator seeding run automatically when the API starts.
 
 Development administrator credentials:
 
