@@ -46,7 +46,65 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
 {
     public async Task<IReadOnlyList<RestaurantSummary>> GetAllAsync(CancellationToken ct) => await db.Restaurants.AsNoTracking()
         .Where(x => x.Subscription != null).OrderBy(x => x.Name)
-        .Select(x => new RestaurantSummary(x.Id, x.Name, x.Slug, x.Status, x.Subscription!.Status, x.Subscription.ExpiresOn)).ToListAsync(ct);
+        .Select(x => new RestaurantSummary(x.Id, x.Name, x.Slug, x.Type, x.LogoUrl, x.Address, x.Status, x.Subscription!.Plan, x.Subscription.Status, x.Subscription.ExpiresOn)).ToListAsync(ct);
+
+    public async Task<AdminDashboardSummary> GetDashboardAsync(CancellationToken ct)
+    {
+        var rows = await db.Restaurants.AsNoTracking().Where(x => x.Subscription != null).Select(x => new
+        {
+            x.Id, x.Name, x.Type, x.Status, x.CreatedAt, x.UpdatedAt,
+            Plan = x.Subscription!.Plan, SubscriptionStatus = x.Subscription.Status,
+            x.Subscription.ExpiresOn, x.Subscription.GracePeriodEndsOn,
+            ThemeKey = x.Theme != null ? x.Theme.ThemeKey : null
+        }).ToListAsync(ct);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var monthStart = new DateTimeOffset(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, TimeSpan.Zero).AddMonths(-5);
+        var growth = Enumerable.Range(0, 6).Select(offset =>
+        {
+            var month = monthStart.AddMonths(offset);
+            var next = month.AddMonths(1);
+            return new AdminGrowthPoint(month.ToString("yyyy-MM"), rows.Count(x => x.CreatedAt >= month && x.CreatedAt < next));
+        }).ToList();
+        var activeLicenses = rows.Count(x => x.Status == RestaurantStatus.Active &&
+            (x.SubscriptionStatus is SubscriptionStatus.Active or SubscriptionStatus.Trial ||
+             x.SubscriptionStatus == SubscriptionStatus.Overdue && x.GracePeriodEndsOn >= today));
+        var breakdown = rows.GroupBy(x => x.SubscriptionStatus.ToString())
+            .Select(x => new AdminStatusCount(x.Key, x.Count())).OrderByDescending(x => x.Count).ToList();
+        var recent = rows.OrderByDescending(x => x.UpdatedAt).Take(6)
+            .Select(x => new AdminRecentRestaurant(x.Id, x.Name, x.Status, x.Plan, x.UpdatedAt)).ToList();
+        var themeUsage = rows.GroupBy(x => NormalizeThemeKey(x.ThemeKey, x.Type))
+            .Select(x => new AdminThemeUsage(x.Key, x.Count())).OrderByDescending(x => x.Count).ToList();
+        return new AdminDashboardSummary(
+            rows.Count,
+            rows.Count(x => x.Status == RestaurantStatus.Active),
+            activeLicenses,
+            rows.Count(x => x.SubscriptionStatus == SubscriptionStatus.Trial),
+            rows.Count(x => x.ExpiresOn >= today && x.ExpiresOn <= today.AddDays(14)),
+            growth, breakdown, recent, themeUsage);
+    }
+
+    public async Task<AdminRestaurantDetails?> GetAdminDetailsAsync(Guid id, CancellationToken ct)
+    {
+        var item = await db.Restaurants.AsNoTracking().Where(x => x.Id == id && x.Subscription != null).Select(x => new
+        {
+            x.Id, x.Name, x.Slug, x.Description, x.LogoUrl, x.CoverImageUrl, x.Address, x.Phone, x.Email,
+            x.WebsiteUrl, x.InstagramUrl, x.Currency, x.DefaultLanguage, x.Type, x.Status,
+            ThemeKey = x.Theme != null ? x.Theme.ThemeKey : null,
+            SubscriptionStatus = x.Subscription!.Status, x.Subscription.Plan, x.Subscription.StartsOn,
+            x.Subscription.ExpiresOn, x.Subscription.GracePeriodEndsOn
+        }).FirstOrDefaultAsync(ct);
+        if (item is null) return null;
+        var ownerEmail = await (from user in db.Users
+            join userRole in db.UserRoles on user.Id equals userRole.UserId
+            join role in db.Roles on userRole.RoleId equals role.Id
+            where user.RestaurantId == id && role.Name == Roles.RestaurantOwner
+            select user.Email).FirstOrDefaultAsync(ct);
+        return new AdminRestaurantDetails(
+            item.Id, item.Name, item.Slug, item.Description, item.LogoUrl, item.CoverImageUrl, item.Address, item.Phone,
+            item.Email, item.WebsiteUrl, item.InstagramUrl, item.Currency, item.DefaultLanguage, item.Type, item.Status,
+            NormalizeThemeKey(item.ThemeKey, item.Type), ownerEmail,
+            new AdminSubscriptionDetails(item.SubscriptionStatus, item.Plan, item.StartsOn, item.ExpiresOn, item.GracePeriodEndsOn));
+    }
 
     public Task<Restaurant?> GetAsync(Guid id, Guid? tenantId, bool admin, CancellationToken ct) => db.Restaurants.AsNoTracking()
         .Include(x => x.Subscription).Include(x => x.Theme).Include(x => x.BusinessHours)
@@ -55,13 +113,35 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
 
     public async Task<Restaurant> CreateAsync(CreateRestaurantRequest request, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(request.Name)) throw new InvalidOperationException("Restaurant name is required.");
+        if (string.IsNullOrWhiteSpace(request.Slug)) throw new InvalidOperationException("Restaurant slug is required.");
+        if (string.IsNullOrWhiteSpace(request.OwnerEmail)) throw new InvalidOperationException("Owner email is required.");
+        if (request.TrialDays is < 1 or > 365) throw new InvalidOperationException("Trial period must be between 1 and 365 days.");
+        if (string.IsNullOrWhiteSpace(request.Currency) || request.Currency.Trim().Length != 3) throw new InvalidOperationException("Currency must use a three-letter code.");
+        if (!SupportedThemes.Contains(request.ThemeKey)) throw new InvalidOperationException("Selected theme is not supported.");
         var slug = request.Slug.Trim().ToLowerInvariant();
         if (await db.Restaurants.AnyAsync(x => x.Slug == slug, ct)) throw new InvalidOperationException("Slug is already in use.");
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var restaurant = new Restaurant { Name = request.Name.Trim(), Slug = slug, Type = request.Type, Status = RestaurantStatus.Active };
+        var restaurant = new Restaurant
+        {
+            Name = request.Name.Trim(),
+            Slug = slug,
+            Type = request.Type,
+            Status = request.Status,
+            Description = request.Description,
+            LogoUrl = request.LogoUrl,
+            CoverImageUrl = request.CoverImageUrl,
+            Address = request.Address,
+            Phone = request.Phone,
+            Email = request.Email,
+            WebsiteUrl = request.WebsiteUrl,
+            InstagramUrl = request.InstagramUrl,
+            Currency = request.Currency.Trim().ToUpperInvariant(),
+            DefaultLanguage = request.DefaultLanguage.Trim().ToLowerInvariant()
+        };
         restaurant.Subscription = new Subscription { RestaurantId = restaurant.Id, StartsOn = today, ExpiresOn = today.AddDays(request.TrialDays), Status = SubscriptionStatus.Trial };
-        restaurant.Theme = new ThemeSettings { RestaurantId = restaurant.Id };
+        restaurant.Theme = new ThemeSettings { RestaurantId = restaurant.Id, ThemeKey = request.ThemeKey };
         db.Restaurants.Add(restaurant);
         await db.SaveChangesAsync(ct);
         var user = new ApplicationUser { UserName = request.OwnerEmail, Email = request.OwnerEmail, EmailConfirmed = true, RestaurantId = restaurant.Id, DisplayName = request.Name };
@@ -74,11 +154,17 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
 
     public async Task<bool> UpdateAsync(Guid id, UpdateRestaurantRequest r, Guid? tenantId, bool admin, CancellationToken ct)
     {
-        var x = await db.Restaurants.FirstOrDefaultAsync(x => x.Id == id && (admin || x.Id == tenantId), ct);
+        if (string.IsNullOrWhiteSpace(r.Name)) throw new InvalidOperationException("Restaurant name is required.");
+        if (string.IsNullOrWhiteSpace(r.Currency) || r.Currency.Trim().Length != 3) throw new InvalidOperationException("Currency must use a three-letter code.");
+        var x = await db.Restaurants.Include(x => x.Theme).FirstOrDefaultAsync(x => x.Id == id && (admin || x.Id == tenantId), ct);
         if (x is null) return false;
+        if (!SupportedThemes.Contains(r.ThemeKey)) throw new InvalidOperationException("Selected theme is not supported.");
         x.Name = r.Name.Trim(); x.Description = r.Description; x.LogoUrl = r.LogoUrl; x.CoverImageUrl = r.CoverImageUrl;
         x.Address = r.Address; x.Phone = r.Phone; x.Email = r.Email; x.WebsiteUrl = r.WebsiteUrl; x.InstagramUrl = r.InstagramUrl;
-        x.Currency = r.Currency.ToUpperInvariant(); x.DefaultLanguage = r.DefaultLanguage.ToLowerInvariant(); x.Type = r.Type; x.UpdatedAt = DateTimeOffset.UtcNow;
+        x.Currency = r.Currency.ToUpperInvariant(); x.DefaultLanguage = r.DefaultLanguage.ToLowerInvariant(); x.Type = r.Type;
+        if (x.Theme is null) { x.Theme = new ThemeSettings { RestaurantId = x.Id, ThemeKey = r.ThemeKey }; }
+        else x.Theme.ThemeKey = r.ThemeKey;
+        x.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct); return true;
     }
 
@@ -90,9 +176,56 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
 
     public async Task<bool> SetSubscriptionAsync(Guid id, SetSubscriptionRequest r, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(r.Plan)) throw new InvalidOperationException("Subscription plan is required.");
+        if (r.ExpiresOn < r.StartsOn) throw new InvalidOperationException("Subscription expiry cannot be before its start date.");
+        if (r.GracePeriodEndsOn < r.ExpiresOn) throw new InvalidOperationException("Grace period cannot end before the subscription expiry date.");
         var x = await db.Subscriptions.SingleOrDefaultAsync(x => x.RestaurantId == id, ct); if (x is null) return false;
         x.Status = r.Status; x.Plan = r.Plan; x.StartsOn = r.StartsOn; x.ExpiresOn = r.ExpiresOn; x.GracePeriodEndsOn = r.GracePeriodEndsOn; x.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct); return true;
+    }
+
+    public async Task<bool> UpdateOwnerAccessAsync(Guid id, UpdateOwnerAccessRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email)) throw new InvalidOperationException("Owner email is required.");
+        var owner = await (from user in db.Users
+            join userRole in db.UserRoles on user.Id equals userRole.UserId
+            join role in db.Roles on userRole.RoleId equals role.Id
+            where user.RestaurantId == id && role.Name == Roles.RestaurantOwner
+            select user).FirstOrDefaultAsync(ct);
+        if (owner is null) return false;
+        var email = request.Email.Trim();
+        if (!string.Equals(owner.Email, email, StringComparison.OrdinalIgnoreCase))
+        {
+            var existing = await users.FindByEmailAsync(email);
+            if (existing is not null && existing.Id != owner.Id) throw new InvalidOperationException("Email is already in use.");
+            EnsureIdentityResult(await users.SetEmailAsync(owner, email));
+            EnsureIdentityResult(await users.SetUserNameAsync(owner, email));
+            owner.EmailConfirmed = true;
+            EnsureIdentityResult(await users.UpdateAsync(owner));
+        }
+        if (!string.IsNullOrWhiteSpace(request.NewPassword))
+        {
+            var token = await users.GeneratePasswordResetTokenAsync(owner);
+            EnsureIdentityResult(await users.ResetPasswordAsync(owner, token, request.NewPassword));
+        }
+        return true;
+    }
+
+    private static string DefaultThemeKey(EstablishmentType type) => type switch
+    {
+        EstablishmentType.Cafe => "natural-green",
+        EstablishmentType.Bar or EstablishmentType.Club => "modern-dark",
+        _ => "classic-light"
+    };
+
+    private static string NormalizeThemeKey(string? key, EstablishmentType type) =>
+        string.IsNullOrWhiteSpace(key) || key == "restaurant" ? DefaultThemeKey(type) : key;
+
+    private static readonly string[] SupportedThemes = ["modern-dark", "classic-light", "premium-gold", "natural-green"];
+
+    private static void EnsureIdentityResult(IdentityResult result)
+    {
+        if (!result.Succeeded) throw new InvalidOperationException(string.Join(" ", result.Errors.Select(x => x.Description)));
     }
 }
 

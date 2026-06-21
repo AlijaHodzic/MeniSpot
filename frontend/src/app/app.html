@@ -2,7 +2,7 @@
   <main class="min-h-screen bg-[#f7f8fa] text-slate-900">
     <header class="border-b border-slate-200 bg-white">
       <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-        <img class="brand-wordmark" src="/menispot-wordmark.png" alt="MeniSpot - Digital menus. Smarter service.">
+        <span class="brand-lockup"><img src="/menispot-mark.png" alt=""><span class="brand-type"><strong>Meni<em>Spot</em></strong><small>Digital menus. Smarter service.</small></span></span>
         <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Angular UI prototip</span>
       </div>
     </header>
@@ -44,13 +44,13 @@
 @if (view === 'auth-login') {
   <main class="auth-page">
     <section class="auth-brand-panel">
-      <a class="auth-logo" href="/" aria-label="MeniSpot početna stranica"><img src="/menispot-wordmark.png" alt="MeniSpot - Digital menus. Smarter service."></a>
+      <a class="auth-logo" href="/" aria-label="MeniSpot početna stranica"><span class="brand-lockup brand-lockup-dark"><img src="/menispot-mark.png" alt=""><span class="brand-type"><strong>Meni<em>Spot</em></strong><small>Digital menus. Smarter service.</small></span></span></a>
       <div class="auth-brand-copy"><span>Sigurna administracija</span><h1>Vaš meni.<br><strong>Vaša kontrola.</strong></h1><p>Upravljajte ponudom, cijenama i izgledom digitalnog menija s jednog mjesta.</p></div>
       <p class="auth-copyright">© 2026 MeniSpot</p>
     </section>
     <section class="auth-form-panel">
       <form class="auth-card" (ngSubmit)="submitLogin()">
-        <div class="auth-mobile-logo"><img src="/menispot-wordmark.png" alt="MeniSpot"></div>
+        <div class="auth-mobile-logo"><span class="brand-lockup"><img src="/menispot-mark.png" alt=""><span class="brand-type"><strong>Meni<em>Spot</em></strong><small>Digital menus. Smarter service.</small></span></span></div>
         <p class="eyebrow">Dobro došli</p>
         <h2>Prijavite se</h2>
         <p class="auth-intro">Unesite pristupne podatke za nastavak.</p>
@@ -77,38 +77,95 @@
       <header class="topbar"><button class="icon-button lg:hidden" (click)="mobileNav = !mobileNav"><svg lucideMenu [size]="21"></svg></button><div><p class="text-sm text-slate-500">Administracija platforme</p><h1 class="font-display text-xl font-bold">{{ adminTitle }}</h1></div><div class="ml-auto hidden items-center gap-3 sm:flex"><span class="h-9 w-9 rounded-full bg-violet-100"></span><div><p class="text-sm font-semibold">Alija Hodžić</p><p class="text-xs text-slate-400">Super administrator</p></div></div></header>
       <main class="page-content">
         @if (adminTab === 'dashboard') {
-          <div class="page-heading"><div><p class="eyebrow">Platforma</p><h2>Dobro došao nazad</h2><p>Pregled aktivnosti i stanja restorana.</p></div><button class="primary-button" (click)="selectAdminTab('restaurants')"><svg lucidePlus [size]="17"></svg> Novi restoran</button></div>
+          <div class="page-heading"><div><p class="eyebrow">Platforma</p><h2>Dobro došao nazad</h2><p>Pregled aktivnosti i stanja restorana.</p></div><button class="primary-button" (click)="openCreateRestaurant()"><svg lucidePlus [size]="17"></svg> Novi restoran</button></div>
           <div class="stat-grid">
-            <article class="stat-card"><span class="stat-icon bg-violet-100 text-violet-700"><svg lucideStore [size]="21"></svg></span><p>Ukupno restorana</p><strong>{{ restaurants.length }}</strong><small class="text-emerald-600">+2 ovaj mjesec</small></article>
-            <article class="stat-card"><span class="stat-icon bg-emerald-100 text-emerald-700"><svg lucidePower [size]="21"></svg></span><p>Aktivne licence</p><strong>{{ 2 }}</strong><small>Jedna pauzirana</small></article>
-            <article class="stat-card"><span class="stat-icon bg-amber-100 text-amber-700"><svg lucideEye [size]="21"></svg></span><p>Pregledi menija</p><strong>8.002</strong><small class="text-emerald-600">+18.4% ovaj mjesec</small></article>
-            <article class="stat-card"><span class="stat-icon bg-sky-100 text-sky-700"><svg lucideQrCode [size]="21"></svg></span><p>QR skeniranja</p><strong>6.438</strong><small>80% posjeta</small></article>
+            <article class="stat-card"><span class="stat-icon bg-violet-100 text-violet-700"><svg lucideStore [size]="21"></svg></span><p>Ukupno restorana</p><strong>{{ adminDashboard?.totalRestaurants ?? 0 }}</strong><small>{{ adminDashboard?.activeRestaurants ?? 0 }} aktivnih objekata</small></article>
+            <article class="stat-card"><span class="stat-icon bg-emerald-100 text-emerald-700"><svg lucidePower [size]="21"></svg></span><p>Aktivne licence</p><strong>{{ adminDashboard?.activeLicenses ?? 0 }}</strong><small>Uključujući probni period</small></article>
+            <article class="stat-card"><span class="stat-icon bg-amber-100 text-amber-700"><svg lucideCalendar [size]="21"></svg></span><p>Probne licence</p><strong>{{ adminDashboard?.trialLicenses ?? 0 }}</strong><small>Klijenti u probnom periodu</small></article>
+            <article class="stat-card"><span class="stat-icon bg-sky-100 text-sky-700"><svg lucideClock [size]="21"></svg></span><p>Uskoro ističu</p><strong>{{ adminDashboard?.expiringSoon ?? 0 }}</strong><small>U narednih 14 dana</small></article>
           </div>
           <div class="mt-7 grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-            <article class="panel-card"><div class="panel-title"><div><h3>Sedmični pregledi menija</h3><p>Svi restorani zajedno</p></div><svg lucideTrendingUp class="text-emerald-600" [size]="21"></svg></div><div class="analytics-chart"><div class="chart-y-axis">@for (tick of platformChartTicks; track tick) { <span>{{ tick }}</span> }</div><div class="chart-plot"><div class="chart-grid">@for (tick of platformChartTicks; track tick) { <i></i> }</div><div class="chart-columns">@for (point of platformWeeklyViews; track point.day) { <div class="chart-column"><div class="chart-bar-wrap"><span class="chart-tooltip">{{ point.views }} pregleda</span><i class="chart-bar platform-bar" [style.height.%]="chartHeight(point.views, 1000)"></i></div><small>{{ point.day }}</small></div> }</div></div></div></article>
-            <article class="panel-card"><div class="panel-title"><div><h3>Nedavna aktivnost</h3><p>Posljednje promjene</p></div></div><div class="activity-list"><p><span class="dot bg-emerald-500"></span><b>Pizzeria Roma</b> promijenila cijenu</p><p><span class="dot bg-violet-500"></span><b>Old Town</b> dodao novo jelo</p><p><span class="dot bg-amber-500"></span><b>Caffe Central</b> licenca pauzirana</p></div></article>
+            <article class="panel-card"><div class="panel-title"><div><h3>Rast platforme</h3><p>Novi restorani u posljednjih šest mjeseci</p></div><svg lucideTrendingUp class="text-emerald-600" [size]="21"></svg></div><div class="analytics-chart"><div class="chart-y-axis">@for (tick of platformChartTicks; track tick) { <span>{{ tick }}</span> }</div><div class="chart-plot"><div class="chart-grid">@for (tick of platformChartTicks; track tick) { <i></i> }</div><div class="chart-columns">@for (point of platformGrowth; track point.day) { <div class="chart-column"><div class="chart-bar-wrap"><span class="chart-tooltip">{{ point.views }} novih</span><i class="chart-bar platform-bar" [style.height.%]="chartHeight(point.views, platformChartMaximum)"></i></div><small>{{ point.day }}</small></div> }</div></div></div></article>
+            <article class="panel-card"><div class="panel-title"><div><h3>Nedavne promjene</h3><p>Posljednje uređeni objekti</p></div></div><div class="activity-list">@for (item of adminDashboard?.recentRestaurants ?? []; track item.id) { <p><span class="dot" [class.bg-emerald-500]="item.status === 'Active'" [class.bg-amber-500]="item.status !== 'Active'"></span><b>{{ item.name }}</b> · {{ item.plan }} · {{ restaurantStatusLabel(item.status) }}</p> } @empty { <div class="mini-empty">Još nema aktivnosti.</div> }</div></article>
           </div>
         }
 
         @if (adminTab === 'restaurants') {
-          <div class="page-heading"><div><p class="eyebrow">Klijenti</p><h2>Restorani</h2><p>Upravljaj objektima, licencama i pristupom.</p></div><button class="primary-button"><svg lucidePlus [size]="17"></svg> Dodaj restoran</button></div>
-          <div class="panel-card overflow-hidden p-0"><div class="table-toolbar"><div class="search-box"><svg lucideSearch [size]="17"></svg><input placeholder="Pretraži restorane..." /></div><span class="text-sm text-slate-500">{{ restaurants.length }} restorana</span></div>
-            <div class="restaurant-table">@for (item of restaurants; track item.id) { <article><img [src]="item.logo" [alt]="item.name"><div class="min-w-0"><h3>{{ item.name }}</h3><p>{{ item.address }}</p></div><span class="status-pill" [class.status-paused]="item.status === 'paused'">{{ item.status === 'active' ? 'Aktivan' : 'Pauziran' }}</span><span class="plan-pill">{{ item.subscription }}</span><div class="text-right"><b>{{ item.views | number }}</b><p>pregleda</p></div><button class="secondary-button" (click)="enter('restaurant-owner', item.id)"><svg lucideEye [size]="15"></svg> Otvori</button><button class="icon-button" [class.text-red-600]="item.status === 'active'" (click)="toggleRestaurant(item)"><svg lucidePower [size]="17"></svg></button></article> }</div>
+          <div class="page-heading"><div><p class="eyebrow">Klijenti</p><h2>Restorani</h2><p>Upravljaj objektima, licencama i pristupom.</p></div><button class="primary-button" (click)="openCreateRestaurant()"><svg lucidePlus [size]="17"></svg> Dodaj restoran</button></div>
+          @if (adminRestaurantsError) { <div class="admin-alert"><span>{{ adminRestaurantsError }}</span><button (click)="loadAdminRestaurants(true)">Pokušaj ponovo</button></div> }
+          <div class="panel-card overflow-hidden p-0"><div class="table-toolbar"><div class="search-box"><svg lucideSearch [size]="17"></svg><input name="adminRestaurantSearch" [(ngModel)]="adminRestaurantSearch" placeholder="Pretraži restorane..." /></div><span class="text-sm text-slate-500">{{ filteredAdminRestaurants.length }} restorana</span></div>
+            @if (adminRestaurantsLoading) { <div class="table-state"><span class="auth-spinner"></span><p>Učitavanje restorana...</p></div> }
+            @else if (!filteredAdminRestaurants.length) { <div class="table-state"><svg lucideStore [size]="30"></svg><h3>Nema restorana</h3><p>Dodaj prvi restoran i vlasnički nalog.</p><button class="primary-button" (click)="openCreateRestaurant()"><svg lucidePlus [size]="16"></svg> Dodaj restoran</button></div> }
+            @else { <div class="restaurant-table admin-restaurant-table">@for (item of filteredAdminRestaurants; track item.id) { <article><img [src]="item.logoUrl || '/menispot-mark.png'" [alt]="item.name"><div class="min-w-0"><h3>{{ item.name }}</h3><p>{{ item.address || item.slug }} · {{ establishmentLabel(item.type) }}</p></div><span class="status-pill" [class.status-paused]="item.status !== 'Active'">{{ restaurantStatusLabel(item.status) }}</span><span class="plan-pill">{{ item.plan }} · {{ subscriptionStatusLabel(item.subscriptionStatus) }}</span><div class="text-right"><b>{{ item.expiresOn | date:'dd.MM.yyyy.' }}</b><p>ističe licenca</p></div><button class="secondary-button" (click)="openEditRestaurant(item)"><svg lucideEdit2 [size]="15"></svg> Uredi</button><button class="icon-button" [disabled]="restaurantStatusUpdating.has(item.id)" [class.text-red-600]="item.status === 'Active'" (click)="toggleAdminRestaurant(item)" [attr.aria-label]="item.status === 'Active' ? 'Pauziraj restoran' : 'Aktiviraj restoran'"><svg lucidePower [size]="17"></svg></button></article> }</div> }
           </div>
         }
 
         @if (adminTab === 'themes') {
           <div class="page-heading"><div><p class="eyebrow">Dizajn sistema</p><h2>Teme menija</h2><p>Različit vizuelni identitet za svaki tip objekta.</p></div></div>
-          <div class="grid gap-5 md:grid-cols-2">@for (theme of themes; track theme.id) { <article class="theme-card"><div class="theme-preview" [style.background]="theme.colors[0]"><div [style.background]="theme.colors[1]"><span [style.background]="theme.colors[2]"></span><i [style.background]="theme.colors[2]"></i><i [style.background]="theme.colors[2]"></i></div></div><div class="p-5"><div class="flex items-center justify-between"><h3 class="font-display text-lg font-bold">{{ theme.name }}</h3><span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs">{{ theme.id }}</span></div><p class="mt-2 text-sm text-slate-500">{{ theme.description }}</p><div class="mt-4 flex gap-2">@for (color of theme.colors; track color) { <span class="h-6 w-6 rounded-full border-2 border-white shadow" [style.background]="color"></span> }</div></div></article> }</div>
+          <div class="grid gap-5 md:grid-cols-2">@for (theme of themes; track theme.id) { <article class="theme-card"><div class="theme-preview" [style.background]="theme.colors[0]"><div [style.background]="theme.colors[1]"><span [style.background]="theme.colors[2]"></span><i [style.background]="theme.colors[2]"></i><i [style.background]="theme.colors[2]"></i></div></div><div class="p-5"><div class="flex items-center justify-between"><h3 class="font-display text-lg font-bold">{{ theme.name }}</h3><span class="rounded-full bg-lime-50 px-2.5 py-1 text-xs font-bold text-lime-700">{{ themeUsageCount(theme.id) }} objekata</span></div><p class="mt-2 text-sm text-slate-500">{{ theme.description }}</p><div class="mt-4 flex gap-2">@for (color of theme.colors; track color) { <span class="h-6 w-6 rounded-full border-2 border-white shadow" [style.background]="color"></span> }</div></div></article> }</div>
         }
 
         @if (adminTab === 'qr-codes') {
           <div class="page-heading"><div><p class="eyebrow">QR distribucija</p><h2>QR kodovi</h2><p>Pregled i preuzimanje kodova svih restorana.</p></div></div>
-          <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">@for (item of restaurants; track item.id) { <article class="panel-card text-center"><img class="mx-auto h-16 w-16 rounded-2xl object-cover" [src]="item.logo"><h3 class="mt-3 font-display text-lg font-bold">{{ item.name }}</h3><p class="text-sm text-slate-500">digitalmeni.ba/menu/{{ item.id }}</p><div class="qr-grid mx-auto my-5">@for (cell of qrCells(item.id); track $index) { <i [class.filled]="cell"></i> }</div><button class="secondary-button mx-auto"><svg lucideQrCode [size]="16"></svg> Preuzmi QR</button></article> }</div>
+          @if (adminRestaurantsLoading) { <div class="table-state"><span class="auth-spinner"></span><p>Generisanje QR kodova...</p></div> }
+          @else if (!adminRestaurants.length) { <div class="empty-state"><svg lucideQrCode [size]="34"></svg><h3>Nema QR kodova</h3><p>QR kod će se automatski napraviti kada dodaš restoran.</p></div> }
+          @else { <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">@for (item of adminRestaurants; track item.id) { <article class="panel-card text-center"><img class="mx-auto h-16 w-16 rounded-2xl object-cover" [src]="item.logoUrl || '/menispot-mark.png'" [alt]="item.name"><h3 class="mt-3 font-display text-lg font-bold">{{ item.name }}</h3><p class="truncate text-sm text-slate-500">{{ publicMenuUrl(item) }}</p>@if (adminQrCodes[item.id]) { <img class="admin-qr-image" [src]="adminQrCodes[item.id]" [alt]="'QR kod za ' + item.name"> } @else { <div class="qr-placeholder"><span class="auth-spinner"></span></div> }<button class="secondary-button mx-auto" [disabled]="!adminQrCodes[item.id]" (click)="downloadRestaurantQr(item)"><svg lucideQrCode [size]="16"></svg> Preuzmi PNG</button></article> }</div> }
         }
       </main>
     </section>
   </div>
+
+  @if (showRestaurantModal) {
+    <div class="modal-backdrop" (click)="closeRestaurantModal()">
+      <section class="modal restaurant-modal" (click)="$event.stopPropagation()">
+        <header class="modal-header"><div><p class="eyebrow">{{ restaurantForm.id ? 'Upravljanje objektom' : 'Novi klijent' }}</p><h2>{{ restaurantForm.id ? 'Uredi restoran' : 'Dodaj restoran' }}</h2></div><button type="button" class="icon-button" (click)="closeRestaurantModal()" aria-label="Zatvori"><svg lucideX [size]="20"></svg></button></header>
+        @if (restaurantModalLoading) { <div class="table-state modal-loading"><span class="auth-spinner"></span><p>Učitavanje podataka...</p></div> }
+        @else {
+          <form (ngSubmit)="saveRestaurant()">
+            <div class="modal-body">
+              @if (restaurantFormError) { <div class="auth-error">{{ restaurantFormError }}</div> }
+              <div class="form-section"><h3>Osnovni podaci</h3><div class="form-grid">
+                <label>Naziv objekta<input name="restaurantName" [(ngModel)]="restaurantForm.name" (ngModelChange)="syncRestaurantSlug()" required></label>
+                <label>Tip objekta<select name="restaurantType" [(ngModel)]="restaurantForm.type">@for (type of establishmentTypes; track type.value) { <option [value]="type.value">{{ type.label }}</option> }</select></label>
+                @if (!restaurantForm.id) {
+                  <label>URL naziv<input name="restaurantSlug" [(ngModel)]="restaurantForm.slug" placeholder="restoran-ime" required></label>
+                  <label>Probni period (dana)<input name="trialDays" type="number" min="1" max="365" [(ngModel)]="restaurantForm.trialDays" required></label>
+                }
+                <label>Status objekta<select name="restaurantStatus" [(ngModel)]="restaurantForm.status">@for (status of restaurantStatuses; track status.value) { <option [value]="status.value">{{ status.label }}</option> }</select></label>
+                <label>Tema menija<select name="restaurantTheme" [(ngModel)]="restaurantForm.themeKey">@for (theme of themes; track theme.id) { <option [value]="theme.id">{{ theme.name }}</option> }</select></label>
+              </div></div>
+              <div class="form-section"><h3>Kontakt i vizuelni identitet</h3><div class="form-grid">
+                <label>Adresa<input name="restaurantAddress" [(ngModel)]="restaurantForm.address"></label>
+                <label>Telefon<input name="restaurantPhone" [(ngModel)]="restaurantForm.phone"></label>
+                <label>Email objekta<input name="restaurantEmail" type="email" [(ngModel)]="restaurantForm.email"></label>
+                <label>Web stranica<input name="restaurantWebsite" [(ngModel)]="restaurantForm.websiteUrl"></label>
+                <label>Instagram<input name="restaurantInstagram" [(ngModel)]="restaurantForm.instagramUrl"></label>
+                <label>Logo URL<input name="restaurantLogo" [(ngModel)]="restaurantForm.logoUrl"></label>
+                <label class="form-span-2">Naslovna fotografija URL<input name="restaurantCover" [(ngModel)]="restaurantForm.coverImageUrl"></label>
+                <label>Valuta<input name="restaurantCurrency" maxlength="3" [(ngModel)]="restaurantForm.currency"></label>
+                <label>Jezik<input name="restaurantLanguage" maxlength="5" [(ngModel)]="restaurantForm.defaultLanguage"></label>
+                <label class="form-span-2">Opis<textarea name="restaurantDescription" rows="3" [(ngModel)]="restaurantForm.description"></textarea></label>
+              </div></div>
+              <div class="form-section"><h3>Vlasnički pristup</h3><div class="form-grid">
+                <label>Email za prijavu<input name="editOwnerEmail" type="email" autocomplete="off" [(ngModel)]="restaurantForm.ownerEmail" placeholder="vlasnik@restoran.ba" required></label>
+                <label>{{ restaurantForm.id ? 'Nova lozinka' : 'Početna lozinka' }} @if (restaurantForm.id) { <small class="field-hint">ostavi prazno bez promjene</small> }<input name="editOwnerPassword" type="password" autocomplete="new-password" minlength="5" [(ngModel)]="restaurantForm.ownerPassword" [required]="!restaurantForm.id"></label>
+              </div></div>
+              @if (restaurantForm.id) {
+                <div class="form-section subscription-section"><h3>Licenca i paket</h3><div class="form-grid">
+                  <label>Paket<select name="subscriptionPlan" [(ngModel)]="restaurantForm.plan"><option>Basic</option><option>Standard</option><option>Premium</option><option>Enterprise</option></select></label>
+                  <label>Status licence<select name="subscriptionStatus" [(ngModel)]="restaurantForm.subscriptionStatus">@for (status of subscriptionStatuses; track status.value) { <option [value]="status.value">{{ status.label }}</option> }</select></label>
+                  <label>Početak<input name="subscriptionStart" type="date" [(ngModel)]="restaurantForm.startsOn" required></label>
+                  <label>Ističe<input name="subscriptionExpiry" type="date" [(ngModel)]="restaurantForm.expiresOn" required></label>
+                  <label>Grace period do<input name="subscriptionGrace" type="date" [(ngModel)]="restaurantForm.gracePeriodEndsOn"></label>
+                </div></div>
+              }
+            </div>
+            <footer class="modal-footer"><button type="button" class="secondary-button" (click)="closeRestaurantModal()">Odustani</button><button type="submit" class="primary-button" [disabled]="restaurantSaving">@if (restaurantSaving) { <span class="auth-spinner"></span> Čuvanje... } @else { {{ restaurantForm.id ? 'Sačuvaj promjene' : 'Kreiraj restoran' }} }</button></footer>
+          </form>
+        }
+      </section>
+    </div>
+  }
 }
 
 @if (view === 'restaurant-owner') {

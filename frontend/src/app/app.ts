@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { filter, finalize } from 'rxjs';
+import { filter, finalize, forkJoin, Observable } from 'rxjs';
 import {
   LucideArrowLeft, LucideAward, LucideCalendar, LucideChefHat, LucideClock, LucideEdit2,
   LucideEye, LucideEyeOff, LucideFlame, LucideGlobe, LucideLeaf, LucideLock, LucideLogIn, LucideLogOut, LucideMail,
@@ -15,6 +15,43 @@ import {
 import { products as initialProducts, restaurants, themeOptions } from './demo-data';
 import { AdminTab, AppView, BadgeType, OwnerTab, Product, Restaurant, ThemeType } from './models';
 import { AuthService } from './core/auth/auth.service';
+import {
+  AdminRestaurantDetails,
+  AdminRestaurantSummary,
+  AdminDashboardSummary,
+  EstablishmentType,
+  RestaurantStatus,
+  SubscriptionStatus,
+} from './core/restaurants/admin-restaurants.models';
+import { AdminRestaurantsService } from './core/restaurants/admin-restaurants.service';
+import { QrCodeService } from './core/qr-code.service';
+
+interface RestaurantForm {
+  id: string | null;
+  name: string;
+  slug: string;
+  type: EstablishmentType;
+  status: RestaurantStatus;
+  ownerEmail: string;
+  ownerPassword: string;
+  trialDays: number;
+  description: string;
+  logoUrl: string;
+  coverImageUrl: string;
+  address: string;
+  phone: string;
+  email: string;
+  websiteUrl: string;
+  instagramUrl: string;
+  currency: string;
+  defaultLanguage: string;
+  themeKey: string;
+  plan: string;
+  subscriptionStatus: SubscriptionStatus;
+  startsOn: string;
+  expiresOn: string;
+  gracePeriodEndsOn: string;
+}
 
 @Component({
   selector: 'app-root',
@@ -32,14 +69,11 @@ import { AuthService } from './core/auth/auth.service';
 export class App {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly adminRestaurantsService = inject(AdminRestaurantsService);
+  private readonly qrCodeService = inject(QrCodeService);
   readonly auth = inject(AuthService);
   readonly restaurants = restaurants;
   readonly themes = themeOptions;
-  readonly platformWeeklyViews = [
-    { day: 'Pon', views: 620 }, { day: 'Uto', views: 740 }, { day: 'Sri', views: 680 },
-    { day: 'Čet', views: 860 }, { day: 'Pet', views: 790 }, { day: 'Sub', views: 980 }, { day: 'Ned', views: 910 },
-  ];
-  readonly platformChartTicks = [1000, 750, 500, 250, 0];
   readonly ownerChartTicks = [240, 180, 120, 60, 0];
   readonly adminTabs: { id: AdminTab; label: string }[] = [
     { id: 'dashboard', label: 'Pregled' }, { id: 'restaurants', label: 'Restorani' },
@@ -49,6 +83,20 @@ export class App {
     { id: 'dashboard', label: 'Pregled' }, { id: 'categories', label: 'Kategorije' },
     { id: 'products', label: 'Proizvodi' }, { id: 'daily-menu', label: 'Dnevni meni' },
     { id: 'offers', label: 'Ponude' }, { id: 'settings', label: 'Postavke' }, { id: 'qr', label: 'QR kod' },
+  ];
+  readonly establishmentTypes: { value: EstablishmentType; label: string }[] = [
+    { value: 'Restaurant', label: 'Restoran' }, { value: 'Cafe', label: 'Kafić' },
+    { value: 'Bar', label: 'Bar' }, { value: 'Club', label: 'Klub' },
+    { value: 'FastFood', label: 'Fast food' }, { value: 'Other', label: 'Ostalo' },
+  ];
+  readonly subscriptionStatuses: { value: SubscriptionStatus; label: string }[] = [
+    { value: 'Trial', label: 'Probni period' }, { value: 'Active', label: 'Aktivna' },
+    { value: 'Overdue', label: 'Dospjela' }, { value: 'Suspended', label: 'Pauzirana' },
+    { value: 'Cancelled', label: 'Otkazana' },
+  ];
+  readonly restaurantStatuses: { value: RestaurantStatus; label: string }[] = [
+    { value: 'Draft', label: 'Priprema' }, { value: 'Active', label: 'Aktivan' },
+    { value: 'Suspended', label: 'Pauziran' }, { value: 'Cancelled', label: 'Otkazan' },
   ];
 
   view: AppView = 'login';
@@ -65,6 +113,19 @@ export class App {
   loginPassword = '';
   loginLoading = false;
   loginError = '';
+  adminRestaurants: AdminRestaurantSummary[] = [];
+  adminDashboard: AdminDashboardSummary | null = null;
+  adminRestaurantsLoading = false;
+  adminRestaurantsLoaded = false;
+  adminRestaurantsError = '';
+  adminRestaurantSearch = '';
+  showRestaurantModal = false;
+  restaurantModalLoading = false;
+  restaurantSaving = false;
+  restaurantFormError = '';
+  restaurantStatusUpdating = new Set<string>();
+  adminQrCodes: Record<string, string> = {};
+  restaurantForm = this.emptyRestaurantForm();
   productMap: Record<string, Product[]> = structuredClone(initialProducts);
 
   constructor() {
@@ -81,6 +142,24 @@ export class App {
   get restaurantProducts(): Product[] { return this.productMap[this.restaurant.id] ?? []; }
   get adminTitle(): string { return this.adminTabs.find((item) => item.id === this.adminTab)?.label ?? ''; }
   get ownerTitle(): string { return this.ownerTabs.find((item) => item.id === this.ownerTab)?.label ?? ''; }
+  get platformGrowth(): { day: string; views: number }[] {
+    return (this.adminDashboard?.growth ?? []).map((point) => ({
+      day: new Intl.DateTimeFormat('bs-BA', { month: 'short' }).format(new Date(`${point.month}-01T00:00:00`)),
+      views: point.restaurants,
+    }));
+  }
+  get platformChartMaximum(): number { return Math.max(4, ...this.platformGrowth.map((point) => point.views)); }
+  get platformChartTicks(): number[] {
+    const maximum = this.platformChartMaximum;
+    return [maximum, Math.round(maximum * .75), Math.round(maximum * .5), Math.round(maximum * .25), 0];
+  }
+  get filteredAdminRestaurants(): AdminRestaurantSummary[] {
+    const term = this.adminRestaurantSearch.trim().toLocaleLowerCase();
+    return this.adminRestaurants.filter((item) => !term ||
+      item.name.toLocaleLowerCase().includes(term) ||
+      item.slug.toLocaleLowerCase().includes(term) ||
+      (item.address ?? '').toLocaleLowerCase().includes(term));
+  }
 
   get filteredProducts(): Product[] {
     const term = this.search.trim().toLocaleLowerCase();
@@ -145,12 +224,123 @@ export class App {
     this.auth.logout();
   }
 
+  loadAdminRestaurants(force = false): void {
+    if (this.adminRestaurantsLoading || this.adminRestaurantsLoaded && !force) return;
+    this.adminRestaurantsLoading = true;
+    this.adminRestaurantsError = '';
+    forkJoin({ restaurants: this.adminRestaurantsService.getAll(), dashboard: this.adminRestaurantsService.getDashboard() })
+      .pipe(finalize(() => this.adminRestaurantsLoading = false), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: ({ restaurants, dashboard }) => {
+          this.adminRestaurants = restaurants;
+          this.adminDashboard = dashboard;
+          this.adminRestaurantsLoaded = true;
+          void this.generateAdminQrCodes(restaurants);
+        },
+        error: () => this.adminRestaurantsError = 'Restorani se trenutno ne mogu učitati. Provjeri backend i pokušaj ponovo.',
+      });
+  }
+
+  openCreateRestaurant(): void {
+    this.restaurantForm = this.emptyRestaurantForm();
+    this.restaurantFormError = '';
+    this.showRestaurantModal = true;
+  }
+
+  openEditRestaurant(item: AdminRestaurantSummary): void {
+    this.restaurantForm = { ...this.emptyRestaurantForm(), id: item.id, name: item.name, slug: item.slug, type: item.type };
+    this.showRestaurantModal = true;
+    this.restaurantModalLoading = true;
+    this.restaurantFormError = '';
+    this.adminRestaurantsService.get(item.id)
+      .pipe(finalize(() => this.restaurantModalLoading = false), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (details) => this.restaurantForm = this.formFromDetails(details),
+        error: () => this.restaurantFormError = 'Podaci restorana se ne mogu učitati.',
+      });
+  }
+
+  closeRestaurantModal(): void {
+    if (this.restaurantSaving) return;
+    this.showRestaurantModal = false;
+    this.restaurantFormError = '';
+  }
+
+  syncRestaurantSlug(): void {
+    if (this.restaurantForm.id) return;
+    this.restaurantForm.slug = this.restaurantForm.name
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  }
+
+  saveRestaurant(): void {
+    const form = this.restaurantForm;
+    if (!form.name.trim()) { this.restaurantFormError = 'Naziv restorana je obavezan.'; return; }
+    if (!form.id && (!form.slug.trim() || !form.ownerEmail.trim() || form.ownerPassword.length < 5)) {
+      this.restaurantFormError = 'Slug, email vlasnika i lozinka od najmanje 5 znakova su obavezni.';
+      return;
+    }
+
+    this.restaurantSaving = true;
+    this.restaurantFormError = '';
+    const request: Observable<unknown> = form.id
+      ? forkJoin([
+          this.adminRestaurantsService.update(form.id, {
+            name: form.name.trim(), description: this.nullIfEmpty(form.description),
+            logoUrl: this.nullIfEmpty(form.logoUrl), coverImageUrl: this.nullIfEmpty(form.coverImageUrl),
+            address: this.nullIfEmpty(form.address), phone: this.nullIfEmpty(form.phone), email: this.nullIfEmpty(form.email),
+            websiteUrl: this.nullIfEmpty(form.websiteUrl), instagramUrl: this.nullIfEmpty(form.instagramUrl),
+            currency: form.currency.trim() || 'BAM', defaultLanguage: form.defaultLanguage.trim() || 'bs', type: form.type,
+            themeKey: form.themeKey,
+          }),
+          this.adminRestaurantsService.setSubscription(form.id, {
+            status: form.subscriptionStatus, plan: form.plan.trim() || 'Basic', startsOn: form.startsOn,
+            expiresOn: form.expiresOn, gracePeriodEndsOn: this.nullIfEmpty(form.gracePeriodEndsOn),
+          }),
+          this.adminRestaurantsService.setStatus(form.id, form.status),
+          this.adminRestaurantsService.updateOwnerAccess(form.id, {
+            email: form.ownerEmail.trim(), newPassword: this.nullIfEmpty(form.ownerPassword),
+          }),
+        ])
+      : this.adminRestaurantsService.create({
+          name: form.name.trim(), slug: form.slug.trim(), type: form.type, status: form.status,
+          ownerEmail: form.ownerEmail.trim(), ownerPassword: form.ownerPassword, trialDays: form.trialDays,
+          description: this.nullIfEmpty(form.description), logoUrl: this.nullIfEmpty(form.logoUrl),
+          coverImageUrl: this.nullIfEmpty(form.coverImageUrl), address: this.nullIfEmpty(form.address),
+          phone: this.nullIfEmpty(form.phone), email: this.nullIfEmpty(form.email),
+          websiteUrl: this.nullIfEmpty(form.websiteUrl), instagramUrl: this.nullIfEmpty(form.instagramUrl),
+          currency: form.currency.trim() || 'BAM', defaultLanguage: form.defaultLanguage.trim() || 'bs',
+          themeKey: form.themeKey,
+        });
+
+    request.pipe(finalize(() => this.restaurantSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        this.showRestaurantModal = false;
+        this.loadAdminRestaurants(true);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.restaurantFormError = error.error?.title ?? 'Promjene nisu sačuvane. Provjeri unesene podatke.';
+      },
+    });
+  }
+
+  toggleAdminRestaurant(item: AdminRestaurantSummary): void {
+    if (this.restaurantStatusUpdating.has(item.id)) return;
+    const status: RestaurantStatus = item.status === 'Active' ? 'Suspended' : 'Active';
+    this.restaurantStatusUpdating.add(item.id);
+    this.adminRestaurantsService.setStatus(item.id, status)
+      .pipe(finalize(() => this.restaurantStatusUpdating.delete(item.id)), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          item.status = status;
+          this.loadAdminRestaurants(true);
+        },
+        error: () => this.adminRestaurantsError = 'Status restorana nije promijenjen. Pokušaj ponovo.',
+      });
+  }
+
   selectAdminTab(tab: AdminTab): void { void this.router.navigate(['/admin', tab]); }
   selectOwnerTab(tab: OwnerTab): void { void this.router.navigate(['/restaurant', this.restaurant.id, tab]); }
-
-  toggleRestaurant(restaurant: Restaurant): void {
-    restaurant.status = restaurant.status === 'active' ? 'paused' : 'active';
-  }
 
   toggleProduct(product: Product): void { product.available = !product.available; }
 
@@ -176,6 +366,35 @@ export class App {
     return new Intl.NumberFormat('bs-BA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(price) + ' KM';
   }
 
+  establishmentLabel(type: EstablishmentType): string {
+    return this.establishmentTypes.find((item) => item.value === type)?.label ?? type;
+  }
+
+  restaurantStatusLabel(status: RestaurantStatus): string {
+    return ({ Draft: 'Priprema', Active: 'Aktivan', Suspended: 'Pauziran', Cancelled: 'Otkazan' })[status];
+  }
+
+  subscriptionStatusLabel(status: SubscriptionStatus): string {
+    return this.subscriptionStatuses.find((item) => item.value === status)?.label ?? status;
+  }
+
+  themeUsageCount(themeKey: string): number {
+    return this.adminDashboard?.themeUsage.find((item) => item.themeKey === themeKey)?.count ?? 0;
+  }
+
+  publicMenuUrl(item: AdminRestaurantSummary): string {
+    return `${globalThis.location.origin}/menu/${item.slug}?source=qr`;
+  }
+
+  downloadRestaurantQr(item: AdminRestaurantSummary): void {
+    const dataUrl = this.adminQrCodes[item.id];
+    if (!dataUrl) return;
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = `${item.slug}-qr.png`;
+    link.click();
+  }
+
   chartHeight(value: number, maximum: number): number {
     return Math.max(4, Math.round((value / maximum) * 100));
   }
@@ -193,6 +412,7 @@ export class App {
     } else if (segments[0] === 'admin') {
       this.view = 'super-admin';
       this.adminTab = this.isAdminTab(segments[1]) ? segments[1] : 'dashboard';
+      this.loadAdminRestaurants();
     } else if (segments[0] === 'restaurant') {
       this.view = 'restaurant-owner';
       this.selectedRestaurantId = this.validRestaurantId(segments[1]);
@@ -219,5 +439,42 @@ export class App {
 
   private isOwnerTab(value?: string): value is OwnerTab {
     return this.ownerTabs.some((tab) => tab.id === value);
+  }
+
+  private emptyRestaurantForm(): RestaurantForm {
+    const today = new Date();
+    const expires = new Date(today);
+    expires.setDate(expires.getDate() + 30);
+    return {
+      id: null, name: '', slug: '', type: 'Restaurant', status: 'Active', ownerEmail: '', ownerPassword: '', trialDays: 30,
+      description: '', logoUrl: '', coverImageUrl: '', address: '', phone: '', email: '', websiteUrl: '', instagramUrl: '',
+      currency: 'BAM', defaultLanguage: 'bs', themeKey: 'classic-light', plan: 'Basic', subscriptionStatus: 'Trial',
+      startsOn: this.dateInputValue(today), expiresOn: this.dateInputValue(expires), gracePeriodEndsOn: '',
+    };
+  }
+
+  private formFromDetails(item: AdminRestaurantDetails): RestaurantForm {
+    return {
+      id: item.id, name: item.name, slug: item.slug, type: item.type, status: item.status,
+      ownerEmail: item.ownerEmail ?? '', ownerPassword: '', trialDays: 30,
+      description: item.description ?? '', logoUrl: item.logoUrl ?? '', coverImageUrl: item.coverImageUrl ?? '',
+      address: item.address ?? '', phone: item.phone ?? '', email: item.email ?? '', websiteUrl: item.websiteUrl ?? '',
+      instagramUrl: item.instagramUrl ?? '', currency: item.currency, defaultLanguage: item.defaultLanguage, themeKey: item.themeKey,
+      plan: item.subscription.plan, subscriptionStatus: item.subscription.status, startsOn: item.subscription.startsOn,
+      expiresOn: item.subscription.expiresOn, gracePeriodEndsOn: item.subscription.gracePeriodEndsOn ?? '',
+    };
+  }
+
+  private dateInputValue(date: Date): string {
+    return date.toISOString().slice(0, 10);
+  }
+
+  private nullIfEmpty(value: string): string | null {
+    return value.trim() || null;
+  }
+
+  private async generateAdminQrCodes(items: AdminRestaurantSummary[]): Promise<void> {
+    const entries = await Promise.all(items.map(async (item) => [item.id, await this.qrCodeService.createDataUrl(this.publicMenuUrl(item))] as const));
+    this.adminQrCodes = Object.fromEntries(entries);
   }
 }

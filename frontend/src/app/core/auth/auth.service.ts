@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
+import { API_URL } from '../api.config';
 import { AuthSession, LoginRequest, UserRole } from './auth.models';
 
 const SESSION_KEY = 'menispot.auth';
@@ -11,14 +12,13 @@ export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
   private readonly sessionState = signal<AuthSession | null>(this.restoreSession());
-  private readonly apiUrl = 'http://localhost:5158/api';
 
   readonly session = this.sessionState.asReadonly();
   readonly isAuthenticated = computed(() => this.sessionState() !== null);
   readonly role = computed(() => this.sessionState()?.role ?? null);
 
   login(request: LoginRequest): Observable<AuthSession> {
-    return this.http.post<AuthSession>(`${this.apiUrl}/auth/login`, request).pipe(
+    return this.http.post<AuthSession>(`${API_URL}/auth/login`, request).pipe(
       tap((session) => {
         localStorage.setItem(SESSION_KEY, JSON.stringify(session));
         this.sessionState.set(session);

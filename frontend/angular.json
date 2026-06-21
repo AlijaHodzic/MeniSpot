@@ -47,6 +47,9 @@
               "zone.js"
             ],
             "tsConfig": "tsconfig.app.json",
+            "allowedCommonJsDependencies": [
+              "qrcode"
+            ],
             "assets": [
               {
                 "glob": "**/*",
@@ -62,13 +65,13 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "500kB",
-                  "maximumError": "1MB"
+                  "maximumWarning": "550kB",
+                  "maximumError": "750kB"
                 },
                 {
                   "type": "anyComponentStyle",
-                    "maximumWarning": "24kB",
-                    "maximumError": "28kB"
+                  "maximumWarning": "25kB",
+                  "maximumError": "30kB"
                 }
               ],
               "outputHashing": "all"

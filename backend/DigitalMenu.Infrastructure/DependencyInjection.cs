@@ -23,7 +23,7 @@ public static class DependencyInjection
             o.Password.RequireUppercase = !isDevelopment;
             o.Password.RequireNonAlphanumeric = !isDevelopment;
             o.User.RequireUniqueEmail = true;
-        }).AddRoles<IdentityRole<Guid>>().AddEntityFrameworkStores<ApplicationDbContext>();
+        }).AddRoles<IdentityRole<Guid>>().AddEntityFrameworkStores<ApplicationDbContext>().AddDefaultTokenProviders();
         var jwt = configuration.GetSection(JwtOptions.Section).Get<JwtOptions>() ?? throw new InvalidOperationException("JWT configuration is missing.");
         if (jwt.Key.Length < 32) throw new InvalidOperationException("JWT key must contain at least 32 characters.");
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o =>
