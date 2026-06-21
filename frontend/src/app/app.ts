@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { filter, finalize, forkJoin, Observable } from 'rxjs';
+import { concatMap, filter, finalize, forkJoin, Observable } from 'rxjs';
 import {
   LucideArrowLeft, LucideAward, LucideCalendar, LucideChefHat, LucideClock, LucideEdit2,
   LucideEye, LucideEyeOff, LucideFlame, LucideGlobe, LucideLeaf, LucideLock, LucideLogIn, LucideLogOut, LucideMail,
@@ -383,15 +383,19 @@ export class App {
             currency: form.currency.trim() || 'BAM', defaultLanguage: form.defaultLanguage.trim() || 'bs', type: form.type,
             themeKey: form.themeKey,
           }),
-          this.adminRestaurantsService.setSubscription(form.id, {
-            status: form.subscriptionStatus, plan: form.plan.trim() || 'Basic', monthlyPrice: form.monthlyPrice, startsOn: form.startsOn,
-            expiresOn: form.expiresOn, gracePeriodEndsOn: this.nullIfEmpty(form.gracePeriodEndsOn),
-          }),
-          this.adminRestaurantsService.setStatus(form.id, form.status),
           this.adminRestaurantsService.updateOwnerAccess(form.id, {
             email: form.ownerEmail.trim(), newPassword: this.nullIfEmpty(form.ownerPassword),
           }),
-        ])
+        ]).pipe(
+          concatMap(() => this.adminRestaurantsService.setStatus(form.id!, form.status)),
+          concatMap(() => this.adminRestaurantsService.setSubscription(form.id!, {
+            status: form.status === 'Suspended' || form.status === 'Cancelled'
+              ? form.status
+              : form.subscriptionStatus,
+            plan: form.plan.trim() || 'Basic', monthlyPrice: form.monthlyPrice, startsOn: form.startsOn,
+            expiresOn: form.expiresOn, gracePeriodEndsOn: this.nullIfEmpty(form.gracePeriodEndsOn),
+          })),
+        )
       : this.adminRestaurantsService.create({
           name: form.name.trim(), slug: form.slug.trim(), type: form.type, status: form.status,
           ownerEmail: form.ownerEmail.trim(), ownerPassword: form.ownerPassword, trialDays: form.trialDays,

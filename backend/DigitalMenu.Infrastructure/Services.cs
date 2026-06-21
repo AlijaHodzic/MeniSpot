@@ -170,8 +170,23 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
 
     public async Task<bool> SetStatusAsync(Guid id, RestaurantStatus status, CancellationToken ct)
     {
-        var x = await db.Restaurants.FindAsync([id], ct); if (x is null) return false;
-        x.Status = status; x.UpdatedAt = DateTimeOffset.UtcNow; await db.SaveChangesAsync(ct); return true;
+        var x = await db.Restaurants.Include(x => x.Subscription).FirstOrDefaultAsync(x => x.Id == id, ct); if (x is null) return false;
+        x.Status = status;
+        if (x.Subscription is not null)
+        {
+            var subscriptionStatus = status switch
+            {
+                RestaurantStatus.Suspended => SubscriptionStatus.Suspended,
+                RestaurantStatus.Cancelled => SubscriptionStatus.Cancelled,
+                RestaurantStatus.Active => ActiveSubscriptionStatus(x.Subscription),
+                _ => x.Subscription.Status
+            };
+            x.Subscription.Status = subscriptionStatus;
+            if (status == RestaurantStatus.Active && subscriptionStatus == SubscriptionStatus.Suspended)
+                x.Status = RestaurantStatus.Suspended;
+            x.Subscription.UpdatedAt = DateTimeOffset.UtcNow;
+        }
+        x.UpdatedAt = DateTimeOffset.UtcNow; await db.SaveChangesAsync(ct); return true;
     }
 
     public async Task<bool> SetSubscriptionAsync(Guid id, SetSubscriptionRequest r, CancellationToken ct)
@@ -180,8 +195,16 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         if (r.MonthlyPrice < 0) throw new InvalidOperationException("Monthly price cannot be negative.");
         if (r.ExpiresOn < r.StartsOn) throw new InvalidOperationException("Subscription expiry cannot be before its start date.");
         if (r.GracePeriodEndsOn < r.ExpiresOn) throw new InvalidOperationException("Grace period cannot end before the subscription expiry date.");
-        var x = await db.Subscriptions.SingleOrDefaultAsync(x => x.RestaurantId == id, ct); if (x is null) return false;
+        var x = await db.Subscriptions.Include(x => x.Restaurant).SingleOrDefaultAsync(x => x.RestaurantId == id, ct); if (x is null) return false;
         x.Status = r.Status; x.Plan = r.Plan; x.MonthlyPrice = r.MonthlyPrice; x.StartsOn = r.StartsOn; x.ExpiresOn = r.ExpiresOn; x.GracePeriodEndsOn = r.GracePeriodEndsOn; x.UpdatedAt = DateTimeOffset.UtcNow;
+        x.Restaurant.Status = r.Status switch
+        {
+            SubscriptionStatus.Suspended => RestaurantStatus.Suspended,
+            SubscriptionStatus.Cancelled => RestaurantStatus.Cancelled,
+            SubscriptionStatus.Active or SubscriptionStatus.Trial or SubscriptionStatus.Overdue => RestaurantStatus.Active,
+            _ => x.Restaurant.Status
+        };
+        x.Restaurant.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct); return true;
     }
 
@@ -223,6 +246,13 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         string.IsNullOrWhiteSpace(key) || key == "restaurant" ? DefaultThemeKey(type) : key;
 
     private static readonly string[] SupportedThemes = ["modern-dark", "classic-light", "premium-gold", "natural-green"];
+
+    private static SubscriptionStatus ActiveSubscriptionStatus(Subscription subscription)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (subscription.ExpiresOn >= today) return subscription.Status == SubscriptionStatus.Trial ? SubscriptionStatus.Trial : SubscriptionStatus.Active;
+        return subscription.GracePeriodEndsOn >= today ? SubscriptionStatus.Overdue : SubscriptionStatus.Suspended;
+    }
 
     private static void EnsureIdentityResult(IdentityResult result)
     {
@@ -296,6 +326,7 @@ public sealed class BillingService(ApplicationDbContext db) : IBillingService
         restaurant.Subscription.ExpiresOn = periodEnd;
         restaurant.Subscription.GracePeriodEndsOn = null;
         restaurant.Subscription.UpdatedAt = DateTimeOffset.UtcNow;
+        restaurant.Status = RestaurantStatus.Active;
         restaurant.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
@@ -305,14 +336,35 @@ public sealed class BillingService(ApplicationDbContext db) : IBillingService
     private async Task SynchronizeExpiredSubscriptionsAsync(CancellationToken ct)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var subscriptions = await db.Subscriptions.Where(x =>
-            x.ExpiresOn < today && (x.Status == SubscriptionStatus.Active || x.Status == SubscriptionStatus.Trial || x.Status == SubscriptionStatus.Overdue)).ToListAsync(ct);
-        foreach (var subscription in subscriptions)
+        var restaurants = await db.Restaurants.Include(x => x.Subscription).Where(x => x.Subscription != null).ToListAsync(ct);
+        var changed = false;
+        foreach (var restaurant in restaurants)
         {
-            subscription.Status = subscription.GracePeriodEndsOn >= today ? SubscriptionStatus.Overdue : SubscriptionStatus.Suspended;
+            var subscription = restaurant.Subscription!;
+            var previousRestaurantStatus = restaurant.Status;
+            var previousSubscriptionStatus = subscription.Status;
+            if (restaurant.Status == RestaurantStatus.Cancelled || subscription.Status == SubscriptionStatus.Cancelled)
+            {
+                restaurant.Status = RestaurantStatus.Cancelled;
+                subscription.Status = SubscriptionStatus.Cancelled;
+            }
+            else if (restaurant.Status == RestaurantStatus.Suspended || subscription.Status == SubscriptionStatus.Suspended)
+            {
+                restaurant.Status = RestaurantStatus.Suspended;
+                subscription.Status = SubscriptionStatus.Suspended;
+            }
+            else if (subscription.ExpiresOn < today)
+            {
+                var inGracePeriod = subscription.GracePeriodEndsOn >= today;
+                subscription.Status = inGracePeriod ? SubscriptionStatus.Overdue : SubscriptionStatus.Suspended;
+                if (!inGracePeriod) restaurant.Status = RestaurantStatus.Suspended;
+            }
+            if (restaurant.Status == previousRestaurantStatus && subscription.Status == previousSubscriptionStatus) continue;
             subscription.UpdatedAt = DateTimeOffset.UtcNow;
+            restaurant.UpdatedAt = DateTimeOffset.UtcNow;
+            changed = true;
         }
-        if (subscriptions.Count > 0) await db.SaveChangesAsync(ct);
+        if (changed) await db.SaveChangesAsync(ct);
     }
 }
 
