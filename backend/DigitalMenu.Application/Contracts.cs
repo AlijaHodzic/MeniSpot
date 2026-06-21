@@ -32,20 +32,25 @@ public sealed record CreateRestaurantRequest(
     string ThemeKey);
 public sealed record UpdateRestaurantRequest(string Name, string? Description, string? LogoUrl, string? CoverImageUrl, string? Address, string? Phone, string? Email, string? WebsiteUrl, string? InstagramUrl, string Currency, string DefaultLanguage, EstablishmentType Type, string ThemeKey);
 public sealed record UpdateOwnerAccessRequest(string Email, string? NewPassword);
-public sealed record SetSubscriptionRequest(SubscriptionStatus Status, string Plan, DateOnly StartsOn, DateOnly ExpiresOn, DateOnly? GracePeriodEndsOn);
+public sealed record SetSubscriptionRequest(SubscriptionStatus Status, string Plan, decimal MonthlyPrice, DateOnly StartsOn, DateOnly ExpiresOn, DateOnly? GracePeriodEndsOn);
 public sealed record ThemeRequest(string ThemeKey, string PrimaryColor, string AccentColor, string? BackgroundImageUrl, string FontFamily);
 public sealed record CategoryRequest(string Name, string? Description, int SortOrder, bool IsVisible);
 public sealed record MenuItemRequest(Guid CategoryId, string Name, string? Description, decimal Price, string? ImageUrl, string? Allergens, int SortOrder, bool IsVisible, bool IsAvailable, bool IsVegetarian, bool IsSpicy, bool IsFeatured);
 public sealed record SpecialOfferRequest(string Title, string? Description, decimal? Price, string? ImageUrl, DateTimeOffset? StartsAt, DateTimeOffset? EndsAt, bool IsVisible);
 public sealed record BusinessHourRequest(DayOfWeek DayOfWeek, TimeOnly? OpensAt, TimeOnly? ClosesAt, bool IsClosed);
 public sealed record RestaurantSummary(Guid Id, string Name, string Slug, EstablishmentType Type, string? LogoUrl, string? Address, RestaurantStatus Status, string Plan, SubscriptionStatus SubscriptionStatus, DateOnly ExpiresOn);
-public sealed record AdminSubscriptionDetails(SubscriptionStatus Status, string Plan, DateOnly StartsOn, DateOnly ExpiresOn, DateOnly? GracePeriodEndsOn);
+public sealed record AdminSubscriptionDetails(SubscriptionStatus Status, string Plan, decimal MonthlyPrice, DateOnly StartsOn, DateOnly ExpiresOn, DateOnly? GracePeriodEndsOn);
 public sealed record AdminRestaurantDetails(Guid Id, string Name, string Slug, string? Description, string? LogoUrl, string? CoverImageUrl, string? Address, string? Phone, string? Email, string? WebsiteUrl, string? InstagramUrl, string Currency, string DefaultLanguage, EstablishmentType Type, RestaurantStatus Status, string ThemeKey, string? OwnerEmail, AdminSubscriptionDetails Subscription);
 public sealed record AdminGrowthPoint(string Month, int Restaurants);
 public sealed record AdminStatusCount(string Status, int Count);
 public sealed record AdminRecentRestaurant(Guid Id, string Name, RestaurantStatus Status, string Plan, DateTimeOffset UpdatedAt);
 public sealed record AdminThemeUsage(string ThemeKey, int Count);
 public sealed record AdminDashboardSummary(int TotalRestaurants, int ActiveRestaurants, int ActiveLicenses, int TrialLicenses, int ExpiringSoon, IReadOnlyList<AdminGrowthPoint> Growth, IReadOnlyList<AdminStatusCount> SubscriptionBreakdown, IReadOnlyList<AdminRecentRestaurant> RecentRestaurants, IReadOnlyList<AdminThemeUsage> ThemeUsage);
+public sealed record BillingAccountSummary(Guid RestaurantId, string RestaurantName, string Slug, string Plan, decimal MonthlyPrice, string Currency, SubscriptionStatus Status, DateOnly ExpiresOn, DateOnly? GracePeriodEndsOn, DateOnly? LastPaidOn, decimal? LastPaymentAmount);
+public sealed record BillingMoneyTotal(string Currency, decimal Amount);
+public sealed record BillingOverview(IReadOnlyList<BillingMoneyTotal> MonthlyRecurringRevenue, IReadOnlyList<BillingMoneyTotal> PaidThisMonth, int OverdueCount, int ExpiringSoon, IReadOnlyList<BillingAccountSummary> Accounts);
+public sealed record RecordManualPaymentRequest(decimal Amount, string Currency, DateOnly PaidOn, int CoverageMonths, PaymentMethod Method, string? Reference, string? Note);
+public sealed record PaymentHistoryItem(Guid Id, decimal Amount, string Currency, DateOnly PaidOn, DateOnly PeriodStartsOn, DateOnly PeriodEndsOn, int CoverageMonths, PaymentMethod Method, string? Reference, string? Note, DateTimeOffset CreatedAt);
 public sealed record PublicMenu(Restaurant Restaurant);
 
 public interface IAuthService
@@ -81,4 +86,11 @@ public interface IMenuManagementService
 public interface IPublicMenuService
 {
     Task<PublicMenu?> GetAsync(string slug, CancellationToken cancellationToken);
+}
+
+public interface IBillingService
+{
+    Task<BillingOverview> GetOverviewAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<PaymentHistoryItem>?> GetHistoryAsync(Guid restaurantId, CancellationToken cancellationToken);
+    Task<PaymentHistoryItem?> RecordPaymentAsync(Guid restaurantId, RecordManualPaymentRequest request, CancellationToken cancellationToken);
 }

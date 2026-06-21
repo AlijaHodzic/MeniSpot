@@ -36,6 +36,7 @@ export interface AdminRestaurantDetails {
   subscription: {
     status: SubscriptionStatus;
     plan: string;
+    monthlyPrice: number;
     startsOn: string;
     expiresOn: string;
     gracePeriodEndsOn: string | null;
@@ -94,6 +95,7 @@ export interface UpdateRestaurantRequest {
 export interface SetSubscriptionRequest {
   status: SubscriptionStatus;
   plan: string;
+  monthlyPrice: number;
   startsOn: string;
   expiresOn: string;
   gracePeriodEndsOn: string | null;

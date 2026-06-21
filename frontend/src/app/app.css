@@ -83,7 +83,16 @@
 .restaurant-table p, .category-row p, .product-admin-card h3 + p { margin: 3px 0 0; color: #94a3b8; font-size: 11px; }
 .status-pill, .plan-pill { display: inline-flex; width: fit-content; border-radius: 999px; padding: 5px 9px; background: #ecfdf5; color: #047857; font-size: 10px; font-weight: 800; text-transform: capitalize; }
 .status-paused { background: #fef2f2 !important; color: #b91c1c !important; }
+.status-overdue { background: #fff7ed !important; color: #c2410c !important; }
 .plan-pill { background: var(--menispot-green-soft); color: var(--menispot-green-dark); }
+.billing-stat-value { font-size: 21px !important; }
+.billing-toolbar { flex-wrap: wrap; }
+.billing-toolbar .search-box { flex: 1 1 280px; }
+.billing-toolbar > select { border: 1px solid #e2e8f0; border-radius: 11px; background: white; padding: 10px 12px; color: #334155; font-size: 13px; }
+.billing-table article { display: grid; grid-template-columns: minmax(170px,1.4fr) minmax(120px,.8fr) auto minmax(130px,.8fr) minmax(135px,.9fr) auto; align-items: center; gap: 16px; border-bottom: 1px solid #f1f5f9; padding: 16px 18px; }
+.billing-table article:last-child { border-bottom: 0; }
+.billing-table h3, .billing-table b { margin: 0; color: #1e293b; font-size: 13px; font-weight: 750; }
+.billing-table p { margin: 4px 0 0; color: #94a3b8; font-size: 10px; }
 .admin-alert { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; border: 1px solid #fecaca; border-radius: 12px; background: #fef2f2; padding: 12px 15px; color: #991b1b; font-size: 13px; }
 .admin-alert button { border: 0; background: transparent; color: #991b1b; font-weight: 800; }
 .table-state { display: grid; min-height: 250px; place-items: center; align-content: center; gap: 10px; padding: 30px; color: #94a3b8; text-align: center; }
@@ -231,6 +240,7 @@
 .modal-backdrop { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; background: rgba(15,23,42,.58); padding: 20px; backdrop-filter: blur(4px); }
 .modal { overflow: hidden; width: min(100%,600px); max-height: 92vh; overflow-y: auto; border-radius: 20px; background: white; box-shadow: 0 30px 80px rgba(0,0,0,.25); }
 .restaurant-modal { width: min(100%,760px); }
+.payment-modal { width: min(100%,1000px); }
 .modal-header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid #e2e8f0; background: white; padding: 20px 24px; }
 .modal-header h2 { margin: 3px 0 0; font-family: 'Outfit',sans-serif; font-size: 24px; font-weight: 700; }
 .modal-body { padding: 22px 24px 8px; }
@@ -240,6 +250,24 @@
 .form-section h3 { margin: 0; color: #334155; font-family: 'Outfit',sans-serif; font-size: 16px; font-weight: 700; }
 .subscription-section { margin-top: 2px; }
 .modal-loading { min-height: 330px; }
+.modal-subtitle { margin: 5px 0 0; color: #64748b; font-size: 12px; }
+.payment-modal-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(320px,.9fr); }
+.payment-form-panel { display: flex; min-width: 0; flex-direction: column; }
+.payment-form-panel .modal-body { flex: 1; }
+.payment-form-panel h3, .payment-history-heading h3 { margin: 0; font-family: 'Outfit',sans-serif; font-size: 17px; }
+.payment-history-panel { min-width: 0; border-left: 1px solid #e2e8f0; background: #f8fafc; }
+.payment-history-heading { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 20px; }
+.payment-history-heading span { display: grid; min-width: 26px; height: 26px; place-items: center; border-radius: 999px; background: var(--menispot-green-soft); color: var(--menispot-green-dark); font-size: 11px; font-weight: 800; }
+.payment-history-list { overflow-y: auto; max-height: 520px; padding: 12px; }
+.payment-history-list article { margin-bottom: 10px; border: 1px solid #e2e8f0; border-radius: 13px; background: white; padding: 13px; }
+.payment-history-list article > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.payment-history-list b { color: #365314; font-size: 15px; }
+.payment-history-list span { border-radius: 999px; background: #f1f5f9; padding: 4px 7px; color: #64748b; font-size: 9px; font-weight: 700; }
+.payment-history-list p { margin: 7px 0 3px; color: #475569; font-size: 11px; }
+.payment-history-list small, .payment-history-list em { display: block; margin-top: 3px; color: #94a3b8; font-size: 9px; font-style: normal; }
+.payment-history-list em { margin-top: 8px; border-top: 1px solid #f1f5f9; padding-top: 7px; color: #64748b; }
+.payment-history-empty { display: grid; min-height: 300px; place-items: center; align-content: center; gap: 10px; color: #94a3b8; text-align: center; }
+.payment-history-empty p { margin: 0; font-size: 12px; }
 .admin-qr-image { display: block; width: min(100%,260px); margin: 18px auto; border: 1px solid #e2e8f0; border-radius: 16px; }
 .qr-placeholder { display: grid; width: 260px; height: 260px; max-width: 100%; place-items: center; margin: 18px auto; border: 1px dashed #cbd5e1; border-radius: 16px; background: #f8fafc; }
 .upload-box { display: grid; height: 90px; place-items: center; margin-top: 7px; border: 1px dashed #cbd5e1; border-radius: 11px; color: #94a3b8; font-weight: 500; }
@@ -249,6 +277,8 @@
   .product-admin-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .restaurant-table article { grid-template-columns: 48px minmax(160px,1fr) auto auto auto; }
   .restaurant-table article > :nth-child(5), .restaurant-table article > :nth-child(4) { display: none; }
+  .billing-table article { grid-template-columns: minmax(160px,1fr) auto auto auto; }
+  .billing-table article > :nth-child(4), .billing-table article > :nth-child(5) { display: none; }
 }
 @media (max-width: 900px) {
   .app-shell { grid-template-columns: 1fr; }
@@ -261,6 +291,8 @@
   .auth-brand-panel { display: none; }
   .auth-form-panel { padding: 28px 20px; }
   .auth-mobile-logo { display: block; width: fit-content; margin-bottom: 38px; }
+  .payment-modal-grid { grid-template-columns: 1fr; }
+  .payment-history-panel { border-top: 1px solid #e2e8f0; border-left: 0; }
 }
 @media (max-width: 640px) {
   .page-heading { align-items: flex-start; flex-direction: column; }
@@ -269,6 +301,8 @@
   .restaurant-table article > :nth-child(n+4) { display: none; }
   .form-grid { grid-template-columns: 1fr; }
   .form-grid .sm\:col-span-2 { grid-column: auto; }
+  .billing-table article { grid-template-columns: minmax(0,1fr) auto; }
+  .billing-table article > :not(:first-child):not(:last-child) { display: none; }
   .menu-hero { height: 280px; }
   .hero-content { align-items: center; padding: 20px 16px; }
   .hero-content > img { width: 66px; height: 66px; border-radius: 18px; }

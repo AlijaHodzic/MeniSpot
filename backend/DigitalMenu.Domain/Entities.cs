@@ -10,6 +10,7 @@ public abstract class Entity
 public enum RestaurantStatus { Draft, Active, Suspended, Cancelled }
 public enum SubscriptionStatus { Trial, Active, Overdue, Suspended, Cancelled }
 public enum EstablishmentType { Restaurant, Cafe, Bar, Club, FastFood, Other }
+public enum PaymentMethod { BankTransfer, Cash, Card, Other }
 
 public sealed class Restaurant : Entity
 {
@@ -32,12 +33,14 @@ public sealed class Restaurant : Entity
     public ICollection<MenuCategory> Categories { get; set; } = [];
     public ICollection<SpecialOffer> SpecialOffers { get; set; } = [];
     public ICollection<BusinessHour> BusinessHours { get; set; } = [];
+    public ICollection<SubscriptionPayment> Payments { get; set; } = [];
 }
 
 public sealed class Subscription : Entity
 {
     public Guid RestaurantId { get; set; }
     public string Plan { get; set; } = "Basic";
+    public decimal MonthlyPrice { get; set; } = 39.90m;
     public SubscriptionStatus Status { get; set; } = SubscriptionStatus.Trial;
     public DateOnly StartsOn { get; set; }
     public DateOnly ExpiresOn { get; set; }
@@ -45,6 +48,21 @@ public sealed class Subscription : Entity
     public Restaurant Restaurant { get; set; } = null!;
 
     public bool IsPubliclyAvailable(DateOnly today) => Status is SubscriptionStatus.Active or SubscriptionStatus.Trial || Status == SubscriptionStatus.Overdue && GracePeriodEndsOn >= today;
+}
+
+public sealed class SubscriptionPayment : Entity
+{
+    public Guid RestaurantId { get; set; }
+    public decimal Amount { get; set; }
+    public string Currency { get; set; } = "BAM";
+    public DateOnly PaidOn { get; set; }
+    public DateOnly PeriodStartsOn { get; set; }
+    public DateOnly PeriodEndsOn { get; set; }
+    public int CoverageMonths { get; set; }
+    public PaymentMethod Method { get; set; }
+    public string? Reference { get; set; }
+    public string? Note { get; set; }
+    public Restaurant Restaurant { get; set; } = null!;
 }
 
 public sealed class ThemeSettings : Entity

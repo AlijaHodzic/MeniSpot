@@ -25,6 +25,8 @@ import {
 } from './core/restaurants/admin-restaurants.models';
 import { AdminRestaurantsService } from './core/restaurants/admin-restaurants.service';
 import { QrCodeService } from './core/qr-code.service';
+import { BillingAccountSummary, BillingOverview, PaymentHistoryItem, PaymentMethod } from './core/billing/billing.models';
+import { BillingService } from './core/billing/billing.service';
 
 interface RestaurantForm {
   id: string | null;
@@ -47,6 +49,7 @@ interface RestaurantForm {
   defaultLanguage: string;
   themeKey: string;
   plan: string;
+  monthlyPrice: number;
   subscriptionStatus: SubscriptionStatus;
   startsOn: string;
   expiresOn: string;
@@ -71,12 +74,14 @@ export class App {
   private readonly destroyRef = inject(DestroyRef);
   private readonly adminRestaurantsService = inject(AdminRestaurantsService);
   private readonly qrCodeService = inject(QrCodeService);
+  private readonly billingService = inject(BillingService);
   readonly auth = inject(AuthService);
   readonly restaurants = restaurants;
   readonly themes = themeOptions;
   readonly ownerChartTicks = [240, 180, 120, 60, 0];
   readonly adminTabs: { id: AdminTab; label: string }[] = [
     { id: 'dashboard', label: 'Pregled' }, { id: 'restaurants', label: 'Restorani' },
+    { id: 'billing', label: 'Pretplate' },
     { id: 'themes', label: 'Teme' }, { id: 'qr-codes', label: 'QR kodovi' },
   ];
   readonly ownerTabs: { id: OwnerTab; label: string }[] = [
@@ -97,6 +102,10 @@ export class App {
   readonly restaurantStatuses: { value: RestaurantStatus; label: string }[] = [
     { value: 'Draft', label: 'Priprema' }, { value: 'Active', label: 'Aktivan' },
     { value: 'Suspended', label: 'Pauziran' }, { value: 'Cancelled', label: 'Otkazan' },
+  ];
+  readonly paymentMethods: { value: PaymentMethod; label: string }[] = [
+    { value: 'BankTransfer', label: 'Bankovna uplata' }, { value: 'Cash', label: 'Gotovina' },
+    { value: 'Card', label: 'Kartica' }, { value: 'Other', label: 'Ostalo' },
   ];
 
   view: AppView = 'login';
@@ -125,6 +134,19 @@ export class App {
   restaurantFormError = '';
   restaurantStatusUpdating = new Set<string>();
   adminQrCodes: Record<string, string> = {};
+  billingOverview: BillingOverview | null = null;
+  billingLoading = false;
+  billingLoaded = false;
+  billingError = '';
+  billingSearch = '';
+  billingStatusFilter = 'all';
+  showPaymentModal = false;
+  selectedBillingAccount: BillingAccountSummary | null = null;
+  paymentHistory: PaymentHistoryItem[] = [];
+  paymentHistoryLoading = false;
+  paymentSaving = false;
+  paymentError = '';
+  paymentForm = this.emptyPaymentForm();
   restaurantForm = this.emptyRestaurantForm();
   productMap: Record<string, Product[]> = structuredClone(initialProducts);
 
@@ -159,6 +181,12 @@ export class App {
       item.name.toLocaleLowerCase().includes(term) ||
       item.slug.toLocaleLowerCase().includes(term) ||
       (item.address ?? '').toLocaleLowerCase().includes(term));
+  }
+  get filteredBillingAccounts(): BillingAccountSummary[] {
+    const term = this.billingSearch.trim().toLocaleLowerCase();
+    return (this.billingOverview?.accounts ?? []).filter((item) =>
+      (this.billingStatusFilter === 'all' || item.status === this.billingStatusFilter) &&
+      (!term || item.restaurantName.toLocaleLowerCase().includes(term) || item.slug.toLocaleLowerCase().includes(term)));
   }
 
   get filteredProducts(): Product[] {
@@ -241,6 +269,68 @@ export class App {
       });
   }
 
+  loadBilling(force = false): void {
+    if (this.billingLoading || this.billingLoaded && !force) return;
+    this.billingLoading = true;
+    this.billingError = '';
+    this.billingService.getOverview()
+      .pipe(finalize(() => this.billingLoading = false), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (overview) => {
+          this.billingOverview = overview;
+          this.billingLoaded = true;
+        },
+        error: () => this.billingError = 'Pretplate se trenutno ne mogu učitati. Provjeri backend i pokušaj ponovo.',
+      });
+  }
+
+  openPayment(account: BillingAccountSummary): void {
+    this.selectedBillingAccount = account;
+    this.paymentForm = this.emptyPaymentForm(account);
+    this.paymentHistory = [];
+    this.paymentError = '';
+    this.showPaymentModal = true;
+    this.paymentHistoryLoading = true;
+    this.billingService.getHistory(account.restaurantId)
+      .pipe(finalize(() => this.paymentHistoryLoading = false), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (items) => this.paymentHistory = items,
+        error: () => this.paymentError = 'Historija uplata se ne može učitati.',
+      });
+  }
+
+  closePaymentModal(): void {
+    if (this.paymentSaving) return;
+    this.showPaymentModal = false;
+    this.selectedBillingAccount = null;
+    this.paymentError = '';
+  }
+
+  recordPayment(): void {
+    const account = this.selectedBillingAccount;
+    if (!account) return;
+    if (this.paymentForm.amount <= 0) { this.paymentError = 'Iznos uplate mora biti veći od nule.'; return; }
+    this.paymentSaving = true;
+    this.paymentError = '';
+    this.billingService.recordPayment(account.restaurantId, {
+      amount: this.paymentForm.amount,
+      currency: this.paymentForm.currency,
+      paidOn: this.paymentForm.paidOn,
+      coverageMonths: this.paymentForm.coverageMonths,
+      method: this.paymentForm.method,
+      reference: this.nullIfEmpty(this.paymentForm.reference),
+      note: this.nullIfEmpty(this.paymentForm.note),
+    }).pipe(finalize(() => this.paymentSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (payment) => {
+        this.paymentHistory = [payment, ...this.paymentHistory];
+        this.paymentForm = this.emptyPaymentForm(account);
+        this.loadBilling(true);
+        this.loadAdminRestaurants(true);
+      },
+      error: (error: HttpErrorResponse) => this.paymentError = error.error?.title ?? 'Uplata nije evidentirana.',
+    });
+  }
+
   openCreateRestaurant(): void {
     this.restaurantForm = this.emptyRestaurantForm();
     this.restaurantFormError = '';
@@ -294,7 +384,7 @@ export class App {
             themeKey: form.themeKey,
           }),
           this.adminRestaurantsService.setSubscription(form.id, {
-            status: form.subscriptionStatus, plan: form.plan.trim() || 'Basic', startsOn: form.startsOn,
+            status: form.subscriptionStatus, plan: form.plan.trim() || 'Basic', monthlyPrice: form.monthlyPrice, startsOn: form.startsOn,
             expiresOn: form.expiresOn, gracePeriodEndsOn: this.nullIfEmpty(form.gracePeriodEndsOn),
           }),
           this.adminRestaurantsService.setStatus(form.id, form.status),
@@ -378,6 +468,28 @@ export class App {
     return this.subscriptionStatuses.find((item) => item.value === status)?.label ?? status;
   }
 
+  paymentMethodLabel(method: PaymentMethod): string {
+    return this.paymentMethods.find((item) => item.value === method)?.label ?? method;
+  }
+
+  formatMoney(amount: number, currency = 'BAM'): string {
+    return new Intl.NumberFormat('bs-BA', { style: 'currency', currency }).format(amount);
+  }
+
+  formatMoneyTotals(totals: { currency: string; amount: number }[] | undefined): string {
+    return totals?.length ? totals.map((item) => this.formatMoney(item.amount, item.currency)).join(' · ') : this.formatMoney(0);
+  }
+
+  syncPaymentAmount(): void {
+    if (!this.selectedBillingAccount) return;
+    this.paymentForm.amount = Math.round(this.selectedBillingAccount.monthlyPrice * this.paymentForm.coverageMonths * 100) / 100;
+  }
+
+  syncPlanPrice(): void {
+    const prices: Record<string, number> = { Basic: 39.90, Standard: 59.90, Premium: 99.90, Enterprise: 149.90 };
+    this.restaurantForm.monthlyPrice = prices[this.restaurantForm.plan] ?? this.restaurantForm.monthlyPrice;
+  }
+
   themeUsageCount(themeKey: string): number {
     return this.adminDashboard?.themeUsage.find((item) => item.themeKey === themeKey)?.count ?? 0;
   }
@@ -413,6 +525,7 @@ export class App {
       this.view = 'super-admin';
       this.adminTab = this.isAdminTab(segments[1]) ? segments[1] : 'dashboard';
       this.loadAdminRestaurants();
+      if (this.adminTab === 'billing') this.loadBilling();
     } else if (segments[0] === 'restaurant') {
       this.view = 'restaurant-owner';
       this.selectedRestaurantId = this.validRestaurantId(segments[1]);
@@ -448,7 +561,7 @@ export class App {
     return {
       id: null, name: '', slug: '', type: 'Restaurant', status: 'Active', ownerEmail: '', ownerPassword: '', trialDays: 30,
       description: '', logoUrl: '', coverImageUrl: '', address: '', phone: '', email: '', websiteUrl: '', instagramUrl: '',
-      currency: 'BAM', defaultLanguage: 'bs', themeKey: 'classic-light', plan: 'Basic', subscriptionStatus: 'Trial',
+      currency: 'BAM', defaultLanguage: 'bs', themeKey: 'classic-light', plan: 'Basic', monthlyPrice: 39.90, subscriptionStatus: 'Trial',
       startsOn: this.dateInputValue(today), expiresOn: this.dateInputValue(expires), gracePeriodEndsOn: '',
     };
   }
@@ -460,7 +573,7 @@ export class App {
       description: item.description ?? '', logoUrl: item.logoUrl ?? '', coverImageUrl: item.coverImageUrl ?? '',
       address: item.address ?? '', phone: item.phone ?? '', email: item.email ?? '', websiteUrl: item.websiteUrl ?? '',
       instagramUrl: item.instagramUrl ?? '', currency: item.currency, defaultLanguage: item.defaultLanguage, themeKey: item.themeKey,
-      plan: item.subscription.plan, subscriptionStatus: item.subscription.status, startsOn: item.subscription.startsOn,
+      plan: item.subscription.plan, monthlyPrice: item.subscription.monthlyPrice, subscriptionStatus: item.subscription.status, startsOn: item.subscription.startsOn,
       expiresOn: item.subscription.expiresOn, gracePeriodEndsOn: item.subscription.gracePeriodEndsOn ?? '',
     };
   }
@@ -471,6 +584,18 @@ export class App {
 
   private nullIfEmpty(value: string): string | null {
     return value.trim() || null;
+  }
+
+  private emptyPaymentForm(account?: BillingAccountSummary): { amount: number; currency: string; paidOn: string; coverageMonths: number; method: PaymentMethod; reference: string; note: string } {
+    return {
+      amount: account?.monthlyPrice ?? 0,
+      currency: account?.currency ?? 'BAM',
+      paidOn: this.dateInputValue(new Date()),
+      coverageMonths: 1,
+      method: 'BankTransfer',
+      reference: '',
+      note: '',
+    };
   }
 
   private async generateAdminQrCodes(items: AdminRestaurantSummary[]): Promise<void> {

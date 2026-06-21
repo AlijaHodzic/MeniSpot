@@ -100,6 +100,23 @@
           </div>
         }
 
+        @if (adminTab === 'billing') {
+          <div class="page-heading"><div><p class="eyebrow">Finansije</p><h2>Pretplate i naplate</h2><p>Ručno evidentiraj uplate i prati trajanje licenci.</p></div></div>
+          @if (billingError) { <div class="admin-alert"><span>{{ billingError }}</span><button (click)="loadBilling(true)">Pokušaj ponovo</button></div> }
+          <div class="stat-grid">
+            <article class="stat-card"><span class="stat-icon bg-lime-100 text-lime-700"><svg lucideTrendingUp [size]="21"></svg></span><p>Mjesečna vrijednost</p><strong class="billing-stat-value">{{ formatMoneyTotals(billingOverview?.monthlyRecurringRevenue) }}</strong><small>Aktivne i probne pretplate</small></article>
+            <article class="stat-card"><span class="stat-icon bg-emerald-100 text-emerald-700"><svg lucideAward [size]="21"></svg></span><p>Uplaćeno ovaj mjesec</p><strong class="billing-stat-value">{{ formatMoneyTotals(billingOverview?.paidThisMonth) }}</strong><small>Ručno evidentirane uplate</small></article>
+            <article class="stat-card"><span class="stat-icon bg-red-100 text-red-700"><svg lucideClock [size]="21"></svg></span><p>Kasne s uplatom</p><strong>{{ billingOverview?.overdueCount ?? 0 }}</strong><small>Objekti u grace periodu</small></article>
+            <article class="stat-card"><span class="stat-icon bg-amber-100 text-amber-700"><svg lucideCalendar [size]="21"></svg></span><p>Uskoro ističu</p><strong>{{ billingOverview?.expiringSoon ?? 0 }}</strong><small>U narednih 14 dana</small></article>
+          </div>
+          <div class="panel-card mt-7 overflow-hidden p-0">
+            <div class="table-toolbar billing-toolbar"><div class="search-box"><svg lucideSearch [size]="17"></svg><input name="billingSearch" [(ngModel)]="billingSearch" placeholder="Pretraži restoran..."></div><select name="billingStatusFilter" [(ngModel)]="billingStatusFilter"><option value="all">Svi statusi</option>@for (status of subscriptionStatuses; track status.value) { <option [value]="status.value">{{ status.label }}</option> }</select><span class="text-sm text-slate-500">{{ filteredBillingAccounts.length }} pretplata</span></div>
+            @if (billingLoading) { <div class="table-state"><span class="auth-spinner"></span><p>Učitavanje pretplata...</p></div> }
+            @else if (!filteredBillingAccounts.length) { <div class="table-state"><svg lucideCalendar [size]="30"></svg><h3>Nema pretplata</h3><p>Promijeni filter ili dodaj prvi restoran.</p></div> }
+            @else { <div class="billing-table">@for (item of filteredBillingAccounts; track item.restaurantId) { <article><div class="min-w-0"><h3>{{ item.restaurantName }}</h3><p>{{ item.slug }}</p></div><div><b>{{ item.plan }}</b><p>{{ formatMoney(item.monthlyPrice, item.currency) }} / mjesec</p></div><span class="status-pill" [class.status-paused]="item.status === 'Suspended' || item.status === 'Cancelled'" [class.status-overdue]="item.status === 'Overdue'">{{ subscriptionStatusLabel(item.status) }}</span><div><b>{{ item.expiresOn | date:'dd.MM.yyyy.' }}</b><p>@if (item.gracePeriodEndsOn) { Grace do {{ item.gracePeriodEndsOn | date:'dd.MM.yyyy.' }} } @else { Datum isteka }</p></div><div><b>{{ item.lastPaymentAmount !== null ? formatMoney(item.lastPaymentAmount, item.currency) : 'Nema uplata' }}</b><p>{{ item.lastPaidOn ? (item.lastPaidOn | date:'dd.MM.yyyy.') : 'Posljednja uplata' }}</p></div><button class="primary-button" (click)="openPayment(item)"><svg lucidePlus [size]="15"></svg> Evidentiraj</button></article> }</div> }
+          </div>
+        }
+
         @if (adminTab === 'themes') {
           <div class="page-heading"><div><p class="eyebrow">Dizajn sistema</p><h2>Teme menija</h2><p>Različit vizuelni identitet za svaki tip objekta.</p></div></div>
           <div class="grid gap-5 md:grid-cols-2">@for (theme of themes; track theme.id) { <article class="theme-card"><div class="theme-preview" [style.background]="theme.colors[0]"><div [style.background]="theme.colors[1]"><span [style.background]="theme.colors[2]"></span><i [style.background]="theme.colors[2]"></i><i [style.background]="theme.colors[2]"></i></div></div><div class="p-5"><div class="flex items-center justify-between"><h3 class="font-display text-lg font-bold">{{ theme.name }}</h3><span class="rounded-full bg-lime-50 px-2.5 py-1 text-xs font-bold text-lime-700">{{ themeUsageCount(theme.id) }} objekata</span></div><p class="mt-2 text-sm text-slate-500">{{ theme.description }}</p><div class="mt-4 flex gap-2">@for (color of theme.colors; track color) { <span class="h-6 w-6 rounded-full border-2 border-white shadow" [style.background]="color"></span> }</div></div></article> }</div>
@@ -152,7 +169,8 @@
               </div></div>
               @if (restaurantForm.id) {
                 <div class="form-section subscription-section"><h3>Licenca i paket</h3><div class="form-grid">
-                  <label>Paket<select name="subscriptionPlan" [(ngModel)]="restaurantForm.plan"><option>Basic</option><option>Standard</option><option>Premium</option><option>Enterprise</option></select></label>
+                  <label>Paket<select name="subscriptionPlan" [(ngModel)]="restaurantForm.plan" (ngModelChange)="syncPlanPrice()"><option>Basic</option><option>Standard</option><option>Premium</option><option>Enterprise</option></select></label>
+                  <label>Mjesečna cijena<input name="subscriptionMonthlyPrice" type="number" min="0" step="0.10" [(ngModel)]="restaurantForm.monthlyPrice" required></label>
                   <label>Status licence<select name="subscriptionStatus" [(ngModel)]="restaurantForm.subscriptionStatus">@for (status of subscriptionStatuses; track status.value) { <option [value]="status.value">{{ status.label }}</option> }</select></label>
                   <label>Početak<input name="subscriptionStart" type="date" [(ngModel)]="restaurantForm.startsOn" required></label>
                   <label>Ističe<input name="subscriptionExpiry" type="date" [(ngModel)]="restaurantForm.expiresOn" required></label>
@@ -163,6 +181,29 @@
             <footer class="modal-footer"><button type="button" class="secondary-button" (click)="closeRestaurantModal()">Odustani</button><button type="submit" class="primary-button" [disabled]="restaurantSaving">@if (restaurantSaving) { <span class="auth-spinner"></span> Čuvanje... } @else { {{ restaurantForm.id ? 'Sačuvaj promjene' : 'Kreiraj restoran' }} }</button></footer>
           </form>
         }
+      </section>
+    </div>
+  }
+
+  @if (showPaymentModal && selectedBillingAccount) {
+    <div class="modal-backdrop" (click)="closePaymentModal()">
+      <section class="modal payment-modal" (click)="$event.stopPropagation()">
+        <header class="modal-header"><div><p class="eyebrow">Ručna uplata</p><h2>{{ selectedBillingAccount.restaurantName }}</h2><p class="modal-subtitle">{{ selectedBillingAccount.plan }} · Licenca do {{ selectedBillingAccount.expiresOn | date:'dd.MM.yyyy.' }}</p></div><button type="button" class="icon-button" (click)="closePaymentModal()" aria-label="Zatvori"><svg lucideX [size]="20"></svg></button></header>
+        <div class="payment-modal-grid">
+          <form (ngSubmit)="recordPayment()" class="payment-form-panel">
+            <div class="modal-body"><h3>Evidentiraj uplatu</h3>@if (paymentError) { <div class="auth-error">{{ paymentError }}</div> }<div class="form-grid payment-form-grid">
+              <label>Iznos<input name="paymentAmount" type="number" min="0.01" step="0.10" [(ngModel)]="paymentForm.amount" required></label>
+              <label>Valuta<input name="paymentCurrency" maxlength="3" [(ngModel)]="paymentForm.currency" required></label>
+              <label>Datum uplate<input name="paymentPaidOn" type="date" [(ngModel)]="paymentForm.paidOn" required></label>
+              <label>Pokriva mjeseci<select name="paymentMonths" [(ngModel)]="paymentForm.coverageMonths" (ngModelChange)="syncPaymentAmount()"><option [ngValue]="1">1 mjesec</option><option [ngValue]="3">3 mjeseca</option><option [ngValue]="6">6 mjeseci</option><option [ngValue]="12">12 mjeseci</option><option [ngValue]="24">24 mjeseca</option></select></label>
+              <label class="form-span-2">Način plaćanja<select name="paymentMethod" [(ngModel)]="paymentForm.method">@for (method of paymentMethods; track method.value) { <option [value]="method.value">{{ method.label }}</option> }</select></label>
+              <label class="form-span-2">Referenca / broj transakcije<input name="paymentReference" [(ngModel)]="paymentForm.reference" placeholder="Opcionalno"></label>
+              <label class="form-span-2">Napomena<textarea name="paymentNote" rows="3" [(ngModel)]="paymentForm.note" placeholder="Opcionalno"></textarea></label>
+            </div></div>
+            <footer class="modal-footer"><button type="button" class="secondary-button" (click)="closePaymentModal()">Zatvori</button><button type="submit" class="primary-button" [disabled]="paymentSaving">@if (paymentSaving) { <span class="auth-spinner"></span> Čuvanje... } @else { Evidentiraj uplatu }</button></footer>
+          </form>
+          <section class="payment-history-panel"><div class="payment-history-heading"><h3>Historija uplata</h3><span>{{ paymentHistory.length }}</span></div>@if (paymentHistoryLoading) { <div class="table-state"><span class="auth-spinner"></span><p>Učitavanje...</p></div> } @else if (!paymentHistory.length) { <div class="payment-history-empty"><svg lucideCalendar [size]="28"></svg><p>Još nema evidentiranih uplata.</p></div> } @else { <div class="payment-history-list">@for (payment of paymentHistory; track payment.id) { <article><div><b>{{ formatMoney(payment.amount, payment.currency) }}</b><span>{{ paymentMethodLabel(payment.method) }}</span></div><p>{{ payment.paidOn | date:'dd.MM.yyyy.' }} · {{ payment.coverageMonths }} mj.</p><small>Period {{ payment.periodStartsOn | date:'dd.MM.yyyy.' }} – {{ payment.periodEndsOn | date:'dd.MM.yyyy.' }}</small>@if (payment.reference) { <small>Ref: {{ payment.reference }}</small> }@if (payment.note) { <em>{{ payment.note }}</em> }</article> }</div> }</section>
+        </div>
       </section>
     </div>
   }

@@ -90,7 +90,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             x.Id, x.Name, x.Slug, x.Description, x.LogoUrl, x.CoverImageUrl, x.Address, x.Phone, x.Email,
             x.WebsiteUrl, x.InstagramUrl, x.Currency, x.DefaultLanguage, x.Type, x.Status,
             ThemeKey = x.Theme != null ? x.Theme.ThemeKey : null,
-            SubscriptionStatus = x.Subscription!.Status, x.Subscription.Plan, x.Subscription.StartsOn,
+            SubscriptionStatus = x.Subscription!.Status, x.Subscription.Plan, x.Subscription.MonthlyPrice, x.Subscription.StartsOn,
             x.Subscription.ExpiresOn, x.Subscription.GracePeriodEndsOn
         }).FirstOrDefaultAsync(ct);
         if (item is null) return null;
@@ -103,7 +103,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             item.Id, item.Name, item.Slug, item.Description, item.LogoUrl, item.CoverImageUrl, item.Address, item.Phone,
             item.Email, item.WebsiteUrl, item.InstagramUrl, item.Currency, item.DefaultLanguage, item.Type, item.Status,
             NormalizeThemeKey(item.ThemeKey, item.Type), ownerEmail,
-            new AdminSubscriptionDetails(item.SubscriptionStatus, item.Plan, item.StartsOn, item.ExpiresOn, item.GracePeriodEndsOn));
+            new AdminSubscriptionDetails(item.SubscriptionStatus, item.Plan, item.MonthlyPrice, item.StartsOn, item.ExpiresOn, item.GracePeriodEndsOn));
     }
 
     public Task<Restaurant?> GetAsync(Guid id, Guid? tenantId, bool admin, CancellationToken ct) => db.Restaurants.AsNoTracking()
@@ -140,7 +140,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             Currency = request.Currency.Trim().ToUpperInvariant(),
             DefaultLanguage = request.DefaultLanguage.Trim().ToLowerInvariant()
         };
-        restaurant.Subscription = new Subscription { RestaurantId = restaurant.Id, StartsOn = today, ExpiresOn = today.AddDays(request.TrialDays), Status = SubscriptionStatus.Trial };
+        restaurant.Subscription = new Subscription { RestaurantId = restaurant.Id, StartsOn = today, ExpiresOn = today.AddDays(request.TrialDays), Status = SubscriptionStatus.Trial, MonthlyPrice = 39.90m };
         restaurant.Theme = new ThemeSettings { RestaurantId = restaurant.Id, ThemeKey = request.ThemeKey };
         db.Restaurants.Add(restaurant);
         await db.SaveChangesAsync(ct);
@@ -177,10 +177,11 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
     public async Task<bool> SetSubscriptionAsync(Guid id, SetSubscriptionRequest r, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(r.Plan)) throw new InvalidOperationException("Subscription plan is required.");
+        if (r.MonthlyPrice < 0) throw new InvalidOperationException("Monthly price cannot be negative.");
         if (r.ExpiresOn < r.StartsOn) throw new InvalidOperationException("Subscription expiry cannot be before its start date.");
         if (r.GracePeriodEndsOn < r.ExpiresOn) throw new InvalidOperationException("Grace period cannot end before the subscription expiry date.");
         var x = await db.Subscriptions.SingleOrDefaultAsync(x => x.RestaurantId == id, ct); if (x is null) return false;
-        x.Status = r.Status; x.Plan = r.Plan; x.StartsOn = r.StartsOn; x.ExpiresOn = r.ExpiresOn; x.GracePeriodEndsOn = r.GracePeriodEndsOn; x.UpdatedAt = DateTimeOffset.UtcNow;
+        x.Status = r.Status; x.Plan = r.Plan; x.MonthlyPrice = r.MonthlyPrice; x.StartsOn = r.StartsOn; x.ExpiresOn = r.ExpiresOn; x.GracePeriodEndsOn = r.GracePeriodEndsOn; x.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct); return true;
     }
 
@@ -226,6 +227,92 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
     private static void EnsureIdentityResult(IdentityResult result)
     {
         if (!result.Succeeded) throw new InvalidOperationException(string.Join(" ", result.Errors.Select(x => x.Description)));
+    }
+}
+
+public sealed class BillingService(ApplicationDbContext db) : IBillingService
+{
+    public async Task<BillingOverview> GetOverviewAsync(CancellationToken ct)
+    {
+        await SynchronizeExpiredSubscriptionsAsync(ct);
+        var accounts = await db.Restaurants.AsNoTracking().Where(x => x.Subscription != null).OrderBy(x => x.Name)
+            .Select(x => new BillingAccountSummary(
+                x.Id, x.Name, x.Slug, x.Subscription!.Plan, x.Subscription.MonthlyPrice, x.Currency,
+                x.Subscription.Status, x.Subscription.ExpiresOn, x.Subscription.GracePeriodEndsOn,
+                x.Payments.OrderByDescending(p => p.PaidOn).ThenByDescending(p => p.CreatedAt).Select(p => (DateOnly?)p.PaidOn).FirstOrDefault(),
+                x.Payments.OrderByDescending(p => p.PaidOn).ThenByDescending(p => p.CreatedAt).Select(p => (decimal?)p.Amount).FirstOrDefault()))
+            .ToListAsync(ct);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var monthStart = new DateOnly(today.Year, today.Month, 1);
+        var paidThisMonth = await db.SubscriptionPayments.AsNoTracking()
+            .Where(x => x.PaidOn >= monthStart && x.PaidOn <= today)
+            .GroupBy(x => x.Currency).Select(x => new BillingMoneyTotal(x.Key, x.Sum(p => p.Amount))).ToListAsync(ct);
+        var recurring = accounts.Where(x => x.Status is SubscriptionStatus.Active or SubscriptionStatus.Trial or SubscriptionStatus.Overdue)
+            .GroupBy(x => x.Currency).Select(x => new BillingMoneyTotal(x.Key, x.Sum(a => a.MonthlyPrice))).ToList();
+        return new BillingOverview(
+            recurring,
+            paidThisMonth,
+            accounts.Count(x => x.Status == SubscriptionStatus.Overdue),
+            accounts.Count(x => x.ExpiresOn >= today && x.ExpiresOn <= today.AddDays(14)),
+            accounts);
+    }
+
+    public async Task<IReadOnlyList<PaymentHistoryItem>?> GetHistoryAsync(Guid restaurantId, CancellationToken ct)
+    {
+        if (!await db.Restaurants.AnyAsync(x => x.Id == restaurantId, ct)) return null;
+        return await db.SubscriptionPayments.AsNoTracking().Where(x => x.RestaurantId == restaurantId)
+            .OrderByDescending(x => x.PaidOn).ThenByDescending(x => x.CreatedAt)
+            .Select(x => new PaymentHistoryItem(x.Id, x.Amount, x.Currency, x.PaidOn, x.PeriodStartsOn, x.PeriodEndsOn, x.CoverageMonths, x.Method, x.Reference, x.Note, x.CreatedAt))
+            .ToListAsync(ct);
+    }
+
+    public async Task<PaymentHistoryItem?> RecordPaymentAsync(Guid restaurantId, RecordManualPaymentRequest request, CancellationToken ct)
+    {
+        if (request.Amount <= 0) throw new InvalidOperationException("Payment amount must be greater than zero.");
+        if (request.CoverageMonths is < 1 or > 24) throw new InvalidOperationException("Coverage must be between 1 and 24 months.");
+        if (string.IsNullOrWhiteSpace(request.Currency) || request.Currency.Trim().Length != 3) throw new InvalidOperationException("Currency must use a three-letter code.");
+        var restaurant = await db.Restaurants.Include(x => x.Subscription).FirstOrDefaultAsync(x => x.Id == restaurantId, ct);
+        if (restaurant?.Subscription is null) return null;
+        var periodStart = restaurant.Subscription.ExpiresOn >= request.PaidOn
+            ? restaurant.Subscription.ExpiresOn.AddDays(1)
+            : request.PaidOn;
+        var periodEnd = periodStart.AddMonths(request.CoverageMonths).AddDays(-1);
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        var payment = new SubscriptionPayment
+        {
+            RestaurantId = restaurantId,
+            Amount = request.Amount,
+            Currency = request.Currency.Trim().ToUpperInvariant(),
+            PaidOn = request.PaidOn,
+            PeriodStartsOn = periodStart,
+            PeriodEndsOn = periodEnd,
+            CoverageMonths = request.CoverageMonths,
+            Method = request.Method,
+            Reference = string.IsNullOrWhiteSpace(request.Reference) ? null : request.Reference.Trim(),
+            Note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim()
+        };
+        db.SubscriptionPayments.Add(payment);
+        restaurant.Subscription.Status = SubscriptionStatus.Active;
+        restaurant.Subscription.ExpiresOn = periodEnd;
+        restaurant.Subscription.GracePeriodEndsOn = null;
+        restaurant.Subscription.UpdatedAt = DateTimeOffset.UtcNow;
+        restaurant.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        return new PaymentHistoryItem(payment.Id, payment.Amount, payment.Currency, payment.PaidOn, payment.PeriodStartsOn, payment.PeriodEndsOn, payment.CoverageMonths, payment.Method, payment.Reference, payment.Note, payment.CreatedAt);
+    }
+
+    private async Task SynchronizeExpiredSubscriptionsAsync(CancellationToken ct)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var subscriptions = await db.Subscriptions.Where(x =>
+            x.ExpiresOn < today && (x.Status == SubscriptionStatus.Active || x.Status == SubscriptionStatus.Trial || x.Status == SubscriptionStatus.Overdue)).ToListAsync(ct);
+        foreach (var subscription in subscriptions)
+        {
+            subscription.Status = subscription.GracePeriodEndsOn >= today ? SubscriptionStatus.Overdue : SubscriptionStatus.Suspended;
+            subscription.UpdatedAt = DateTimeOffset.UtcNow;
+        }
+        if (subscriptions.Count > 0) await db.SaveChangesAsync(ct);
     }
 }
 

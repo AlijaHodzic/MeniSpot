@@ -1,5 +1,5 @@
 export type AppView = 'login' | 'auth-login' | 'super-admin' | 'restaurant-owner' | 'public-menu';
-export type AdminTab = 'dashboard' | 'restaurants' | 'themes' | 'qr-codes';
+export type AdminTab = 'dashboard' | 'restaurants' | 'billing' | 'themes' | 'qr-codes';
 export type OwnerTab = 'dashboard' | 'categories' | 'products' | 'daily-menu' | 'offers' | 'settings' | 'qr';
 export type ThemeType = 'modern-dark' | 'classic-light' | 'premium-gold' | 'natural-green';
 export type BadgeType = 'new' | 'popular' | 'spicy' | 'vegetarian' | 'chefs-choice';
