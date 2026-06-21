@@ -44,7 +44,7 @@ public sealed class AdminBillingController(IBillingService billing) : ApiControl
 }
 
 [Route("api/restaurant"), Authorize(Roles = Roles.RestaurantOwner + "," + Roles.RestaurantStaff)]
-public sealed class RestaurantController(IRestaurantService restaurants, IMenuManagementService menu) : ApiController
+public sealed class RestaurantController(IRestaurantService restaurants, IMenuManagementService menu, IWebHostEnvironment environment) : ApiController
 {
     [HttpGet] public async Task<ActionResult> Get(CancellationToken ct) => RestaurantId is { } rid && await restaurants.GetAsync(rid, rid, false, ct) is { } x ? Ok(x) : MissingTenant();
     [HttpPut] public async Task<ActionResult> Update(UpdateRestaurantRequest request, CancellationToken ct) => RestaurantId is { } rid && await restaurants.UpdateAsync(rid, request, rid, false, ct) ? NoContent() : MissingTenant();
@@ -59,6 +59,22 @@ public sealed class RestaurantController(IRestaurantService restaurants, IMenuMa
     [HttpDelete("offers/{id:guid}")] public async Task<ActionResult> DeleteOffer(Guid id, CancellationToken ct) => RestaurantId is { } rid && await menu.DeleteOfferAsync(rid, id, ct) ? NoContent() : NotFound();
     [HttpPut("theme")] public async Task<ActionResult> Theme(ThemeRequest request, CancellationToken ct) => RestaurantId is { } rid && await menu.SetThemeAsync(rid, request, ct) ? NoContent() : NotFound();
     [HttpPut("business-hours")] public async Task<ActionResult> Hours(IReadOnlyCollection<BusinessHourRequest> request, CancellationToken ct) => RestaurantId is { } rid && await menu.SetBusinessHoursAsync(rid, request, ct) ? NoContent() : MissingTenant();
+    [HttpPost("images"), RequestSizeLimit(6_000_000)]
+    public async Task<ActionResult> UploadImage(IFormFile file, CancellationToken ct)
+    {
+        if (RestaurantId is not { } rid) return MissingTenant();
+        if (file.Length is <= 0 or > 5_242_880) return BadRequest("Image must be smaller than 5 MB.");
+        var extensions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["image/jpeg"] = ".jpg", ["image/png"] = ".png", ["image/webp"] = ".webp" };
+        if (!extensions.TryGetValue(file.ContentType, out var extension)) return BadRequest("Only JPEG, PNG and WebP images are supported.");
+        var relativeDirectory = Path.Combine("uploads", rid.ToString("N"));
+        var directory = Path.Combine(environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot"), relativeDirectory);
+        Directory.CreateDirectory(directory);
+        var fileName = $"{Guid.NewGuid():N}{extension}";
+        await using var stream = System.IO.File.Create(Path.Combine(directory, fileName));
+        await file.CopyToAsync(stream, ct);
+        var path = $"/{relativeDirectory.Replace('\\', '/')}/{fileName}";
+        return Ok(new { Url = $"{Request.Scheme}://{Request.Host}{path}" });
+    }
 }
 
 [Route("api/public/menus")]

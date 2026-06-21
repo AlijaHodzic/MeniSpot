@@ -53,7 +53,9 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         builder.Entity<SpecialOffer>(e =>
         {
             e.Property(x => x.Title).HasMaxLength(160);
+            e.Property(x => x.Items).HasMaxLength(2000);
             e.Property(x => x.Price).HasPrecision(12, 2);
+            e.Property(x => x.OriginalPrice).HasPrecision(12, 2);
             e.HasOne(x => x.Restaurant).WithMany(x => x.SpecialOffers).HasForeignKey(x => x.RestaurantId).OnDelete(DeleteBehavior.Cascade);
         });
         builder.Entity<BusinessHour>(e =>

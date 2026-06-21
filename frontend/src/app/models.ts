@@ -13,7 +13,7 @@ export interface Product {
 export interface DailyMenu { id: string; name: string; items: string[]; price: number; date: string; active: boolean; }
 export interface Offer { id: string; name: string; description: string; originalPrice: number; offerPrice: number; image: string; validUntil: string; active: boolean; }
 export interface Restaurant {
-  id: string; name: string; address: string; phone: string; website: string; instagram: string;
+  id: string; slug?: string; name: string; address: string; phone: string; website: string; instagram: string;
   cover: string; logo: string; status: 'active' | 'paused'; subscription: 'basic' | 'premium' | 'enterprise';
   theme: ThemeType; themeColor: string; rating: number; views: number; categories: Category[];
   businessHours: BusinessHour[]; dailyMenu: DailyMenu[]; offers: Offer[];

@@ -25,6 +25,8 @@ app.UseExceptionHandler(error => error.Run(async context =>
 }));
 if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); }
 app.UseHttpsRedirection();
+Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, "wwwroot"));
+app.UseStaticFiles();
 app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();

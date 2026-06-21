@@ -106,10 +106,14 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             new AdminSubscriptionDetails(item.SubscriptionStatus, item.Plan, item.MonthlyPrice, item.StartsOn, item.ExpiresOn, item.GracePeriodEndsOn));
     }
 
-    public Task<Restaurant?> GetAsync(Guid id, Guid? tenantId, bool admin, CancellationToken ct) => db.Restaurants.AsNoTracking()
+    public async Task<OwnerRestaurantDetails?> GetAsync(Guid id, Guid? tenantId, bool admin, CancellationToken ct)
+    {
+        var restaurant = await db.Restaurants.AsNoTracking().AsSplitQuery()
         .Include(x => x.Subscription).Include(x => x.Theme).Include(x => x.BusinessHours)
         .Include(x => x.Categories).ThenInclude(x => x.Items).Include(x => x.SpecialOffers)
         .FirstOrDefaultAsync(x => x.Id == id && (admin || x.Id == tenantId), ct);
+        return restaurant is null ? null : ToOwnerDetails(restaurant);
+    }
 
     public async Task<Restaurant> CreateAsync(CreateRestaurantRequest request, CancellationToken ct)
     {
@@ -247,6 +251,16 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
 
     private static readonly string[] SupportedThemes = ["modern-dark", "classic-light", "premium-gold", "natural-green"];
 
+    internal static OwnerRestaurantDetails ToOwnerDetails(Restaurant restaurant) => new(
+        restaurant.Id, restaurant.Name, restaurant.Slug, restaurant.Description, restaurant.LogoUrl, restaurant.CoverImageUrl,
+        restaurant.Address, restaurant.Phone, restaurant.Email, restaurant.WebsiteUrl, restaurant.InstagramUrl,
+        restaurant.Currency, restaurant.DefaultLanguage, restaurant.Type, restaurant.Status,
+        new OwnerTheme(restaurant.Theme?.ThemeKey ?? NormalizeThemeKey(null, restaurant.Type), restaurant.Theme?.PrimaryColor ?? "#111827", restaurant.Theme?.AccentColor ?? "#84cc16", restaurant.Theme?.BackgroundImageUrl, restaurant.Theme?.FontFamily ?? "Inter"),
+        restaurant.BusinessHours.OrderBy(x => x.DayOfWeek).Select(x => new OwnerBusinessHour(x.DayOfWeek, x.OpensAt, x.ClosesAt, x.IsClosed)).ToList(),
+        restaurant.Categories.OrderBy(x => x.SortOrder).Select(x => new OwnerMenuCategory(x.Id, x.Name, x.Description, x.SortOrder, x.IsVisible,
+            x.Items.OrderBy(i => i.SortOrder).Select(i => new OwnerMenuItem(i.Id, i.CategoryId, i.Name, i.Description, i.Price, i.ImageUrl, i.Allergens, i.SortOrder, i.IsVisible, i.IsAvailable, i.IsVegetarian, i.IsSpicy, i.IsFeatured)).ToList())).ToList(),
+        restaurant.SpecialOffers.OrderByDescending(x => x.CreatedAt).Select(x => new OwnerSpecialOffer(x.Id, x.Title, x.Description, x.Price, x.OriginalPrice, x.ImageUrl, x.StartsAt, x.EndsAt, x.IsVisible, x.Kind, x.Items)).ToList());
+
     private static SubscriptionStatus ActiveSubscriptionStatus(Subscription subscription)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -372,12 +386,17 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
 {
     public async Task<MenuCategory?> SaveCategoryAsync(Guid rid, Guid? id, CategoryRequest r, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(r.Name)) throw new InvalidOperationException("Category name is required.");
+        if (r.SortOrder < 0) throw new InvalidOperationException("Category sort order cannot be negative.");
         var x = id is null ? new MenuCategory { RestaurantId = rid, Name = r.Name } : await db.MenuCategories.FirstOrDefaultAsync(x => x.Id == id && x.RestaurantId == rid, ct);
         if (x is null) return null; x.Name = r.Name.Trim(); x.Description = r.Description; x.SortOrder = r.SortOrder; x.IsVisible = r.IsVisible; x.UpdatedAt = DateTimeOffset.UtcNow;
         if (id is null) db.Add(x); await db.SaveChangesAsync(ct); return x;
     }
     public async Task<MenuItem?> SaveItemAsync(Guid rid, Guid? id, MenuItemRequest r, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(r.Name)) throw new InvalidOperationException("Menu item name is required.");
+        if (r.Price < 0) throw new InvalidOperationException("Menu item price cannot be negative.");
+        if (r.SortOrder < 0) throw new InvalidOperationException("Menu item sort order cannot be negative.");
         if (!await db.MenuCategories.AnyAsync(x => x.Id == r.CategoryId && x.RestaurantId == rid, ct)) return null;
         var x = id is null ? new MenuItem { RestaurantId = rid, CategoryId = r.CategoryId, Name = r.Name } : await db.MenuItems.FirstOrDefaultAsync(x => x.Id == id && x.RestaurantId == rid, ct);
         if (x is null) return null; x.CategoryId = r.CategoryId; x.Name = r.Name.Trim(); x.Description = r.Description; x.Price = r.Price; x.ImageUrl = r.ImageUrl; x.Allergens = r.Allergens; x.SortOrder = r.SortOrder; x.IsVisible = r.IsVisible; x.IsAvailable = r.IsAvailable; x.IsVegetarian = r.IsVegetarian; x.IsSpicy = r.IsSpicy; x.IsFeatured = r.IsFeatured; x.UpdatedAt = DateTimeOffset.UtcNow;
@@ -385,8 +404,11 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
     }
     public async Task<SpecialOffer?> SaveOfferAsync(Guid rid, Guid? id, SpecialOfferRequest r, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(r.Title)) throw new InvalidOperationException("Offer title is required.");
+        if (r.Price < 0 || r.OriginalPrice < 0) throw new InvalidOperationException("Offer prices cannot be negative.");
+        if (r.EndsAt < r.StartsAt) throw new InvalidOperationException("Offer end cannot be before its start.");
         var x = id is null ? new SpecialOffer { RestaurantId = rid, Title = r.Title } : await db.SpecialOffers.FirstOrDefaultAsync(x => x.Id == id && x.RestaurantId == rid, ct);
-        if (x is null) return null; x.Title = r.Title.Trim(); x.Description = r.Description; x.Price = r.Price; x.ImageUrl = r.ImageUrl; x.StartsAt = r.StartsAt; x.EndsAt = r.EndsAt; x.IsVisible = r.IsVisible; x.UpdatedAt = DateTimeOffset.UtcNow;
+        if (x is null) return null; x.Title = r.Title.Trim(); x.Description = r.Description; x.Price = r.Price; x.OriginalPrice = r.OriginalPrice; x.ImageUrl = r.ImageUrl; x.StartsAt = r.StartsAt; x.EndsAt = r.EndsAt; x.IsVisible = r.IsVisible; x.Kind = r.Kind; x.Items = r.Items; x.UpdatedAt = DateTimeOffset.UtcNow;
         if (id is null) db.Add(x); await db.SaveChangesAsync(ct); return x;
     }
     public async Task<bool> SetThemeAsync(Guid rid, ThemeRequest r, CancellationToken ct)
@@ -396,6 +418,8 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
     }
     public async Task<bool> SetBusinessHoursAsync(Guid rid, IReadOnlyCollection<BusinessHourRequest> r, CancellationToken ct)
     {
+        if (r.Select(x => x.DayOfWeek).Distinct().Count() != r.Count) throw new InvalidOperationException("Business hours contain duplicate days.");
+        if (r.Any(x => !x.IsClosed && (x.OpensAt is null || x.ClosesAt is null))) throw new InvalidOperationException("Opening and closing time are required for open days.");
         var existing = await db.BusinessHours.Where(x => x.RestaurantId == rid).ToListAsync(ct); db.BusinessHours.RemoveRange(existing);
         db.BusinessHours.AddRange(r.Select(x => new BusinessHour { RestaurantId = rid, DayOfWeek = x.DayOfWeek, OpensAt = x.OpensAt, ClosesAt = x.ClosesAt, IsClosed = x.IsClosed })); await db.SaveChangesAsync(ct); return true;
     }
@@ -420,6 +444,6 @@ public sealed class PublicMenuService(ApplicationDbContext db) : IPublicMenuServ
             .Include(x => x.Categories.Where(c => c.IsVisible).OrderBy(c => c.SortOrder)).ThenInclude(c => c.Items.Where(i => i.IsVisible).OrderBy(i => i.SortOrder))
             .Include(x => x.SpecialOffers.Where(o => o.IsVisible && (o.StartsAt == null || o.StartsAt <= now) && (o.EndsAt == null || o.EndsAt >= now)))
             .FirstOrDefaultAsync(x => x.Slug == slug && x.Status == RestaurantStatus.Active, ct);
-        return restaurant?.Subscription?.IsPubliclyAvailable(today) == true ? new PublicMenu(restaurant) : null;
+        return restaurant?.IsPubliclyAvailable(today) == true ? new PublicMenu(RestaurantService.ToOwnerDetails(restaurant)) : null;
     }
 }

@@ -271,6 +271,12 @@
 .admin-qr-image { display: block; width: min(100%,260px); margin: 18px auto; border: 1px solid #e2e8f0; border-radius: 16px; }
 .qr-placeholder { display: grid; width: 260px; height: 260px; max-width: 100%; place-items: center; margin: 18px auto; border: 1px dashed #cbd5e1; border-radius: 16px; background: #f8fafc; }
 .upload-box { display: grid; height: 90px; place-items: center; margin-top: 7px; border: 1px dashed #cbd5e1; border-radius: 11px; color: #94a3b8; font-weight: 500; }
+.upload-preview { width: 100%; height: 140px; margin-top: 10px; border-radius: 12px; object-fit: cover; }
+.check-label { display: flex; align-items: center; gap: 8px; align-self: center; font-size: 13px; font-weight: 600; }
+.check-label input { width: 16px; height: 16px; }
+.hours-editor { display: grid; gap: 8px; }
+.hours-editor-row { display: grid; grid-template-columns: minmax(120px,1fr) 120px 115px auto 115px; align-items: center; gap: 10px; border-top: 1px solid #f1f5f9; padding: 11px 0; font-size: 13px; }
+.hours-editor-row input[type="time"] { border: 1px solid #dbe3eb; border-radius: 9px; padding: 8px; }
 
 @media (max-width: 1100px) {
   .stat-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
@@ -295,6 +301,7 @@
   .payment-history-panel { border-top: 1px solid #e2e8f0; border-left: 0; }
 }
 @media (max-width: 640px) {
+  .hours-editor-row { grid-template-columns: 1fr 1fr; }
   .page-heading { align-items: flex-start; flex-direction: column; }
   .stat-grid, .product-admin-grid { grid-template-columns: 1fr; }
   .restaurant-table article { grid-template-columns: 44px 1fr auto; gap: 10px; }

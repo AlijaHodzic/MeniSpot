@@ -11,6 +11,7 @@ public enum RestaurantStatus { Draft, Active, Suspended, Cancelled }
 public enum SubscriptionStatus { Trial, Active, Overdue, Suspended, Cancelled }
 public enum EstablishmentType { Restaurant, Cafe, Bar, Club, FastFood, Other }
 public enum PaymentMethod { BankTransfer, Cash, Card, Other }
+public enum SpecialOfferKind { Promotion, DailyMenu }
 
 public sealed class Restaurant : Entity
 {
@@ -34,6 +35,8 @@ public sealed class Restaurant : Entity
     public ICollection<SpecialOffer> SpecialOffers { get; set; } = [];
     public ICollection<BusinessHour> BusinessHours { get; set; } = [];
     public ICollection<SubscriptionPayment> Payments { get; set; } = [];
+
+    public bool IsPubliclyAvailable(DateOnly today) => Status == RestaurantStatus.Active && Subscription?.IsPubliclyAvailable(today) == true;
 }
 
 public sealed class Subscription : Entity
@@ -111,6 +114,9 @@ public sealed class SpecialOffer : Entity
     public required string Title { get; set; }
     public string? Description { get; set; }
     public decimal? Price { get; set; }
+    public decimal? OriginalPrice { get; set; }
+    public SpecialOfferKind Kind { get; set; }
+    public string? Items { get; set; }
     public string? ImageUrl { get; set; }
     public DateTimeOffset? StartsAt { get; set; }
     public DateTimeOffset? EndsAt { get; set; }

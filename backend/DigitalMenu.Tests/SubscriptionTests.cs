@@ -33,6 +33,17 @@ public sealed class SubscriptionTests
         Assert.False(subscription.IsPubliclyAvailable(Today));
     }
 
+    [Theory]
+    [InlineData(RestaurantStatus.Active, true)]
+    [InlineData(RestaurantStatus.Draft, false)]
+    [InlineData(RestaurantStatus.Suspended, false)]
+    [InlineData(RestaurantStatus.Cancelled, false)]
+    public void Public_menu_requires_an_active_restaurant(RestaurantStatus status, bool expected)
+    {
+        var restaurant = new Restaurant { Name = "Test", Slug = "test", Status = status, Subscription = Create(SubscriptionStatus.Active) };
+        Assert.Equal(expected, restaurant.IsPubliclyAvailable(Today));
+    }
+
     private static Subscription Create(SubscriptionStatus status) => new()
     {
         RestaurantId = Guid.NewGuid(), Status = status, StartsOn = Today.AddDays(-30), ExpiresOn = Today
