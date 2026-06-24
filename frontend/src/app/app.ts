@@ -134,6 +134,10 @@ export class App {
   loginPassword = '';
   loginLoading = false;
   loginError = '';
+  leadForm = { businessName: '', email: '', phone: '', type: 'Restoran', message: '' };
+  leadLoading = false;
+  leadSuccess = '';
+  leadError = '';
   adminRestaurants: AdminRestaurantSummary[] = [];
   adminDashboard: AdminDashboardSummary | null = null;
   adminRestaurantsLoading = false;
@@ -241,6 +245,39 @@ export class App {
   openLogin(): void {
     this.loginError = '';
     void this.router.navigate(['/auth/login']);
+  }
+
+  submitLeadForm(): void {
+    if (!this.leadForm.email.trim()) {
+      this.leadError = 'Email adresa je obavezna kako bismo vas mogli kontaktirati.';
+      return;
+    }
+
+    this.leadLoading = true;
+    this.leadError = '';
+    this.leadSuccess = '';
+    const payload = new FormData();
+    payload.append('_subject', 'Novi MeniSpot upit');
+    payload.append('Naziv objekta', this.leadForm.businessName.trim());
+    payload.append('Email', this.leadForm.email.trim());
+    payload.append('Telefon', this.leadForm.phone.trim());
+    payload.append('Tip objekta', this.leadForm.type);
+    payload.append('Poruka', this.leadForm.message.trim());
+
+    void fetch('https://formspree.io/f/xojojzoe', {
+      method: 'POST',
+      body: payload,
+      headers: { Accept: 'application/json' },
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error('Formspree request failed.');
+        this.leadSuccess = 'Upit je poslan. Javit ćemo vam se uskoro na email.';
+        this.leadForm = { businessName: '', email: '', phone: '', type: 'Restoran', message: '' };
+      })
+      .catch(() => {
+        this.leadError = 'Upit trenutno nije moguće poslati. Pokušajte ponovo malo kasnije.';
+      })
+      .finally(() => this.leadLoading = false);
   }
 
   submitLogin(): void {

@@ -1,32 +1,40 @@
 @if (view === 'login') {
-  <main class="min-h-screen bg-[#f7f8fa] text-slate-900">
-    <header class="border-b border-slate-200 bg-white">
+  <main class="landing-page">
+    <header class="landing-header">
       <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
         <span class="brand-lockup"><img src="/menispot-mark.png" alt=""><span class="brand-type"><strong>Meni<em>Spot</em></strong><small>Digital menus. Smarter service.</small></span></span>
-        <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Digital menu platform</span>
+        <button class="landing-login-link" type="button" (click)="openLogin()"><svg lucideLogIn [size]="16"></svg> Prijava</button>
       </div>
     </header>
-    <section class="mx-auto max-w-7xl px-5 py-14 lg:py-20">
-      <div class="mx-auto max-w-3xl text-center">
-        <span class="inline-flex items-center gap-2 rounded-full border border-lime-200 bg-lime-50 px-4 py-2 text-sm font-semibold text-lime-800"><svg lucideSparkles [size]="15"></svg> Jednostavan digitalni meni za svaki ugostiteljski objekat</span>
-        <h1 class="font-display mt-6 text-4xl font-bold tracking-tight sm:text-5xl">Jedna platforma.<br><span class="text-lime-600">Svaki restoran poseban.</span></h1>
-        <p class="mx-auto mt-5 max-w-2xl text-lg leading-8 text-slate-500">Upravljaj restoranima, menijima, licencama i QR kodovima iz jednog sistema.</p>
+    <section class="landing-hero mx-auto max-w-7xl px-5 py-12 lg:py-16">
+      <div class="landing-copy">
+        <span class="landing-pill"><svg lucideSparkles [size]="15"></svg> Digitalni meni bez aplikacije i komplikacija</span>
+        <h1>Jedna platforma.<br><span>Svaki restoran poseban.</span></h1>
+        <p>Gosti skeniraju QR kod i odmah vide meni. Vi upravljate ponudom, cijenama, dnevnim menijem i izgledom iz jednog mjesta.</p>
+        <div class="landing-actions">
+          <button class="primary-button" type="button" (click)="openLogin()"><svg lucideLogIn [size]="17"></svg> Prijava u sistem</button>
+          <a class="secondary-button" href="#kontakt">Kontaktirajte nas</a>
+        </div>
+        <div class="landing-proof">
+          <span><svg lucideQrCode [size]="18"></svg> QR meni</span>
+          <span><svg lucideStore [size]="18"></svg> Restorani, kafići i barovi</span>
+          <span><svg lucideShield [size]="18"></svg> Admin pristup</span>
+        </div>
       </div>
 
-      <div class="mx-auto mt-12 grid max-w-4xl gap-5 md:grid-cols-2">
-        <button class="role-card group" (click)="openLogin()">
-          <span class="role-icon bg-lime-100 text-lime-700"><svg lucideShield [size]="25"></svg></span>
-          <span class="block font-display text-xl font-bold">Prijava u sistem</span>
-          <span class="mt-2 block text-sm leading-6 text-slate-500">Siguran pristup administraciji i panelu vašeg objekta.</span>
-          <span class="mt-6 flex items-center font-semibold text-lime-700">Prijavi se <span class="ml-auto text-xl transition group-hover:translate-x-1">→</span></span>
-        </button>
-        <button class="role-card group" (click)="openLogin()">
-          <span class="role-icon bg-amber-100 text-amber-700"><svg lucideStore [size]="25"></svg></span>
-          <span class="block font-display text-xl font-bold">Vlasnik restorana</span>
-          <span class="mt-2 block text-sm leading-6 text-slate-500">Kategorije, proizvodi, ponude, postavke i pregled javnog menija.</span>
-          <span class="mt-6 flex items-center font-semibold text-amber-700">Otvori panel <span class="ml-auto text-xl transition group-hover:translate-x-1">→</span></span>
-        </button>
-      </div>
+      <form id="kontakt" class="lead-card" (ngSubmit)="submitLeadForm()">
+        <span class="eyebrow">Zainteresovani ste?</span>
+        <h2>Pošaljite upit za digitalni meni</h2>
+        <p>Ostavite email i osnovne podatke o objektu. Javit ćemo vam se sa prijedlogom i sljedećim koracima.</p>
+        <label>Naziv objekta<input name="businessName" [(ngModel)]="leadForm.businessName" placeholder="Npr. Restoran Una"></label>
+        <label>Email adresa <small>obavezno</small><input name="leadEmail" type="email" autocomplete="email" [(ngModel)]="leadForm.email" placeholder="ime@primjer.ba" required></label>
+        <label>Telefon<input name="leadPhone" type="tel" autocomplete="tel" [(ngModel)]="leadForm.phone" placeholder="+387 ..."></label>
+        <label>Tip objekta<select name="leadType" [(ngModel)]="leadForm.type"><option>Restoran</option><option>Kafić</option><option>Bar</option><option>Klub</option><option>Fast food</option><option>Ostalo</option></select></label>
+        <label class="lead-span">Poruka<textarea name="leadMessage" rows="4" [(ngModel)]="leadForm.message" placeholder="Napišite šta vam treba ili kada vam odgovara kontakt."></textarea></label>
+        @if (leadSuccess) { <div class="auth-success">{{ leadSuccess }}</div> }
+        @if (leadError) { <div class="auth-error">{{ leadError }}</div> }
+        <button class="auth-submit" type="submit" [disabled]="leadLoading">@if (leadLoading) { <span class="auth-spinner"></span> Slanje... } @else { Pošalji upit }</button>
+      </form>
     </section>
   </main>
 }
