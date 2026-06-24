@@ -125,6 +125,7 @@ export class App {
   selectedCategory = 'all';
   search = '';
   mobileNav = false;
+  sidebarCollapsed = false;
   showHours = false;
   showProductModal = false;
   showCategoryModal = false;
@@ -245,6 +246,15 @@ export class App {
   openLogin(): void {
     this.loginError = '';
     void this.router.navigate(['/auth/login']);
+  }
+
+  toggleSidebar(): void {
+    if (globalThis.innerWidth <= 900) {
+      this.mobileNav = !this.mobileNav;
+      return;
+    }
+
+    this.sidebarCollapsed = !this.sidebarCollapsed;
   }
 
   submitLeadForm(): void {

@@ -61,13 +61,13 @@
 }
 
 @if (view === 'super-admin') {
-  <div class="app-shell">
+  <div class="app-shell admin-shell" [class.sidebar-collapsed]="sidebarCollapsed">
     <aside class="sidebar" [class.sidebar-open]="mobileNav">
-      <div class="flex items-center gap-3 px-5 py-6"><img class="brand-mark" src="/menispot-mark.png" alt="MeniSpot"><div><p class="font-display font-bold">MeniSpot</p><p class="text-xs text-slate-400">Super Admin</p></div></div>
+      <div class="sidebar-brand"><img class="brand-mark" src="/menispot-mark.png" alt="MeniSpot"><div class="sidebar-brand-text"><p class="font-display font-bold">MeniSpot</p><p class="text-xs text-slate-400">Super Admin</p></div></div>
       <nav class="space-y-1 px-3">
-        @for (item of adminTabs; track item.id) { <button class="nav-item" [class.nav-active]="adminTab === item.id" (click)="selectAdminTab(item.id)">{{ item.label }}</button> }
+        @for (item of adminTabs; track item.id) { <button class="nav-item" [class.nav-active]="adminTab === item.id" (click)="selectAdminTab(item.id)"><span class="nav-label">{{ item.label }}</span></button> }
       </nav>
-      <div class="mt-auto border-t border-slate-200 p-3"><button class="nav-item" (click)="logout()"><svg lucideLogOut [size]="17"></svg> Odjava</button></div>
+      <div class="sidebar-footer"><button class="nav-item" (click)="logout()"><svg lucideLogOut [size]="17"></svg><span class="nav-label">Odjava</span></button></div>
     </aside>
     <section class="main-panel">
       <header class="topbar"><button class="icon-button lg:hidden" (click)="mobileNav = !mobileNav"><svg lucideMenu [size]="21"></svg></button><div><p class="text-sm text-slate-500">Administracija platforme</p><h1 class="font-display text-xl font-bold">{{ adminTitle }}</h1></div><div class="ml-auto hidden items-center gap-3 sm:flex"><span class="h-9 w-9 rounded-full bg-violet-100"></span><div><p class="text-sm font-semibold">Alija Hodžić</p><p class="text-xs text-slate-400">Super administrator</p></div></div></header>
