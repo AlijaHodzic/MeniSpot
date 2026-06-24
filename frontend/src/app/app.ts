@@ -248,8 +248,13 @@ export class App {
   }
 
   submitLeadForm(): void {
-    if (!this.leadForm.email.trim()) {
+    const email = this.leadForm.email.trim();
+    if (!email) {
       this.leadError = 'Email adresa je obavezna kako bismo vas mogli kontaktirati.';
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      this.leadError = 'Unesite ispravnu email adresu, npr. ime@primjer.ba.';
       return;
     }
 
@@ -259,7 +264,9 @@ export class App {
     const payload = new FormData();
     payload.append('_subject', 'Novi MeniSpot upit');
     payload.append('Naziv objekta', this.leadForm.businessName.trim());
-    payload.append('Email', this.leadForm.email.trim());
+    payload.append('Email', email);
+    payload.append('_replyto', email);
+    payload.append('email', email);
     payload.append('Telefon', this.leadForm.phone.trim());
     payload.append('Tip objekta', this.leadForm.type);
     payload.append('Poruka', this.leadForm.message.trim());
