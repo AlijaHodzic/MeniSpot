@@ -1,4 +1,4 @@
-﻿import { CommonModule } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -62,10 +62,10 @@ interface ProductForm { id: string | null; categoryId: string; name: string; des
 interface OfferForm { id: string | null; kind: SpecialOfferKind; title: string; description: string; price: number; originalPrice: number; imageUrl: string; startsAt: string; endsAt: string; isVisible: boolean; items: string }
 
 const themeOptions: { id: ThemeType; name: string; description: string; colors: string[] }[] = [
-  { id: 'classic-light', name: 'Classic Light', description: 'Svijetla tema za restorane i porodiÄne objekte.', colors: ['#f8fafc', '#ffffff', '#84cc16'] },
-  { id: 'modern-dark', name: 'Modern Dark', description: 'Tamna tema za barove, klubove i premium veÄernji ambijent.', colors: ['#111827', '#1f2937', '#84cc16'] },
+  { id: 'classic-light', name: 'Classic Light', description: 'Svijetla tema za restorane i porodične objekte.', colors: ['#f8fafc', '#ffffff', '#84cc16'] },
+  { id: 'modern-dark', name: 'Modern Dark', description: 'Tamna tema za barove, klubove i premium večernji ambijent.', colors: ['#111827', '#1f2937', '#84cc16'] },
   { id: 'premium-gold', name: 'Premium Gold', description: 'Elegantna tema za restorane s ozbiljnijim vizuelnim identitetom.', colors: ['#111827', '#27272a', '#c8a96e'] },
-  { id: 'natural-green', name: 'Natural Green', description: 'SvjeÅ¾a tema za kafiÄ‡e, zdrave menije i dnevne ponude.', colors: ['#f0fdf4', '#ffffff', '#65a30d'] },
+  { id: 'natural-green', name: 'Natural Green', description: 'Svježa tema za kafiće, zdrave menije i dnevne ponude.', colors: ['#f0fdf4', '#ffffff', '#65a30d'] },
 ];
 
 @Component({
@@ -101,7 +101,7 @@ export class App {
     { id: 'offers', label: 'Ponude' }, { id: 'settings', label: 'Postavke' }, { id: 'qr', label: 'QR kod' },
   ];
   readonly establishmentTypes: { value: EstablishmentType; label: string }[] = [
-    { value: 'Restaurant', label: 'Restoran' }, { value: 'Cafe', label: 'KafiÄ‡' },
+    { value: 'Restaurant', label: 'Restoran' }, { value: 'Cafe', label: 'Kafić' },
     { value: 'Bar', label: 'Bar' }, { value: 'Club', label: 'Klub' },
     { value: 'FastFood', label: 'Fast food' }, { value: 'Other', label: 'Ostalo' },
   ];
@@ -283,7 +283,7 @@ export class App {
           this.adminRestaurantsLoaded = true;
           void this.generateAdminQrCodes(restaurants);
         },
-        error: () => this.adminRestaurantsError = 'Restorani se trenutno ne mogu uÄitati. Provjeri backend i pokuÅ¡aj ponovo.',
+        error: () => this.adminRestaurantsError = 'Restorani se trenutno ne mogu učitati. Provjeri backend i pokušaj ponovo.',
       });
   }
 
@@ -298,7 +298,7 @@ export class App {
           this.billingOverview = overview;
           this.billingLoaded = true;
         },
-        error: () => this.billingError = 'Pretplate se trenutno ne mogu uÄitati. Provjeri backend i pokuÅ¡aj ponovo.',
+        error: () => this.billingError = 'Pretplate se trenutno ne mogu učitati. Provjeri backend i pokušaj ponovo.',
       });
   }
 
@@ -313,7 +313,7 @@ export class App {
       .pipe(finalize(() => this.paymentHistoryLoading = false), takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (items) => this.paymentHistory = items,
-        error: () => this.paymentError = 'Historija uplata se ne moÅ¾e uÄitati.',
+        error: () => this.paymentError = 'Historija uplata se ne može učitati.',
       });
   }
 
@@ -327,7 +327,7 @@ export class App {
   recordPayment(): void {
     const account = this.selectedBillingAccount;
     if (!account) return;
-    if (this.paymentForm.amount <= 0) { this.paymentError = 'Iznos uplate mora biti veÄ‡i od nule.'; return; }
+    if (this.paymentForm.amount <= 0) { this.paymentError = 'Iznos uplate mora biti veći od nule.'; return; }
     this.paymentSaving = true;
     this.paymentError = '';
     this.billingService.recordPayment(account.restaurantId, {
@@ -366,7 +366,7 @@ export class App {
       .pipe(finalize(() => this.restaurantModalLoading = false), takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (details) => this.restaurantForm = this.formFromDetails(details),
-        error: () => this.restaurantFormError = 'Podaci restorana se ne mogu uÄitati.',
+        error: () => this.restaurantFormError = 'Podaci restorana se ne mogu učitati.',
       });
   }
 
@@ -434,14 +434,14 @@ export class App {
       next: () => {
         if (passwordChanged) {
           this.restaurantForm.ownerPassword = '';
-          this.restaurantFormSuccess = 'Nova Å¡ifra je uspjeÅ¡no postavljena.';
+          this.restaurantFormSuccess = 'Nova šifra je uspješno postavljena.';
         } else {
           this.showRestaurantModal = false;
         }
         this.loadAdminRestaurants(true);
       },
       error: (error: HttpErrorResponse) => {
-        this.restaurantFormError = error.error?.title ?? 'Promjene nisu saÄuvane. Provjeri unesene podatke.';
+        this.restaurantFormError = error.error?.title ?? 'Promjene nisu sačuvane. Provjeri unesene podatke.';
       },
     });
   }
@@ -457,7 +457,7 @@ export class App {
           item.status = status;
           this.loadAdminRestaurants(true);
         },
-        error: () => this.adminRestaurantsError = 'Status restorana nije promijenjen. PokuÅ¡aj ponovo.',
+        error: () => this.adminRestaurantsError = 'Status restorana nije promijenjen. Pokušaj ponovo.',
       });
   }
 
@@ -473,7 +473,7 @@ export class App {
           this.auth.startImpersonation(session);
           void this.router.navigate(this.auth.dashboardUrl(session));
         },
-        error: () => this.adminRestaurantsError = 'Nije moguÄ‡e otvoriti vlasniÄki panel za ovaj restoran.',
+        error: () => this.adminRestaurantsError = 'Nije moguće otvoriti vlasnički panel za ovaj restoran.',
       });
   }
 
@@ -501,7 +501,7 @@ export class App {
       sortOrder: this.categoryForm.sortOrder, isVisible: this.categoryForm.isVisible,
     }).pipe(finalize(() => this.ownerSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => { this.showCategoryModal = false; this.loadOwnerRestaurant(true); },
-      error: () => this.ownerError = 'Kategorija nije saÄuvana.',
+      error: () => this.ownerError = 'Kategorija nije sačuvana.',
     });
   }
 
@@ -533,7 +533,7 @@ export class App {
       sortOrder: this.productForm.sortOrder, isVisible: this.productForm.isVisible, isAvailable: this.productForm.isAvailable,
       isVegetarian: this.productForm.isVegetarian, isSpicy: this.productForm.isSpicy, isFeatured: this.productForm.isFeatured,
     }).pipe(finalize(() => this.ownerSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: () => { this.showProductModal = false; this.loadOwnerRestaurant(true); }, error: () => this.ownerError = 'Proizvod nije saÄuvan.',
+      next: () => { this.showProductModal = false; this.loadOwnerRestaurant(true); }, error: () => this.ownerError = 'Proizvod nije sačuvan.',
     });
   }
 
@@ -567,7 +567,7 @@ export class App {
       startsAt: this.isoDateTime(this.offerForm.startsAt), endsAt: this.isoDateTime(this.offerForm.endsAt), isVisible: this.offerForm.isVisible,
       kind: this.offerForm.kind, items: this.nullIfEmpty(this.offerForm.items),
     }).pipe(finalize(() => this.ownerSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: () => { this.showOfferModal = false; this.loadOwnerRestaurant(true); }, error: () => this.ownerError = 'Ponuda nije saÄuvana.',
+      next: () => { this.showOfferModal = false; this.loadOwnerRestaurant(true); }, error: () => this.ownerError = 'Ponuda nije sačuvana.',
     });
   }
 
@@ -585,7 +585,7 @@ export class App {
     if (!this.ownerRestaurant) { this.restaurant.theme = theme; return; }
     const selected = this.themes.find((item) => item.id === theme)!;
     const request = { ...this.ownerRestaurant.theme, themeKey: theme, primaryColor: selected.colors[1], accentColor: selected.colors[2] };
-    this.ownerService.setTheme(request).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: () => this.loadOwnerRestaurant(true), error: () => this.ownerError = 'Tema nije saÄuvana.' });
+    this.ownerService.setTheme(request).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: () => this.loadOwnerRestaurant(true), error: () => this.ownerError = 'Tema nije sačuvana.' });
   }
 
   saveOwnerSettings(): void {
@@ -598,14 +598,14 @@ export class App {
       currency: this.ownerRestaurant.currency, defaultLanguage: this.ownerRestaurant.defaultLanguage, type: this.ownerRestaurant.type,
       themeKey: this.restaurant.theme,
     }).pipe(finalize(() => this.ownerSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: () => this.loadOwnerRestaurant(true), error: () => this.ownerError = 'Postavke nisu saÄuvane.',
+      next: () => this.loadOwnerRestaurant(true), error: () => this.ownerError = 'Postavke nisu sačuvane.',
     });
   }
 
   saveBusinessHours(): void {
     if (!this.ownerRestaurant) return;
     this.ownerService.setBusinessHours(this.ownerRestaurant.businessHours)
-      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: () => this.loadOwnerRestaurant(true), error: () => this.ownerError = 'Radno vrijeme nije saÄuvano.' });
+      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: () => this.loadOwnerRestaurant(true), error: () => this.ownerError = 'Radno vrijeme nije sačuvano.' });
   }
 
   downloadOwnerQr(): void {
@@ -625,7 +625,7 @@ export class App {
         else if (target === 'logo') this.restaurant.logo = url;
         else this.restaurant.cover = url;
       },
-      error: (error: HttpErrorResponse) => this.ownerError = error.error?.title ?? 'Fotografija nije uÄitana. Maksimalna veliÄina je 5 MB.',
+      error: (error: HttpErrorResponse) => this.ownerError = error.error?.title ?? 'Fotografija nije učitana. Maksimalna veličina je 5 MB.',
     });
   }
 
@@ -644,7 +644,7 @@ export class App {
   dayName(day: string): string { return this.dayLabel(day); }
 
   badgeLabel(badge: BadgeType): string {
-    return ({ new: 'Novo', popular: 'Popularno', spicy: 'Ljuto', vegetarian: 'Veg', 'chefs-choice': 'Chef preporuÄuje' })[badge];
+    return ({ new: 'Novo', popular: 'Popularno', spicy: 'Ljuto', vegetarian: 'Veg', 'chefs-choice': 'Chef preporučuje' })[badge];
   }
 
   formatPrice(price: number): string {
@@ -672,7 +672,7 @@ export class App {
   }
 
   formatMoneyTotals(totals: { currency: string; amount: number }[] | undefined): string {
-    return totals?.length ? totals.map((item) => this.formatMoney(item.amount, item.currency)).join(' Â· ') : this.formatMoney(0);
+    return totals?.length ? totals.map((item) => this.formatMoney(item.amount, item.currency)).join(' · ') : this.formatMoney(0);
   }
 
   syncPaymentAmount(): void {
@@ -821,7 +821,7 @@ export class App {
     this.ownerError = '';
     this.ownerService.getRestaurant().pipe(finalize(() => this.ownerLoading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (restaurant) => this.applyOwnerRestaurant(restaurant),
-      error: () => this.ownerError = 'Podaci restorana nisu uÄitani. Provjeri da li je API pokrenut.',
+      error: () => this.ownerError = 'Podaci restorana nisu učitani. Provjeri da li je API pokrenut.',
     });
   }
 
@@ -849,7 +849,7 @@ export class App {
       website: restaurant.websiteUrl ?? '', instagram: restaurant.instagramUrl ?? '', cover: restaurant.coverImageUrl || fallbackCover,
       logo: restaurant.logoUrl || '/menispot-mark.png', status: restaurant.status === 'Active' ? 'active' : 'paused', subscription: 'basic',
       theme: restaurant.theme.themeKey as ThemeType, themeColor: restaurant.theme.accentColor,
-      categories: restaurant.categories.map((category) => ({ id: category.id, name: category.name, icon: 'ðŸ½', order: category.sortOrder, active: category.isVisible })),
+      categories: restaurant.categories.map((category) => ({ id: category.id, name: category.name, icon: '🍽', order: category.sortOrder, active: category.isVisible })),
       businessHours: this.completeBusinessHours(restaurant.businessHours).map((hour) => ({ day: this.dayLabel(hour.dayOfWeek), open: hour.opensAt?.slice(0, 5) ?? '', close: hour.closesAt?.slice(0, 5) ?? '', closed: hour.isClosed })),
       dailyMenu: restaurant.offers.filter((offer) => offer.kind === 'DailyMenu' && offer.isVisible).map((offer) => ({ id: offer.id, name: offer.title, items: (offer.items ?? '').split('\n').map((item) => item.trim()).filter(Boolean), price: offer.price ?? 0, date: this.offerDateLabel(offer), active: offer.isVisible })),
       offers: restaurant.offers.filter((offer) => offer.kind === 'Promotion' && offer.isVisible).map((offer) => ({ id: offer.id, name: offer.title, description: offer.description ?? '', originalPrice: offer.originalPrice ?? offer.price ?? 0, offerPrice: offer.price ?? 0, image: offer.imageUrl || fallbackCover, validUntil: offer.endsAt ? new Intl.DateTimeFormat('bs-BA').format(new Date(offer.endsAt)) : 'Trajna ponuda', active: offer.isVisible })),
@@ -864,10 +864,9 @@ export class App {
   private dateTimeInputValue(value: string | null): string { return value ? new Date(value).toISOString().slice(0, 16) : ''; }
   private isoDateTime(value: string): string | null { return value ? new Date(value).toISOString() : null; }
   private offerDateLabel(offer: OwnerSpecialOffer): string { return offer.startsAt ? new Intl.DateTimeFormat('bs-BA', { dateStyle: 'medium' }).format(new Date(offer.startsAt)) : 'Danas'; }
-  private dayLabel(day: string): string { return ({ Monday: 'Ponedjeljak', Tuesday: 'Utorak', Wednesday: 'Srijeda', Thursday: 'ÄŒetvrtak', Friday: 'Petak', Saturday: 'Subota', Sunday: 'Nedjelja' } as Record<string, string>)[day] ?? day; }
+  private dayLabel(day: string): string { return ({ Monday: 'Ponedjeljak', Tuesday: 'Utorak', Wednesday: 'Srijeda', Thursday: 'Četvrtak', Friday: 'Petak', Saturday: 'Subota', Sunday: 'Nedjelja' } as Record<string, string>)[day] ?? day; }
   private completeBusinessHours(hours: OwnerRestaurant['businessHours']): OwnerRestaurant['businessHours'] {
     const days: OwnerRestaurant['businessHours'][number]['dayOfWeek'][] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     return days.map((day) => hours.find((hour) => hour.dayOfWeek === day) ?? { dayOfWeek: day, opensAt: '09:00:00', closesAt: '23:00:00', isClosed: false });
   }
 }
-
