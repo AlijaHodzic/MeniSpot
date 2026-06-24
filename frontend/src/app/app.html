@@ -62,7 +62,9 @@
 
 @if (view === 'super-admin') {
   <div class="app-shell admin-shell" [class.sidebar-collapsed]="sidebarCollapsed">
+    @if (mobileNav) { <button class="mobile-nav-backdrop" type="button" aria-label="Zatvori meni" (click)="mobileNav = false"></button> }
     <aside class="sidebar" [class.sidebar-open]="mobileNav">
+      <button class="mobile-sidebar-close" type="button" aria-label="Zatvori meni" (click)="mobileNav = false"><svg lucideX [size]="20"></svg></button>
       <div class="sidebar-brand"><span class="admin-brand-mark">M</span><div class="sidebar-brand-text"><p class="font-display font-bold">MeniSpot</p><p class="text-xs text-slate-400">Super Admin</p></div></div>
       <nav class="space-y-1 px-3">
         @for (item of adminTabs; track item.id) { <button class="nav-item" [class.nav-active]="adminTab === item.id" (click)="selectAdminTab(item.id)"><span class="nav-label">{{ item.label }}</span></button> }
@@ -70,7 +72,7 @@
       <div class="sidebar-footer"><button class="nav-item" (click)="logout()"><svg lucideLogOut [size]="17"></svg><span class="nav-label">Odjava</span></button></div>
     </aside>
     <section class="main-panel">
-      <header class="topbar"><button class="icon-button lg:hidden" (click)="mobileNav = !mobileNav"><svg lucideMenu [size]="21"></svg></button><div><p class="text-sm text-slate-500">Administracija platforme</p><h1 class="font-display text-xl font-bold">{{ adminTitle }}</h1></div><div class="ml-auto hidden items-center gap-3 sm:flex"><span class="h-9 w-9 rounded-full bg-violet-100"></span><div><p class="text-sm font-semibold">Alija Hodžić</p><p class="text-xs text-slate-400">Super administrator</p></div></div></header>
+      <header class="topbar"><button class="icon-button lg:hidden" (click)="toggleSidebar()"><svg lucideMenu [size]="21"></svg></button><div><p class="text-sm text-slate-500">Administracija platforme</p><h1 class="font-display text-xl font-bold">{{ adminTitle }}</h1></div><div class="ml-auto hidden items-center gap-3 sm:flex"><span class="h-9 w-9 rounded-full bg-violet-100"></span><div><p class="text-sm font-semibold">Alija Hodžić</p><p class="text-xs text-slate-400">Super administrator</p></div></div></header>
       <main class="page-content">
         @if (ownerError) { <div class="admin-alert"><span>{{ ownerError }}</span><button class="secondary-button" (click)="loadOwnerAgain()">Pokušaj ponovo</button></div> }
         @if (ownerLoading && !ownerRestaurant) { <div class="table-state"><span class="auth-spinner"></span><p>Učitavanje restorana...</p></div> }
@@ -210,13 +212,15 @@
 
 @if (view === 'restaurant-owner') {
   <div class="app-shell owner-shell" [style.--brand]="restaurant.themeColor">
+    @if (mobileNav) { <button class="mobile-nav-backdrop" type="button" aria-label="Zatvori meni" (click)="mobileNav = false"></button> }
     <aside class="sidebar" [class.sidebar-open]="mobileNav">
+      <button class="mobile-sidebar-close" type="button" aria-label="Zatvori meni" (click)="mobileNav = false"><svg lucideX [size]="20"></svg></button>
       <div class="owner-sidebar-brand"><img class="owner-sidebar-logo" [src]="restaurant.logo" [alt]="restaurant.name"><div class="min-w-0"><p class="truncate font-display font-bold">{{ restaurant.name }}</p><p class="text-xs text-slate-400">Vlasnički panel</p></div></div>
       <nav class="space-y-1 px-3 py-4">@for (item of ownerTabs; track item.id) { <button class="nav-item" [class.nav-active]="ownerTab === item.id" (click)="selectOwnerTab(item.id)">{{ item.label }}</button> }</nav>
       <div class="mt-auto border-t border-slate-200 p-3">@if (auth.isImpersonating()) { <button class="nav-item impersonation-return" (click)="returnToAdmin()"><svg lucideShield [size]="17"></svg> Nazad u admin</button> }<button class="nav-item" (click)="enter('public-menu', restaurant.id)"><svg lucideEye [size]="17"></svg> Pregled menija</button><button class="nav-item" (click)="logout()"><svg lucideLogOut [size]="17"></svg> Odjava</button></div>
     </aside>
     <section class="main-panel">
-      <header class="topbar"><button class="icon-button lg:hidden" (click)="mobileNav = !mobileNav"><svg lucideMenu [size]="21"></svg></button><div><p class="text-sm text-slate-500">{{ restaurant.name }}</p><h1 class="font-display text-xl font-bold">{{ ownerTitle }}</h1></div><div class="ml-auto flex items-center gap-3">@if (auth.isImpersonating()) { <button class="secondary-button impersonation-return hidden sm:flex" (click)="returnToAdmin()"><svg lucideShield [size]="16"></svg> Nazad u admin</button> }<span class="status-pill" [class.status-paused]="restaurant.status === 'paused'">{{ restaurant.status === 'active' ? 'Meni aktivan' : 'Meni pauziran' }}</span><button class="secondary-button hidden sm:flex" (click)="enter('public-menu', restaurant.id)"><svg lucideEye [size]="16"></svg> Pregled</button></div></header>
+      <header class="topbar"><button class="icon-button lg:hidden" (click)="toggleSidebar()"><svg lucideMenu [size]="21"></svg></button><div><p class="text-sm text-slate-500">{{ restaurant.name }}</p><h1 class="font-display text-xl font-bold">{{ ownerTitle }}</h1></div><div class="ml-auto flex items-center gap-3">@if (auth.isImpersonating()) { <button class="secondary-button impersonation-return hidden sm:flex" (click)="returnToAdmin()"><svg lucideShield [size]="16"></svg> Nazad u admin</button> }<span class="status-pill" [class.status-paused]="restaurant.status === 'paused'">{{ restaurant.status === 'active' ? 'Meni aktivan' : 'Meni pauziran' }}</span><button class="secondary-button hidden sm:flex" (click)="enter('public-menu', restaurant.id)"><svg lucideEye [size]="16"></svg> Pregled</button></div></header>
       <main class="page-content">
         @if (ownerTab === 'dashboard') {
           <div class="page-heading"><div><p class="eyebrow">Danas</p><h2>Pregled restorana</h2><p>Prati meni i brzo pristupi najvažnijim opcijama.</p></div></div>
