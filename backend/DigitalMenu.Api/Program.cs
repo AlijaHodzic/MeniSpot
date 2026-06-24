@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(port)) builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
 builder.Services.AddProblemDetails();
 builder.Services.AddControllers().AddJsonOptions(o =>
 {
@@ -24,12 +27,13 @@ app.UseExceptionHandler(error => error.Run(async context =>
     await context.Response.WriteAsJsonAsync(new ProblemDetails { Status = status, Title = status == 400 ? exception?.Message : "An unexpected error occurred." });
 }));
 if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); }
-app.UseHttpsRedirection();
+if (app.Environment.IsDevelopment()) app.UseHttpsRedirection();
 Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, "wwwroot"));
 app.UseStaticFiles();
 app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 app.MapControllers();
 await DatabaseInitializer.InitializeAsync(app.Services, app.Configuration);
 app.Run();
