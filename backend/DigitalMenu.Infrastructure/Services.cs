@@ -19,12 +19,27 @@ public sealed class JwtOptions
     public int ExpirationMinutes { get; set; } = 60;
 }
 
-public sealed class AuthService(UserManager<ApplicationUser> users, IOptions<JwtOptions> options) : IAuthService
+public sealed class AuthService(UserManager<ApplicationUser> users, ApplicationDbContext db, IOptions<JwtOptions> options) : IAuthService
 {
     public async Task<LoginResponse?> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
     {
         var user = await users.FindByEmailAsync(request.Email);
         if (user is null || !await users.CheckPasswordAsync(user, request.Password)) return null;
+        return await CreateSessionAsync(user);
+    }
+
+    public async Task<LoginResponse?> ImpersonateRestaurantOwnerAsync(Guid restaurantId, CancellationToken cancellationToken)
+    {
+        var owner = await (from user in db.Users
+            join userRole in db.UserRoles on user.Id equals userRole.UserId
+            join role in db.Roles on userRole.RoleId equals role.Id
+            where user.RestaurantId == restaurantId && role.Name == Roles.RestaurantOwner
+            select user).FirstOrDefaultAsync(cancellationToken);
+        return owner is null ? null : await CreateSessionAsync(owner);
+    }
+
+    private async Task<LoginResponse> CreateSessionAsync(ApplicationUser user)
+    {
         var roles = await users.GetRolesAsync(user);
         var role = roles.FirstOrDefault() ?? string.Empty;
         var now = DateTimeOffset.UtcNow;

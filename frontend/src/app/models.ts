@@ -15,6 +15,6 @@ export interface Offer { id: string; name: string; description: string; original
 export interface Restaurant {
   id: string; slug?: string; name: string; address: string; phone: string; website: string; instagram: string;
   cover: string; logo: string; status: 'active' | 'paused'; subscription: 'basic' | 'premium' | 'enterprise';
-  theme: ThemeType; themeColor: string; rating: number; views: number; categories: Category[];
+  theme: ThemeType; themeColor: string; categories: Category[];
   businessHours: BusinessHour[]; dailyMenu: DailyMenu[]; offers: Offer[];
 }

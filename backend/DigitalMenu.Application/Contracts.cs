@@ -62,6 +62,7 @@ public sealed record PublicMenu(OwnerRestaurantDetails Restaurant);
 public interface IAuthService
 {
     Task<LoginResponse?> LoginAsync(LoginRequest request, CancellationToken cancellationToken);
+    Task<LoginResponse?> ImpersonateRestaurantOwnerAsync(Guid restaurantId, CancellationToken cancellationToken);
 }
 
 public interface IRestaurantService

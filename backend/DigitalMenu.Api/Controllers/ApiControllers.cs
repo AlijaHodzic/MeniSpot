@@ -23,7 +23,7 @@ public sealed class AuthController(IAuthService auth) : ApiController
 }
 
 [Route("api/admin/restaurants"), Authorize(Roles = Roles.SuperAdmin)]
-public sealed class AdminRestaurantsController(IRestaurantService restaurants) : ApiController
+public sealed class AdminRestaurantsController(IRestaurantService restaurants, IAuthService auth) : ApiController
 {
     [HttpGet] public async Task<ActionResult> All(CancellationToken ct) => Ok(await restaurants.GetAllAsync(ct));
     [HttpGet("dashboard")] public async Task<ActionResult> Dashboard(CancellationToken ct) => Ok(await restaurants.GetDashboardAsync(ct));
@@ -33,6 +33,7 @@ public sealed class AdminRestaurantsController(IRestaurantService restaurants) :
     [HttpPut("{id:guid}/status")] public async Task<ActionResult> Status(Guid id, [FromBody] RestaurantStatus status, CancellationToken ct) => await restaurants.SetStatusAsync(id, status, ct) ? NoContent() : NotFound();
     [HttpPut("{id:guid}/subscription")] public async Task<ActionResult> Subscription(Guid id, SetSubscriptionRequest request, CancellationToken ct) => await restaurants.SetSubscriptionAsync(id, request, ct) ? NoContent() : NotFound();
     [HttpPut("{id:guid}/owner-access")] public async Task<ActionResult> OwnerAccess(Guid id, UpdateOwnerAccessRequest request, CancellationToken ct) => await restaurants.UpdateOwnerAccessAsync(id, request, ct) ? NoContent() : NotFound();
+    [HttpPost("{id:guid}/impersonate")] public async Task<ActionResult<LoginResponse>> Impersonate(Guid id, CancellationToken ct) => await auth.ImpersonateRestaurantOwnerAsync(id, ct) is { } result ? Ok(result) : NotFound();
 }
 
 [Route("api/admin/billing"), Authorize(Roles = Roles.SuperAdmin)]

@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_URL } from '../api.config';
+import { AuthSession } from '../auth/auth.models';
 import {
   AdminRestaurantDetails,
   AdminRestaurantSummary,
@@ -50,5 +51,9 @@ export class AdminRestaurantsService {
 
   updateOwnerAccess(id: string, request: UpdateOwnerAccessRequest): Observable<void> {
     return this.http.put<void>(`${this.endpoint}/${id}/owner-access`, request);
+  }
+
+  impersonate(id: string): Observable<AuthSession> {
+    return this.http.post<AuthSession>(`${this.endpoint}/${id}/impersonate`, {});
   }
 }

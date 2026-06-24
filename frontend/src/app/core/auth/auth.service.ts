@@ -6,16 +6,19 @@ import { API_URL } from '../api.config';
 import { AuthSession, LoginRequest, UserRole } from './auth.models';
 
 const SESSION_KEY = 'menispot.auth';
+const ADMIN_SESSION_KEY = 'menispot.admin_backup';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
   private readonly sessionState = signal<AuthSession | null>(this.restoreSession());
+  private readonly adminBackupState = signal<AuthSession | null>(this.restoreAdminSession());
 
   readonly session = this.sessionState.asReadonly();
   readonly isAuthenticated = computed(() => this.sessionState() !== null);
   readonly role = computed(() => this.sessionState()?.role ?? null);
+  readonly isImpersonating = computed(() => this.adminBackupState() !== null);
 
   login(request: LoginRequest): Observable<AuthSession> {
     return this.http.post<AuthSession>(`${API_URL}/auth/login`, request).pipe(
@@ -28,8 +31,34 @@ export class AuthService {
 
   logout(): void {
     localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+    this.adminBackupState.set(null);
     this.sessionState.set(null);
     void this.router.navigate(['/auth/login']);
+  }
+
+  startImpersonation(session: AuthSession): void {
+    const current = this.sessionState();
+    if (current?.role === 'SuperAdmin') {
+      localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(current));
+      this.adminBackupState.set(current);
+    }
+    this.setSession(session);
+  }
+
+  stopImpersonation(): void {
+    const session = this.adminBackupState() ?? this.restoreAdminSession();
+    if (!session) return;
+
+    try {
+      localStorage.removeItem(ADMIN_SESSION_KEY);
+      this.adminBackupState.set(null);
+      this.setSession(session);
+      void this.router.navigate(this.dashboardUrl(session));
+    } catch {
+      localStorage.removeItem(ADMIN_SESSION_KEY);
+      this.logout();
+    }
   }
 
   hasRole(roles: UserRole[]): boolean {
@@ -40,6 +69,11 @@ export class AuthService {
   dashboardUrl(session: AuthSession = this.sessionState()!): string[] {
     if (session.role === 'SuperAdmin') return ['/admin', 'dashboard'];
     return ['/restaurant', session.restaurantId ?? '', 'dashboard'];
+  }
+
+  private setSession(session: AuthSession): void {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    this.sessionState.set(session);
   }
 
   private restoreSession(): AuthSession | null {
@@ -55,6 +89,23 @@ export class AuthService {
       return session;
     } catch {
       localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+  }
+
+  private restoreAdminSession(): AuthSession | null {
+    const stored = localStorage.getItem(ADMIN_SESSION_KEY);
+    if (!stored) return null;
+
+    try {
+      const session = JSON.parse(stored) as AuthSession;
+      if (!session.accessToken || new Date(session.expiresAt).getTime() <= Date.now()) {
+        localStorage.removeItem(ADMIN_SESSION_KEY);
+        return null;
+      }
+      return session;
+    } catch {
+      localStorage.removeItem(ADMIN_SESSION_KEY);
       return null;
     }
   }

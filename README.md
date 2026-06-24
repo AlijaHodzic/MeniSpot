@@ -21,6 +21,20 @@ MeniSpot is a digital menu platform for restaurants, cafes, and bars. It provide
 
 ## Local Development
 
+Quick start for the full local stack:
+
+```powershell
+.\start-dev.ps1
+```
+
+Stop the backend and frontend dev processes:
+
+```powershell
+.\stop-dev.ps1
+```
+
+The stop script leaves PostgreSQL running so the local database stays ready for the next test session.
+
 ### Database
 
 Start PostgreSQL in Docker:

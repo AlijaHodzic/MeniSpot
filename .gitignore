@@ -4,6 +4,7 @@
 **/dist/
 **/.angular/
 **/coverage/
+.dev/
 backend/DigitalMenu.Api/wwwroot/uploads/
 .vs/
 .vscode/
