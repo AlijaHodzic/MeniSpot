@@ -63,7 +63,7 @@
 @if (view === 'super-admin') {
   <div class="app-shell admin-shell" [class.sidebar-collapsed]="sidebarCollapsed">
     <aside class="sidebar" [class.sidebar-open]="mobileNav">
-      <div class="sidebar-brand"><img class="brand-mark" src="/menispot-mark.png" alt="MeniSpot"><div class="sidebar-brand-text"><p class="font-display font-bold">MeniSpot</p><p class="text-xs text-slate-400">Super Admin</p></div></div>
+      <div class="sidebar-brand"><span class="admin-brand-mark">M</span><div class="sidebar-brand-text"><p class="font-display font-bold">MeniSpot</p><p class="text-xs text-slate-400">Super Admin</p></div></div>
       <nav class="space-y-1 px-3">
         @for (item of adminTabs; track item.id) { <button class="nav-item" [class.nav-active]="adminTab === item.id" (click)="selectAdminTab(item.id)"><span class="nav-label">{{ item.label }}</span></button> }
       </nav>
