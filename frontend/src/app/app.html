@@ -211,7 +211,7 @@
 @if (view === 'restaurant-owner') {
   <div class="app-shell owner-shell" [style.--brand]="restaurant.themeColor">
     <aside class="sidebar" [class.sidebar-open]="mobileNav">
-      <div class="border-b border-slate-200 p-5"><div class="mb-4 flex items-center gap-2"><img class="brand-mark-small" src="/menispot-mark.png" alt="MeniSpot"><span class="font-display text-sm font-bold">MeniSpot</span></div><div class="flex items-center gap-3"><img class="h-11 w-11 rounded-xl object-cover" [src]="restaurant.logo"><div class="min-w-0"><p class="truncate font-display font-bold">{{ restaurant.name }}</p><p class="text-xs text-slate-400">Vlasnički panel</p></div></div></div>
+      <div class="owner-sidebar-brand"><img class="owner-sidebar-logo" [src]="restaurant.logo" [alt]="restaurant.name"><div class="min-w-0"><p class="truncate font-display font-bold">{{ restaurant.name }}</p><p class="text-xs text-slate-400">Vlasnički panel</p></div></div>
       <nav class="space-y-1 px-3 py-4">@for (item of ownerTabs; track item.id) { <button class="nav-item" [class.nav-active]="ownerTab === item.id" (click)="selectOwnerTab(item.id)">{{ item.label }}</button> }</nav>
       <div class="mt-auto border-t border-slate-200 p-3">@if (auth.isImpersonating()) { <button class="nav-item impersonation-return" (click)="returnToAdmin()"><svg lucideShield [size]="17"></svg> Nazad u admin</button> }<button class="nav-item" (click)="enter('public-menu', restaurant.id)"><svg lucideEye [size]="17"></svg> Pregled menija</button><button class="nav-item" (click)="logout()"><svg lucideLogOut [size]="17"></svg> Odjava</button></div>
     </aside>
