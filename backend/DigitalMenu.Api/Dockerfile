@@ -7,7 +7,7 @@ COPY backend/DigitalMenu.Application/DigitalMenu.Application.csproj backend/Digi
 COPY backend/DigitalMenu.Domain/DigitalMenu.Domain.csproj backend/DigitalMenu.Domain/
 COPY backend/DigitalMenu.Infrastructure/DigitalMenu.Infrastructure.csproj backend/DigitalMenu.Infrastructure/
 
-RUN dotnet restore DigitalMenu.slnx
+RUN dotnet restore backend/DigitalMenu.Api/DigitalMenu.Api.csproj
 
 COPY . .
 RUN dotnet publish backend/DigitalMenu.Api/DigitalMenu.Api.csproj -c Release -o /app/publish --no-restore
