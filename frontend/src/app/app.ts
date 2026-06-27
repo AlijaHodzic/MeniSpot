@@ -62,7 +62,7 @@ interface RestaurantForm {
 interface CategoryForm { id: string | null; name: string; description: string; sortOrder: number; isVisible: boolean }
 interface ProductForm { id: string | null; categoryId: string; globalDrinkId: string | null; name: string; description: string; price: number; servingSize: string; imageUrl: string; allergens: string; sortOrder: number; isVisible: boolean; isAvailable: boolean; isVegetarian: boolean; isSpicy: boolean; isFeatured: boolean }
 interface OfferForm { id: string | null; kind: SpecialOfferKind; title: string; description: string; price: number; originalPrice: number; imageUrl: string; startsAt: string; endsAt: string; isVisible: boolean; items: string }
-interface AdminDrinkForm { id: string | null; name: string; slug: string; category: string; description: string; imageUrl: string; servingOptions: string; sortOrder: number; isActive: boolean }
+interface AdminDrinkForm { id: string | null; name: string; slug: string; category: string; description: string; imageUrl: string; servingOptions: string; isByGlass: boolean; sortOrder: number; isActive: boolean }
 interface DrinkLibraryVariant { key: string; drink: GlobalDrinkSummary; servingSize: string | null }
 
 const themeOptions: { id: ThemeType; name: string; description: string; colors: string[] }[] = [
@@ -453,6 +453,7 @@ export class App {
       description: item.description ?? '',
       imageUrl: item.imageUrl ?? '',
       servingOptions: item.servingOptions ?? '',
+      isByGlass: this.isGlassDescription(item.description),
       sortOrder: item.sortOrder,
       isActive: item.isActive,
     } : this.emptyAdminDrinkForm();
@@ -485,7 +486,7 @@ export class App {
       name: form.name.trim(),
       slug: this.nullIfEmpty(form.slug),
       category: form.category.trim(),
-      description: this.nullIfEmpty(form.description),
+      description: this.adminDrinkDescription(form),
       imageUrl: this.nullIfEmpty(form.imageUrl),
       servingOptions: this.nullIfEmpty(form.servingOptions),
       sortOrder: Number(form.sortOrder) || 0,
@@ -1112,6 +1113,22 @@ export class App {
     return options[category] ?? 'porcija';
   }
 
+  updateAdminDrinkGlassFlag(): void {
+    if (this.adminDrinkForm.isByGlass) {
+      this.adminDrinkForm.description = 'Vino na čašu';
+    } else if (this.isGlassDescription(this.adminDrinkForm.description)) {
+      this.adminDrinkForm.description = '';
+    }
+  }
+
+  private adminDrinkDescription(form: AdminDrinkForm): string | null {
+    return form.isByGlass ? 'Vino na čašu' : this.nullIfEmpty(form.description);
+  }
+
+  private isGlassDescription(value?: string | null): boolean {
+    return (value ?? '').trim().toLocaleLowerCase('bs-BA') === 'vino na čašu';
+  }
+
   private emptyPaymentForm(account?: BillingAccountSummary): { amount: number; currency: string; paidOn: string; coverageMonths: number; method: PaymentMethod; reference: string; note: string } {
     return {
       amount: account?.monthlyPrice ?? 0,
@@ -1133,6 +1150,7 @@ export class App {
       description: '',
       imageUrl: '',
       servingOptions: this.defaultServingOptions(this.drinkCategories[0]),
+      isByGlass: false,
       sortOrder: this.adminDrinks.length + 1,
       isActive: true,
     };

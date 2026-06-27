@@ -233,7 +233,8 @@
             <label>Slug<input name="adminDrinkSlug" [(ngModel)]="adminDrinkForm.slug" placeholder="coca-cola"></label>
             <label>Redoslijed<input name="adminDrinkSort" type="number" min="0" [(ngModel)]="adminDrinkForm.sortOrder"></label>
             <label class="form-span-2">Veličine / porcije<input name="adminDrinkServingOptions" [(ngModel)]="adminDrinkForm.servingOptions" placeholder="0.25l, 0.33l, 0.50l"></label>
-            <label class="form-span-2">Opis<textarea name="adminDrinkDescription" rows="3" [(ngModel)]="adminDrinkForm.description" placeholder="Kratak opis koji se može prikazati u meniju."></textarea></label>
+            <label class="check-label form-span-2"><input name="adminDrinkByGlass" type="checkbox" [(ngModel)]="adminDrinkForm.isByGlass" (ngModelChange)="updateAdminDrinkGlassFlag()"> Prikazuj kao na čašu</label>
+            <label class="form-span-2">Opis<textarea name="adminDrinkDescription" rows="3" [(ngModel)]="adminDrinkForm.description" [disabled]="adminDrinkForm.isByGlass" placeholder="Kratak opis koji se može prikazati u meniju."></textarea></label>
             <label class="form-span-2">Fotografija<input name="adminDrinkImageUpload" type="file" accept="image/png,image/jpeg,image/webp" (change)="selectAdminDrinkImage($event)">@if (adminDrinkUploading) { <span class="field-hint">Upload u toku...</span> } @if (adminDrinkForm.imageUrl) { <img class="upload-preview" [src]="adminDrinkForm.imageUrl" alt="Pregled fotografije"> }</label>
             <label class="form-span-2">URL fotografije<input name="adminDrinkImageUrl" [(ngModel)]="adminDrinkForm.imageUrl" placeholder="/uploads/drinks/..."></label>
             <label class="check-label form-span-2"><input name="adminDrinkActive" type="checkbox" [(ngModel)]="adminDrinkForm.isActive"> Aktivno u biblioteci za vlasnike restorana</label>
