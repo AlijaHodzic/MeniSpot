@@ -125,6 +125,7 @@
         @if (adminTab === 'drink-library') {
           <div class="page-heading"><div><p class="eyebrow">Globalna ponuda</p><h2>Biblioteka pića</h2><p>Jednom dodaj sliku i opis, vlasnici restorana samo biraju piće i upisuju cijenu.</p></div><button class="primary-button" (click)="openAdminDrink()"><svg lucidePlus [size]="17"></svg> Novo piće</button></div>
           @if (adminDrinksError) { <div class="admin-alert"><span>{{ adminDrinksError }}</span><button (click)="loadAdminDrinks(true)">Pokušaj ponovo</button></div> }
+          <div class="drink-category-strip">@for (category of adminDrinkCategoryStats; track category.name) { <button type="button" (click)="adminDrinkSearch = category.name"><b>{{ category.name }}</b><span>{{ category.count }}</span></button> }</div>
           <div class="panel-card overflow-hidden p-0">
             <div class="table-toolbar"><div class="search-box"><svg lucideSearch [size]="17"></svg><input name="adminDrinkSearch" [(ngModel)]="adminDrinkSearch" placeholder="Pretraži pića, kategorije ili slug..."></div><span class="text-sm text-slate-500">{{ filteredAdminDrinks.length }} pića</span></div>
             @if (adminDrinksLoading) { <div class="table-state"><span class="auth-spinner"></span><p>Učitavanje biblioteke pića...</p></div> }
@@ -228,7 +229,7 @@
           @if (adminDrinkFormError) { <div class="auth-error">{{ adminDrinkFormError }}</div> }
           <div class="form-grid">
             <label>Naziv pića<input name="adminDrinkName" [(ngModel)]="adminDrinkForm.name" (ngModelChange)="syncAdminDrinkSlug()" required></label>
-            <label>Kategorija<input name="adminDrinkCategory" [(ngModel)]="adminDrinkForm.category" placeholder="Bezalkoholna pića" required></label>
+            <label>Kategorija<select name="adminDrinkCategory" [(ngModel)]="adminDrinkForm.category" required>@for (category of drinkCategories; track category) { <option [value]="category">{{ category }}</option> }</select></label>
             <label>Slug<input name="adminDrinkSlug" [(ngModel)]="adminDrinkForm.slug" placeholder="coca-cola-025"></label>
             <label>Redoslijed<input name="adminDrinkSort" type="number" min="0" [(ngModel)]="adminDrinkForm.sortOrder"></label>
             <label class="form-span-2">Opis<textarea name="adminDrinkDescription" rows="3" [(ngModel)]="adminDrinkForm.description" placeholder="Kratak opis koji se može prikazati u meniju."></textarea></label>

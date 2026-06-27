@@ -66,6 +66,7 @@
 .admin-shell .admin-drink-card { background: #20252e; }
 .admin-shell .search-box, .admin-shell .menu-search, .admin-shell .billing-toolbar > select { border-color: #3a414d; background: #1f242c; color: #aab4c3; }
 .admin-shell .search-box input, .admin-shell .menu-search input, .admin-shell .billing-toolbar > select { color: #f8fafc; }
+.admin-shell .drink-category-strip button { border-color: #3a414d; background: #20252e; color: #aab4c3; }
 .admin-shell .chart-grid i { border-color: #343b46; }
 .admin-shell .chart-tooltip { background: #0f172a; }
 .admin-shell .empty-state { border-color: #3a414d; background: #222732; }
@@ -161,6 +162,9 @@
 .admin-drink-card p { margin: 4px 0 0; color: #94a3b8; font-size: 11px; }
 .admin-drink-card small { display: block; overflow: hidden; max-width: 780px; margin-top: 6px; color: #64748b; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .admin-drink-hidden { opacity: .65; }
+.drink-category-strip { display: flex; overflow-x: auto; gap: 9px; margin: -10px 0 18px; padding-bottom: 4px; }
+.drink-category-strip button { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 8px; border: 1px solid #dbe1e8; border-radius: 999px; background: white; padding: 8px 11px; color: #475569; font-size: 12px; }
+.drink-category-strip span { display: grid; min-width: 22px; height: 22px; place-items: center; border-radius: 999px; background: var(--menispot-green-soft); color: var(--menispot-green-dark); font-size: 10px; font-weight: 800; }
 .admin-alert { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; border: 1px solid #fecaca; border-radius: 12px; background: #fef2f2; padding: 12px 15px; color: #991b1b; font-size: 13px; }
 .admin-alert button { border: 0; background: transparent; color: #991b1b; font-weight: 800; }
 .table-state { display: grid; min-height: 250px; place-items: center; align-content: center; gap: 10px; padding: 30px; color: #94a3b8; text-align: center; }

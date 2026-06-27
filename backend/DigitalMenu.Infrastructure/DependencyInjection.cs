@@ -55,6 +55,7 @@ public static class DatabaseInitializer
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         await db.Database.MigrateAsync();
         await SeedGlobalDrinksAsync(db);
+        await NormalizeGlobalDrinkCategoriesAsync(db);
         var roles = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
         foreach (var role in new[] { Roles.SuperAdmin, Roles.RestaurantOwner, Roles.RestaurantStaff })
             if (!await roles.RoleExistsAsync(role)) await roles.CreateAsync(new IdentityRole<Guid>(role));
@@ -105,5 +106,29 @@ public static class DatabaseInitializer
             IsActive = true
         }));
         await db.SaveChangesAsync();
+    }
+
+    private static async Task NormalizeGlobalDrinkCategoriesAsync(ApplicationDbContext db)
+    {
+        var drinks = await db.GlobalDrinks.ToListAsync();
+        var changed = false;
+        foreach (var drink in drinks)
+        {
+            var category = drink.Slug switch
+            {
+                "prirodna-voda-033" or "kisela-voda-033" => "Vode",
+                "espresso" or "americano" or "cappuccino" or "latte" or "caj" => "Topli napici",
+                "heineken-033" or "tuborg-033" or "sarajevsko-033" => "Pivo",
+                "bijelo-vino-01" => "Bijela vina",
+                "crno-vino-01" => "Crna vina",
+                _ when drink.Category is "Bezalkoholna piÄ‡a" or "Bezalkoholna pića" or "Energetska piÄ‡a" or "Energetska pića" => "Gazirana pića",
+                _ => drink.Category
+            };
+            if (drink.Category == category) continue;
+            drink.Category = category;
+            drink.UpdatedAt = DateTimeOffset.UtcNow;
+            changed = true;
+        }
+        if (changed) await db.SaveChangesAsync();
     }
 }

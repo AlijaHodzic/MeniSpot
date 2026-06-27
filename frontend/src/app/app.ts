@@ -71,6 +71,19 @@ const themeOptions: { id: ThemeType; name: string; description: string; colors: 
   { id: 'natural-green', name: 'Natural Green', description: 'Svježa tema za kafiće, zdrave menije i dnevne ponude.', colors: ['#f0fdf4', '#ffffff', '#65a30d'] },
 ];
 
+const drinkCategories = [
+  'Vode',
+  'Gazirana pića',
+  'Negazirana pića',
+  'Cijeđeni sokovi',
+  'Topli napici',
+  'Točeno pivo',
+  'Pivo',
+  'Alkoholni napici',
+  'Crna vina',
+  'Bijela vina',
+];
+
 @Component({
   selector: 'app-root',
   imports: [
@@ -94,6 +107,7 @@ export class App {
   private readonly ownerService = inject(OwnerService);
   readonly auth = inject(AuthService);
   readonly themes = themeOptions;
+  readonly drinkCategories = drinkCategories;
   readonly adminTabs: { id: AdminTab; label: string }[] = [
     { id: 'dashboard', label: 'Pregled' }, { id: 'restaurants', label: 'Restorani' },
     { id: 'billing', label: 'Pretplate' }, { id: 'drink-library', label: 'Biblioteka pića' },
@@ -250,6 +264,9 @@ export class App {
       item.slug.toLocaleLowerCase().includes(term) ||
       item.category.toLocaleLowerCase().includes(term) ||
       (item.description ?? '').toLocaleLowerCase().includes(term));
+  }
+  get adminDrinkCategoryStats(): { name: string; count: number }[] {
+    return this.drinkCategories.map((name) => ({ name, count: this.adminDrinks.filter((item) => item.category === name).length }));
   }
 
   get filteredProducts(): Product[] {
@@ -1058,7 +1075,7 @@ export class App {
       id: null,
       name: '',
       slug: '',
-      category: 'Bezalkoholna pića',
+      category: this.drinkCategories[0],
       description: '',
       imageUrl: '',
       sortOrder: this.adminDrinks.length + 1,
