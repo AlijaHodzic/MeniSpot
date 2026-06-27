@@ -19,6 +19,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<ThemeSettings> ThemeSettings => Set<ThemeSettings>();
     public DbSet<MenuCategory> MenuCategories => Set<MenuCategory>();
     public DbSet<MenuItem> MenuItems => Set<MenuItem>();
+    public DbSet<GlobalDrink> GlobalDrinks => Set<GlobalDrink>();
     public DbSet<SpecialOffer> SpecialOffers => Set<SpecialOffer>();
     public DbSet<BusinessHour> BusinessHours => Set<BusinessHour>();
     public DbSet<SubscriptionPayment> SubscriptionPayments => Set<SubscriptionPayment>();
@@ -49,6 +50,15 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.Name).HasMaxLength(160);
             e.Property(x => x.Price).HasPrecision(12, 2);
             e.HasOne(x => x.Category).WithMany(x => x.Items).HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.GlobalDrink).WithMany().HasForeignKey(x => x.GlobalDrinkId).OnDelete(DeleteBehavior.SetNull);
+        });
+        builder.Entity<GlobalDrink>(e =>
+        {
+            e.HasIndex(x => x.Slug).IsUnique();
+            e.HasIndex(x => new { x.Category, x.SortOrder });
+            e.Property(x => x.Name).HasMaxLength(160);
+            e.Property(x => x.Slug).HasMaxLength(120);
+            e.Property(x => x.Category).HasMaxLength(80);
         });
         builder.Entity<SpecialOffer>(e =>
         {

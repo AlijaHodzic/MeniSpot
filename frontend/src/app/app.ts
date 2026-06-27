@@ -26,7 +26,7 @@ import { AdminRestaurantsService } from './core/restaurants/admin-restaurants.se
 import { QrCodeService } from './core/qr-code.service';
 import { BillingAccountSummary, BillingOverview, PaymentHistoryItem, PaymentMethod } from './core/billing/billing.models';
 import { BillingService } from './core/billing/billing.service';
-import { OwnerMenuCategory, OwnerMenuItem, OwnerRestaurant, OwnerSpecialOffer, SpecialOfferKind, SpecialOfferRequest } from './core/owner/owner.models';
+import { GlobalDrinkSummary, OwnerMenuCategory, OwnerMenuItem, OwnerRestaurant, OwnerSpecialOffer, SpecialOfferKind, SpecialOfferRequest } from './core/owner/owner.models';
 import { OwnerService } from './core/owner/owner.service';
 
 interface RestaurantForm {
@@ -58,7 +58,7 @@ interface RestaurantForm {
 }
 
 interface CategoryForm { id: string | null; name: string; description: string; sortOrder: number; isVisible: boolean }
-interface ProductForm { id: string | null; categoryId: string; name: string; description: string; price: number; imageUrl: string; allergens: string; sortOrder: number; isVisible: boolean; isAvailable: boolean; isVegetarian: boolean; isSpicy: boolean; isFeatured: boolean }
+interface ProductForm { id: string | null; categoryId: string; globalDrinkId: string | null; name: string; description: string; price: number; imageUrl: string; allergens: string; sortOrder: number; isVisible: boolean; isAvailable: boolean; isVegetarian: boolean; isSpicy: boolean; isFeatured: boolean }
 interface OfferForm { id: string | null; kind: SpecialOfferKind; title: string; description: string; price: number; originalPrice: number; imageUrl: string; startsAt: string; endsAt: string; isVisible: boolean; items: string }
 
 const themeOptions: { id: ThemeType; name: string; description: string; colors: string[] }[] = [
@@ -128,6 +128,7 @@ export class App {
   sidebarCollapsed = false;
   showHours = false;
   showProductModal = false;
+  showDrinkLibraryModal = false;
   showCategoryModal = false;
   showOfferModal = false;
   showPassword = false;
@@ -174,6 +175,12 @@ export class App {
   ownerError = '';
   ownerSaving = false;
   ownerQrCode = '';
+  drinkLibrary: GlobalDrinkSummary[] = [];
+  drinkLibraryLoading = false;
+  drinkLibraryError = '';
+  drinkLibrarySearch = '';
+  drinkLibraryCategoryId = '';
+  drinkSelections: Record<string, { selected: boolean; price: number }> = {};
   categoryForm: CategoryForm = this.emptyCategoryForm();
   productForm: ProductForm = this.emptyProductForm();
   offerForm: OfferForm = this.emptyOfferForm('Promotion');
@@ -228,6 +235,17 @@ export class App {
       (this.selectedCategory === 'all' || product.categoryId === this.selectedCategory) &&
       (!term || product.name.toLocaleLowerCase().includes(term) || product.description.toLocaleLowerCase().includes(term)),
     );
+  }
+  get filteredDrinkLibrary(): GlobalDrinkSummary[] {
+    const term = this.drinkLibrarySearch.trim().toLocaleLowerCase();
+    return this.drinkLibrary.filter((drink) =>
+      !term ||
+      drink.name.toLocaleLowerCase().includes(term) ||
+      drink.category.toLocaleLowerCase().includes(term) ||
+      (drink.description ?? '').toLocaleLowerCase().includes(term));
+  }
+  get selectedLibraryDrinkCount(): number {
+    return Object.values(this.drinkSelections).filter((item) => item.selected).length;
   }
 
   enter(view: AppView, restaurantId?: string): void {
@@ -572,8 +590,8 @@ export class App {
 
   openProduct(product?: OwnerMenuItem): void {
     this.productForm = product ? {
-      id: product.id, categoryId: product.categoryId, name: product.name, description: product.description ?? '', price: product.price,
-      imageUrl: product.imageUrl ?? '', allergens: product.allergens ?? '', sortOrder: product.sortOrder, isVisible: product.isVisible,
+      id: product.id, categoryId: product.categoryId, globalDrinkId: product.globalDrinkId, name: product.name, description: product.description ?? '', price: product.price,
+      imageUrl: product.globalDrinkId ? '' : product.imageUrl ?? '', allergens: product.allergens ?? '', sortOrder: product.sortOrder, isVisible: product.isVisible,
       isAvailable: product.isAvailable, isVegetarian: product.isVegetarian, isSpicy: product.isSpicy, isFeatured: product.isFeatured,
     } : this.emptyProductForm();
     this.showProductModal = true;
@@ -592,10 +610,59 @@ export class App {
     });
   }
 
+  openDrinkLibrary(): void {
+    this.drinkLibraryError = '';
+    this.drinkLibrarySearch = '';
+    this.drinkLibraryCategoryId = this.ownerCategories.find((category) => category.name.toLocaleLowerCase().includes('pić'))?.id ?? '';
+    this.showDrinkLibraryModal = true;
+    if (this.drinkLibrary.length) return;
+    this.drinkLibraryLoading = true;
+    this.ownerService.getDrinkLibrary().pipe(finalize(() => this.drinkLibraryLoading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (items) => {
+        this.drinkLibrary = items;
+        this.drinkSelections = Object.fromEntries(items.map((item) => [item.id, { selected: false, price: 0 }]));
+      },
+      error: () => this.drinkLibraryError = 'Biblioteka pića nije učitana.',
+    });
+  }
+
+  libraryDrinkAdded(drinkId: string): boolean {
+    return this.ownerItems.some((item) => item.globalDrinkId === drinkId);
+  }
+
+  toggleLibraryDrink(drink: GlobalDrinkSummary): void {
+    if (this.libraryDrinkAdded(drink.id)) return;
+    const current = this.drinkSelections[drink.id] ?? { selected: false, price: 0 };
+    this.drinkSelections = { ...this.drinkSelections, [drink.id]: { ...current, selected: !current.selected } };
+  }
+
+  addSelectedLibraryDrinks(): void {
+    const drinks = Object.entries(this.drinkSelections)
+      .filter(([id, selection]) => selection.selected && !this.libraryDrinkAdded(id))
+      .map(([drinkId, selection]) => ({ drinkId, price: Number(selection.price) || 0, isVisible: true, isAvailable: true }));
+    if (!drinks.length) { this.drinkLibraryError = 'Odaberi barem jedno piće iz biblioteke.'; return; }
+    this.ownerSaving = true;
+    this.drinkLibraryError = '';
+    this.ownerService.addLibraryDrinks({ categoryId: this.drinkLibraryCategoryId || null, drinks })
+      .pipe(finalize(() => this.ownerSaving = false), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.showDrinkLibraryModal = false;
+          this.drinkSelections = Object.fromEntries(this.drinkLibrary.map((item) => [item.id, { selected: false, price: this.drinkSelections[item.id]?.price ?? 0 }]));
+          this.loadOwnerRestaurant(true);
+        },
+        error: () => this.drinkLibraryError = 'Pića nisu dodana u meni.',
+      });
+  }
+
   toggleProduct(product: Product): void {
     const source = this.ownerRestaurant?.categories.flatMap((category) => category.items).find((item) => item.id === product.id);
     if (!source) { product.available = !product.available; return; }
-    this.ownerService.saveItem(source.id, { ...source, isAvailable: !source.isAvailable })
+    this.ownerService.saveItem(source.id, {
+      categoryId: source.categoryId, name: source.name, description: source.description, price: source.price,
+      imageUrl: source.globalDrinkId ? null : source.imageUrl, allergens: source.allergens, sortOrder: source.sortOrder,
+      isVisible: source.isVisible, isAvailable: !source.isAvailable, isVegetarian: source.isVegetarian, isSpicy: source.isSpicy, isFeatured: source.isFeatured,
+    })
       .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: () => this.loadOwnerRestaurant(true), error: () => this.ownerError = 'Dostupnost proizvoda nije promijenjena.' });
   }
 
@@ -918,7 +985,7 @@ export class App {
   }
 
   private emptyCategoryForm(): CategoryForm { return { id: null, name: '', description: '', sortOrder: (this.ownerCategories.at(-1)?.sortOrder ?? 0) + 1, isVisible: true }; }
-  private emptyProductForm(): ProductForm { return { id: null, categoryId: this.ownerCategories[0]?.id ?? '', name: '', description: '', price: 0, imageUrl: '', allergens: '', sortOrder: this.ownerItems.length + 1, isVisible: true, isAvailable: true, isVegetarian: false, isSpicy: false, isFeatured: false }; }
+  private emptyProductForm(): ProductForm { return { id: null, categoryId: this.ownerCategories[0]?.id ?? '', globalDrinkId: null, name: '', description: '', price: 0, imageUrl: '', allergens: '', sortOrder: this.ownerItems.length + 1, isVisible: true, isAvailable: true, isVegetarian: false, isSpicy: false, isFeatured: false }; }
   private emptyOfferForm(kind: SpecialOfferKind): OfferForm { return { id: null, kind, title: '', description: '', price: 0, originalPrice: 0, imageUrl: '', startsAt: '', endsAt: '', isVisible: true, items: '' }; }
   private dateTimeInputValue(value: string | null): string { return value ? new Date(value).toISOString().slice(0, 16) : ''; }
   private isoDateTime(value: string): string | null { return value ? new Date(value).toISOString() : null; }

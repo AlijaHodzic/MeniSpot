@@ -125,7 +125,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
     {
         var restaurant = await db.Restaurants.AsNoTracking().AsSplitQuery()
         .Include(x => x.Subscription).Include(x => x.Theme).Include(x => x.BusinessHours)
-        .Include(x => x.Categories).ThenInclude(x => x.Items).Include(x => x.SpecialOffers)
+        .Include(x => x.Categories).ThenInclude(x => x.Items).ThenInclude(x => x.GlobalDrink).Include(x => x.SpecialOffers)
         .FirstOrDefaultAsync(x => x.Id == id && (admin || x.Id == tenantId), ct);
         return restaurant is null ? null : ToOwnerDetails(restaurant);
     }
@@ -273,7 +273,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         new OwnerTheme(restaurant.Theme?.ThemeKey ?? NormalizeThemeKey(null, restaurant.Type), restaurant.Theme?.PrimaryColor ?? "#111827", restaurant.Theme?.AccentColor ?? "#84cc16", restaurant.Theme?.BackgroundImageUrl, restaurant.Theme?.FontFamily ?? "Inter"),
         restaurant.BusinessHours.OrderBy(x => x.DayOfWeek).Select(x => new OwnerBusinessHour(x.DayOfWeek, x.OpensAt, x.ClosesAt, x.IsClosed)).ToList(),
         restaurant.Categories.OrderBy(x => x.SortOrder).Select(x => new OwnerMenuCategory(x.Id, x.Name, x.Description, x.SortOrder, x.IsVisible,
-            x.Items.OrderBy(i => i.SortOrder).Select(i => new OwnerMenuItem(i.Id, i.CategoryId, i.Name, i.Description, i.Price, i.ImageUrl, i.Allergens, i.SortOrder, i.IsVisible, i.IsAvailable, i.IsVegetarian, i.IsSpicy, i.IsFeatured)).ToList())).ToList(),
+            x.Items.OrderBy(i => i.SortOrder).Select(i => new OwnerMenuItem(i.Id, i.CategoryId, i.GlobalDrinkId, i.Name, i.Description, i.Price, i.ImageUrl ?? (i.GlobalDrink == null ? null : i.GlobalDrink.ImageUrl), i.Allergens, i.SortOrder, i.IsVisible, i.IsAvailable, i.IsVegetarian, i.IsSpicy, i.IsFeatured)).ToList())).ToList(),
         restaurant.SpecialOffers.OrderByDescending(x => x.CreatedAt).Select(x => new OwnerSpecialOffer(x.Id, x.Title, x.Description, x.Price, x.OriginalPrice, x.ImageUrl, x.StartsAt, x.EndsAt, x.IsVisible, x.Kind, x.Items)).ToList());
 
     private static SubscriptionStatus ActiveSubscriptionStatus(Subscription subscription)
@@ -417,6 +417,54 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
         if (x is null) return null; x.CategoryId = r.CategoryId; x.Name = r.Name.Trim(); x.Description = r.Description; x.Price = r.Price; x.ImageUrl = r.ImageUrl; x.Allergens = r.Allergens; x.SortOrder = r.SortOrder; x.IsVisible = r.IsVisible; x.IsAvailable = r.IsAvailable; x.IsVegetarian = r.IsVegetarian; x.IsSpicy = r.IsSpicy; x.IsFeatured = r.IsFeatured; x.UpdatedAt = DateTimeOffset.UtcNow;
         if (id is null) db.Add(x); await db.SaveChangesAsync(ct); return x;
     }
+    public async Task<IReadOnlyList<GlobalDrinkSummary>> GetDrinkLibraryAsync(CancellationToken ct) =>
+        await db.GlobalDrinks.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Category).ThenBy(x => x.SortOrder).ThenBy(x => x.Name)
+            .Select(x => new GlobalDrinkSummary(x.Id, x.Name, x.Category, x.Description, x.ImageUrl, x.SortOrder)).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<MenuItem>> AddLibraryDrinksAsync(Guid rid, AddLibraryDrinksRequest r, CancellationToken ct)
+    {
+        if (r.Drinks.Count == 0) return [];
+        if (r.Drinks.Any(x => x.Price < 0)) throw new InvalidOperationException("Drink prices cannot be negative.");
+        var categoryId = r.CategoryId;
+        MenuCategory? category = null;
+        if (categoryId is { } id)
+            category = await db.MenuCategories.FirstOrDefaultAsync(x => x.Id == id && x.RestaurantId == rid, ct);
+        if (category is null)
+        {
+            var sort = await db.MenuCategories.Where(x => x.RestaurantId == rid).Select(x => (int?)x.SortOrder).MaxAsync(ct) ?? 0;
+            category = new MenuCategory { RestaurantId = rid, Name = "Pića", Description = "Standardna ponuda pića", SortOrder = sort + 1, IsVisible = true };
+            db.MenuCategories.Add(category);
+            await db.SaveChangesAsync(ct);
+        }
+
+        var drinkIds = r.Drinks.Select(x => x.DrinkId).Distinct().ToArray();
+        var drinks = await db.GlobalDrinks.Where(x => x.IsActive && drinkIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, ct);
+        var existing = await db.MenuItems.Where(x => x.RestaurantId == rid && x.GlobalDrinkId != null && drinkIds.Contains(x.GlobalDrinkId.Value)).Select(x => x.GlobalDrinkId!.Value).ToListAsync(ct);
+        var existingSet = existing.ToHashSet();
+        var sortOrder = await db.MenuItems.Where(x => x.RestaurantId == rid && x.CategoryId == category.Id).Select(x => (int?)x.SortOrder).MaxAsync(ct) ?? 0;
+        var created = new List<MenuItem>();
+        foreach (var selection in r.Drinks.Where(x => !existingSet.Contains(x.DrinkId)))
+        {
+            if (!drinks.TryGetValue(selection.DrinkId, out var drink)) continue;
+            var item = new MenuItem
+            {
+                RestaurantId = rid,
+                CategoryId = category.Id,
+                GlobalDrinkId = drink.Id,
+                Name = drink.Name,
+                Description = drink.Description,
+                Price = selection.Price,
+                ImageUrl = null,
+                SortOrder = ++sortOrder,
+                IsVisible = selection.IsVisible,
+                IsAvailable = selection.IsAvailable
+            };
+            db.MenuItems.Add(item);
+            created.Add(item);
+        }
+        await db.SaveChangesAsync(ct);
+        return created;
+    }
     public async Task<SpecialOffer?> SaveOfferAsync(Guid rid, Guid? id, SpecialOfferRequest r, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(r.Title)) throw new InvalidOperationException("Offer title is required.");
@@ -456,7 +504,7 @@ public sealed class PublicMenuService(ApplicationDbContext db) : IPublicMenuServ
         var now = DateTimeOffset.UtcNow;
         var restaurant = await db.Restaurants.AsNoTracking().AsSplitQuery()
             .Include(x => x.Subscription).Include(x => x.Theme).Include(x => x.BusinessHours)
-            .Include(x => x.Categories.Where(c => c.IsVisible).OrderBy(c => c.SortOrder)).ThenInclude(c => c.Items.Where(i => i.IsVisible).OrderBy(i => i.SortOrder))
+            .Include(x => x.Categories.Where(c => c.IsVisible).OrderBy(c => c.SortOrder)).ThenInclude(c => c.Items.Where(i => i.IsVisible).OrderBy(i => i.SortOrder)).ThenInclude(i => i.GlobalDrink)
             .Include(x => x.SpecialOffers.Where(o => o.IsVisible && (o.StartsAt == null || o.StartsAt <= now) && (o.EndsAt == null || o.EndsAt >= now)))
             .FirstOrDefaultAsync(x => x.Slug == slug && x.Status == RestaurantStatus.Active, ct);
         return restaurant?.IsPubliclyAvailable(today) == true ? new PublicMenu(RestaurantService.ToOwnerDetails(restaurant)) : null;

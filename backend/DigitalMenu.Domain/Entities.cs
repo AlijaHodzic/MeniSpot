@@ -94,6 +94,7 @@ public sealed class MenuItem : Entity
 {
     public Guid RestaurantId { get; set; }
     public Guid CategoryId { get; set; }
+    public Guid? GlobalDrinkId { get; set; }
     public required string Name { get; set; }
     public string? Description { get; set; }
     public decimal Price { get; set; }
@@ -106,6 +107,18 @@ public sealed class MenuItem : Entity
     public bool IsSpicy { get; set; }
     public bool IsFeatured { get; set; }
     public MenuCategory Category { get; set; } = null!;
+    public GlobalDrink? GlobalDrink { get; set; }
+}
+
+public sealed class GlobalDrink : Entity
+{
+    public required string Name { get; set; }
+    public required string Slug { get; set; }
+    public string Category { get; set; } = "Pića";
+    public string? Description { get; set; }
+    public string? ImageUrl { get; set; }
+    public int SortOrder { get; set; }
+    public bool IsActive { get; set; } = true;
 }
 
 public sealed class SpecialOffer : Entity

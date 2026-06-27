@@ -1,5 +1,6 @@
 using System.Text;
 using DigitalMenu.Application;
+using DigitalMenu.Domain;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -52,6 +53,7 @@ public static class DatabaseInitializer
         await using var scope = services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         await db.Database.MigrateAsync();
+        await SeedGlobalDrinksAsync(db);
         var roles = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
         foreach (var role in new[] { Roles.SuperAdmin, Roles.RestaurantOwner, Roles.RestaurantStaff })
             if (!await roles.RoleExistsAsync(role)) await roles.CreateAsync(new IdentityRole<Guid>(role));
@@ -64,5 +66,43 @@ public static class DatabaseInitializer
         var result = await users.CreateAsync(user, password);
         if (!result.Succeeded) throw new InvalidOperationException(string.Join(" ", result.Errors.Select(x => x.Description)));
         await users.AddToRoleAsync(user, Roles.SuperAdmin);
+    }
+
+    private static async Task SeedGlobalDrinksAsync(ApplicationDbContext db)
+    {
+        if (await db.GlobalDrinks.AnyAsync()) return;
+        var drinks = new (string Name, string Slug, string Category, string? Description)[]
+        {
+            ("Coca-Cola 0.25l", "coca-cola-025", "Bezalkoholna pića", "Gazirano bezalkoholno piće"),
+            ("Coca-Cola Zero 0.25l", "coca-cola-zero-025", "Bezalkoholna pića", "Gazirano bezalkoholno piće bez šećera"),
+            ("Fanta 0.25l", "fanta-025", "Bezalkoholna pića", "Gazirano bezalkoholno piće"),
+            ("Sprite 0.25l", "sprite-025", "Bezalkoholna pića", "Gazirano bezalkoholno piće"),
+            ("Schweppes Tonic 0.25l", "schweppes-tonic-025", "Bezalkoholna pića", "Tonic water"),
+            ("Cedevita", "cedevita", "Bezalkoholna pića", "Vitaminski napitak"),
+            ("Prirodna voda 0.33l", "prirodna-voda-033", "Vode", "Negazirana voda"),
+            ("Kisela voda 0.33l", "kisela-voda-033", "Vode", "Gazirana voda"),
+            ("Espresso", "espresso", "Topli napici", "Kratka kafa"),
+            ("Americano", "americano", "Topli napici", "Produžena kafa"),
+            ("Cappuccino", "cappuccino", "Topli napici", "Kafa s mlijekom"),
+            ("Latte", "latte", "Topli napici", "Kafa s mlijekom"),
+            ("Čaj", "caj", "Topli napici", "Topli čaj"),
+            ("Red Bull 0.25l", "red-bull-025", "Energetska pića", "Energetsko piće"),
+            ("Heineken 0.33l", "heineken-033", "Piva", "Pivo"),
+            ("Tuborg 0.33l", "tuborg-033", "Piva", "Pivo"),
+            ("Sarajevsko 0.33l", "sarajevsko-033", "Piva", "Pivo"),
+            ("Bijelo vino 0.1l", "bijelo-vino-01", "Vina", "Vino na čašu"),
+            ("Crno vino 0.1l", "crno-vino-01", "Vina", "Vino na čašu"),
+        };
+        db.GlobalDrinks.AddRange(drinks.Select((x, index) => new GlobalDrink
+        {
+            Name = x.Name,
+            Slug = x.Slug,
+            Category = x.Category,
+            Description = x.Description,
+            ImageUrl = "/menispot-mark.png",
+            SortOrder = index + 1,
+            IsActive = true
+        }));
+        await db.SaveChangesAsync();
     }
 }

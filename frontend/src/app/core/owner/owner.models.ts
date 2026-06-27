@@ -5,6 +5,7 @@ export type SpecialOfferKind = 'Promotion' | 'DailyMenu';
 export interface OwnerMenuItem {
   id: string;
   categoryId: string;
+  globalDrinkId: string | null;
   name: string;
   description: string | null;
   price: number;
@@ -71,5 +72,8 @@ export interface OwnerRestaurant {
 }
 
 export interface CategoryRequest { name: string; description: string | null; sortOrder: number; isVisible: boolean }
-export interface MenuItemRequest extends Omit<OwnerMenuItem, 'id'> {}
+export interface MenuItemRequest extends Omit<OwnerMenuItem, 'id' | 'globalDrinkId'> {}
 export interface SpecialOfferRequest extends Omit<OwnerSpecialOffer, 'id'> {}
+export interface GlobalDrinkSummary { id: string; name: string; category: string; description: string | null; imageUrl: string | null; sortOrder: number }
+export interface LibraryDrinkSelection { drinkId: string; price: number; isVisible: boolean; isAvailable: boolean }
+export interface AddLibraryDrinksRequest { categoryId: string | null; drinks: LibraryDrinkSelection[] }

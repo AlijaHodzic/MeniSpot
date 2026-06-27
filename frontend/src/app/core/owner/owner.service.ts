@@ -3,7 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_URL } from '../api.config';
 import { UpdateRestaurantRequest } from '../restaurants/admin-restaurants.models';
-import { CategoryRequest, MenuItemRequest, OwnerBusinessHour, OwnerMenuCategory, OwnerMenuItem, OwnerRestaurant, OwnerSpecialOffer, SpecialOfferRequest } from './owner.models';
+import { AddLibraryDrinksRequest, CategoryRequest, GlobalDrinkSummary, MenuItemRequest, OwnerBusinessHour, OwnerMenuCategory, OwnerMenuItem, OwnerRestaurant, OwnerSpecialOffer, SpecialOfferRequest } from './owner.models';
 
 @Injectable({ providedIn: 'root' })
 export class OwnerService {
@@ -21,6 +21,8 @@ export class OwnerService {
     return id ? this.http.put<OwnerMenuItem>(`${this.endpoint}/items/${id}`, request) : this.http.post<OwnerMenuItem>(`${this.endpoint}/items`, request);
   }
   deleteItem(id: string): Observable<void> { return this.http.delete<void>(`${this.endpoint}/items/${id}`); }
+  getDrinkLibrary(): Observable<GlobalDrinkSummary[]> { return this.http.get<GlobalDrinkSummary[]>(`${this.endpoint}/drink-library`); }
+  addLibraryDrinks(request: AddLibraryDrinksRequest): Observable<OwnerMenuItem[]> { return this.http.post<OwnerMenuItem[]>(`${this.endpoint}/drink-library/items`, request); }
   saveOffer(id: string | null, request: SpecialOfferRequest): Observable<OwnerSpecialOffer> {
     return id ? this.http.put<OwnerSpecialOffer>(`${this.endpoint}/offers/${id}`, request) : this.http.post<OwnerSpecialOffer>(`${this.endpoint}/offers`, request);
   }
