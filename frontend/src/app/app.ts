@@ -77,12 +77,16 @@ const drinkCategories = [
   'Gazirana pića',
   'Negazirana pića',
   'Cijeđeni sokovi',
+  'Energetska pića',
   'Topli napici',
   'Točeno pivo',
   'Pivo',
   'Alkoholni napici',
+  'Rakije',
+  'Likeri i aperitivi',
   'Crna vina',
   'Bijela vina',
+  'Rosé vina',
 ];
 
 @Component({
@@ -1103,12 +1107,16 @@ export class App {
       'Gazirana pića': '0.20l, 0.25l, 0.33l, 0.50l, 1.00l',
       'Negazirana pića': '0.20l, 0.25l, 0.33l, 0.50l, 1.00l',
       'Cijeđeni sokovi': '0.20l, 0.25l, 0.30l, 0.40l, 0.50l',
+      'Energetska pića': '0.25l, 0.33l, 0.50l',
       'Topli napici': 'porcija',
       'Točeno pivo': '0.20l, 0.25l, 0.30l, 0.33l, 0.40l, 0.50l, 1.00l',
       'Pivo': '0.25l, 0.33l, 0.50l',
       'Alkoholni napici': '0.03l, 0.04l, 0.05l',
+      'Rakije': '0.03l, 0.04l, 0.05l',
+      'Likeri i aperitivi': '0.03l, 0.04l, 0.05l',
       'Crna vina': '0.10l, 0.15l, 0.187l, 0.75l, 1.00l',
       'Bijela vina': '0.10l, 0.15l, 0.187l, 0.75l, 1.00l',
+      'Rosé vina': '0.10l, 0.15l, 0.187l, 0.75l, 1.00l',
     };
     return options[category] ?? 'porcija';
   }
