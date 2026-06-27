@@ -359,6 +359,10 @@
 .drink-library-tools .search-box { max-width: none; }
 .drink-library-tools label { color: #475569; font-size: 12px; font-weight: 800; }
 .drink-library-tools select { display: block; width: 100%; margin-top: 7px; border: 1px solid #dbe1e8; border-radius: 11px; background: white; padding: 10px 12px; color: #0f172a; }
+.drink-library-chips { display: flex; overflow-x: auto; gap: 8px; padding: 14px 20px 0; }
+.drink-library-chips button { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; border: 1px solid #dbe1e8; border-radius: 999px; background: white; padding: 8px 11px; color: #475569; font-size: 12px; font-weight: 800; }
+.drink-library-chips button.active { border-color: var(--menispot-green); background: #f7fee7; color: #365314; }
+.drink-library-chips span { color: #94a3b8; font-size: 10px; }
 .drink-library-list { display: grid; max-height: min(58vh,560px); gap: 10px; overflow: auto; padding: 18px 20px; }
 .drink-library-list article { display: grid; grid-template-columns: 34px 52px minmax(0,1fr) 120px auto; align-items: center; gap: 12px; border: 1px solid #e2e8f0; border-radius: 15px; background: white; padding: 12px; transition: .15s; }
 .drink-library-list article.drink-selected { border-color: var(--menispot-green); box-shadow: 0 0 0 3px rgba(132,204,22,.12); }

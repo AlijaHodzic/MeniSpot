@@ -426,27 +426,29 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
     {
         if (r.Drinks.Count == 0) return [];
         if (r.Drinks.Any(x => x.Price < 0)) throw new InvalidOperationException("Drink prices cannot be negative.");
-        var categoryId = r.CategoryId;
-        MenuCategory? category = null;
-        if (categoryId is { } id)
-            category = await db.MenuCategories.FirstOrDefaultAsync(x => x.Id == id && x.RestaurantId == rid, ct);
-        if (category is null)
-        {
-            var sort = await db.MenuCategories.Where(x => x.RestaurantId == rid).Select(x => (int?)x.SortOrder).MaxAsync(ct) ?? 0;
-            category = new MenuCategory { RestaurantId = rid, Name = "Pića", Description = "Standardna ponuda pića", SortOrder = sort + 1, IsVisible = true };
-            db.MenuCategories.Add(category);
-            await db.SaveChangesAsync(ct);
-        }
-
         var drinkIds = r.Drinks.Select(x => x.DrinkId).Distinct().ToArray();
         var drinks = await db.GlobalDrinks.Where(x => x.IsActive && drinkIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, ct);
         var existing = await db.MenuItems.Where(x => x.RestaurantId == rid && x.GlobalDrinkId != null && drinkIds.Contains(x.GlobalDrinkId.Value)).Select(x => x.GlobalDrinkId!.Value).ToListAsync(ct);
         var existingSet = existing.ToHashSet();
-        var sortOrder = await db.MenuItems.Where(x => x.RestaurantId == rid && x.CategoryId == category.Id).Select(x => (int?)x.SortOrder).MaxAsync(ct) ?? 0;
+        var categories = await db.MenuCategories.Where(x => x.RestaurantId == rid).ToListAsync(ct);
+        var selectedCategory = r.CategoryId is { } id ? categories.FirstOrDefault(x => x.Id == id) : null;
+        var categorySort = categories.Select(x => (int?)x.SortOrder).Max() ?? 0;
+        var itemSortOrders = await db.MenuItems.Where(x => x.RestaurantId == rid).GroupBy(x => x.CategoryId)
+            .Select(x => new { CategoryId = x.Key, SortOrder = x.Max(item => item.SortOrder) }).ToDictionaryAsync(x => x.CategoryId, x => x.SortOrder, ct);
         var created = new List<MenuItem>();
         foreach (var selection in r.Drinks.Where(x => !existingSet.Contains(x.DrinkId)))
         {
             if (!drinks.TryGetValue(selection.DrinkId, out var drink)) continue;
+            var category = selectedCategory ?? categories.FirstOrDefault(x => string.Equals(x.Name, drink.Category, StringComparison.OrdinalIgnoreCase));
+            if (category is null)
+            {
+                category = new MenuCategory { RestaurantId = rid, Name = drink.Category, Description = $"Ponuda: {drink.Category}", SortOrder = ++categorySort, IsVisible = true };
+                categories.Add(category);
+                db.MenuCategories.Add(category);
+                itemSortOrders[category.Id] = 0;
+            }
+            var sortOrder = itemSortOrders.GetValueOrDefault(category.Id) + 1;
+            itemSortOrders[category.Id] = sortOrder;
             var item = new MenuItem
             {
                 RestaurantId = rid,
@@ -456,7 +458,7 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
                 Description = drink.Description,
                 Price = selection.Price,
                 ImageUrl = null,
-                SortOrder = ++sortOrder,
+                SortOrder = sortOrder,
                 IsVisible = selection.IsVisible,
                 IsAvailable = selection.IsAvailable
             };

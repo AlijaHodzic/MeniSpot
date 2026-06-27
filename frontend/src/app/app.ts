@@ -207,6 +207,7 @@ export class App {
   drinkLibraryLoading = false;
   drinkLibraryError = '';
   drinkLibrarySearch = '';
+  drinkLibraryCategoryFilter = 'all';
   drinkLibraryCategoryId = '';
   drinkSelections: Record<string, { selected: boolean; price: number }> = {};
   categoryForm: CategoryForm = this.emptyCategoryForm();
@@ -279,13 +280,18 @@ export class App {
   get filteredDrinkLibrary(): GlobalDrinkSummary[] {
     const term = this.drinkLibrarySearch.trim().toLocaleLowerCase();
     return this.drinkLibrary.filter((drink) =>
-      !term ||
-      drink.name.toLocaleLowerCase().includes(term) ||
-      drink.category.toLocaleLowerCase().includes(term) ||
-      (drink.description ?? '').toLocaleLowerCase().includes(term));
+      (this.drinkLibraryCategoryFilter === 'all' || drink.category === this.drinkLibraryCategoryFilter) &&
+      (!term ||
+        drink.name.toLocaleLowerCase().includes(term) ||
+        drink.category.toLocaleLowerCase().includes(term) ||
+        (drink.description ?? '').toLocaleLowerCase().includes(term)));
   }
   get selectedLibraryDrinkCount(): number {
     return Object.values(this.drinkSelections).filter((item) => item.selected).length;
+  }
+  get drinkLibraryCategories(): { name: string; count: number }[] {
+    const categories = [...new Set(this.drinkLibrary.map((drink) => drink.category))].sort((a, b) => a.localeCompare(b, 'bs-BA'));
+    return categories.map((name) => ({ name, count: this.drinkLibrary.filter((drink) => drink.category === name).length }));
   }
 
   enter(view: AppView, restaurantId?: string): void {
@@ -767,7 +773,8 @@ export class App {
   openDrinkLibrary(): void {
     this.drinkLibraryError = '';
     this.drinkLibrarySearch = '';
-    this.drinkLibraryCategoryId = this.ownerCategories.find((category) => category.name.toLocaleLowerCase().includes('pić'))?.id ?? '';
+    this.drinkLibraryCategoryFilter = 'all';
+    this.drinkLibraryCategoryId = '';
     this.showDrinkLibraryModal = true;
     if (this.drinkLibrary.length) return;
     this.drinkLibraryLoading = true;
