@@ -10,8 +10,8 @@
   --menispot-green-soft: #f7fee7;
 }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body { margin: 0; min-width: 320px; background: #f8fafc; }
+html { overflow-x: hidden; scroll-behavior: smooth; }
+body { overflow-x: hidden; margin: 0; min-width: 320px; background: #f8fafc; }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 .font-display { font-family: 'Outfit', system-ui, sans-serif; }
