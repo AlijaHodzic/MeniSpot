@@ -5,7 +5,7 @@ export type ThemeType = 'modern-dark' | 'classic-light' | 'premium-gold' | 'natu
 export type BadgeType = 'new' | 'popular' | 'spicy' | 'vegetarian' | 'chefs-choice';
 
 export interface BusinessHour { day: string; open: string; close: string; closed: boolean; }
-export interface Category { id: string; name: string; icon: string; order: number; active: boolean; }
+export interface Category { id: string; name: string; icon: string; order: number; active: boolean; type?: 'Food' | 'Drink'; }
 export interface Product {
   id: string; categoryId: string; name: string; description: string; price: number;
   servingSize?: string | null; image: string; available: boolean; badges: BadgeType[]; allergens: string[];

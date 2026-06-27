@@ -1,6 +1,7 @@
 import { EstablishmentType, RestaurantStatus } from '../restaurants/admin-restaurants.models';
 
 export type SpecialOfferKind = 'Promotion' | 'DailyMenu';
+export type MenuCategoryType = 'Food' | 'Drink';
 
 export interface OwnerMenuItem {
   id: string;
@@ -24,6 +25,7 @@ export interface OwnerMenuCategory {
   id: string;
   name: string;
   description: string | null;
+  type: MenuCategoryType;
   sortOrder: number;
   isVisible: boolean;
   items: OwnerMenuItem[];
@@ -72,7 +74,7 @@ export interface OwnerRestaurant {
   offers: OwnerSpecialOffer[];
 }
 
-export interface CategoryRequest { name: string; description: string | null; sortOrder: number; isVisible: boolean }
+export interface CategoryRequest { name: string; description: string | null; type: MenuCategoryType; sortOrder: number; isVisible: boolean }
 export interface MenuItemRequest extends Omit<OwnerMenuItem, 'id' | 'globalDrinkId'> {}
 export interface SpecialOfferRequest extends Omit<OwnerSpecialOffer, 'id'> {}
 export interface GlobalDrinkSummary { id: string; name: string; category: string; description: string | null; imageUrl: string | null; servingOptions: string | null; sortOrder: number }

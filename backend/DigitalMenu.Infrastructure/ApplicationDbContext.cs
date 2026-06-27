@@ -42,6 +42,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         {
             e.HasIndex(x => new { x.RestaurantId, x.SortOrder });
             e.Property(x => x.Name).HasMaxLength(120);
+            e.Property(x => x.Type).HasDefaultValue(MenuCategoryType.Food);
             e.HasOne(x => x.Restaurant).WithMany(x => x.Categories).HasForeignKey(x => x.RestaurantId).OnDelete(DeleteBehavior.Cascade);
         });
         builder.Entity<MenuItem>(e =>

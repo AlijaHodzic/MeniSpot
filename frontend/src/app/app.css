@@ -236,6 +236,7 @@
 .category-row:last-child { border: 0; }
 .category-icon { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 12px; background: #f8fafc; font-size: 20px; }
 .category-main { min-width: 0; }
+.category-type-pill { display: inline-flex; align-items: center; margin-right: 7px; border-radius: 999px; background: #f1f5f9; padding: 2px 7px; color: #64748b; font-size: 9px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .category-order { color: #94a3b8; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .category-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .toggle { position: relative; width: 42px; height: 24px; flex: 0 0 auto; border: 0; border-radius: 999px; background: #cbd5e1; padding: 3px; }
@@ -294,6 +295,10 @@
 .public-offer span { display: flex; align-items: center; gap: 5px; }
 .public-offer b { margin-right: 9px; color: #dc2626; font-size: 19px; }
 .public-offer s { color: var(--muted); font-size: 12px; }
+.menu-section-tabs { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin: 18px 0 0; }
+.menu-section-tabs button { display: flex; min-width: 0; align-items: center; justify-content: center; gap: 8px; border: 1px solid color-mix(in srgb,var(--text) 11%,transparent); border-radius: 15px; background: var(--card); padding: 13px; color: var(--text); font-size: 13px; font-weight: 800; transition: .15s; }
+.menu-section-tabs button.active { border-color: var(--menu-accent); background: color-mix(in srgb,var(--menu-accent) 12%,var(--card)); color: var(--menu-accent); box-shadow: 0 10px 24px color-mix(in srgb,var(--menu-accent) 13%,transparent); }
+.menu-section-tabs span { font-size: 17px; line-height: 1; }
 .sticky-tools { position: sticky; top: 0; z-index: 20; margin: 18px -22px 0; border-bottom: 1px solid color-mix(in srgb,var(--text) 9%,transparent); background: color-mix(in srgb,var(--surface) 92%,transparent); padding: 13px 22px 10px; backdrop-filter: blur(16px); }
 .menu-search { border-color: color-mix(in srgb,var(--text) 12%,transparent); background: var(--card); }
 .menu-search input { color: var(--text); }
@@ -493,6 +498,8 @@
   .daily-banner { align-items: flex-start; }
   .daily-banner > b { font-size: 12px; }
   .public-offer { grid-template-columns: 115px 1fr; }
+  .menu-section-tabs { gap: 8px; }
+  .menu-section-tabs button { padding: 11px 10px; font-size: 12px; }
   .sticky-tools { margin-right: -14px; margin-left: -14px; padding-right: 14px; padding-left: 14px; }
   .menu-product { grid-template-columns: 112px 1fr; }
   .product-image { min-height: 145px; }

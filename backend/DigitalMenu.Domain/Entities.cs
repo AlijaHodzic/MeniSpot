@@ -12,6 +12,7 @@ public enum SubscriptionStatus { Trial, Active, Overdue, Suspended, Cancelled }
 public enum EstablishmentType { Restaurant, Cafe, Bar, Club, FastFood, Other, ShishaBar }
 public enum PaymentMethod { BankTransfer, Cash, Card, Other }
 public enum SpecialOfferKind { Promotion, DailyMenu }
+public enum MenuCategoryType { Food, Drink }
 
 public sealed class Restaurant : Entity
 {
@@ -84,6 +85,7 @@ public sealed class MenuCategory : Entity
     public Guid RestaurantId { get; set; }
     public required string Name { get; set; }
     public string? Description { get; set; }
+    public MenuCategoryType Type { get; set; } = MenuCategoryType.Food;
     public int SortOrder { get; set; }
     public bool IsVisible { get; set; } = true;
     public Restaurant Restaurant { get; set; } = null!;
