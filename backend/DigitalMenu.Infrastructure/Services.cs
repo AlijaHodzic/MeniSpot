@@ -257,7 +257,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
     private static string DefaultThemeKey(EstablishmentType type) => type switch
     {
         EstablishmentType.Cafe => "natural-green",
-        EstablishmentType.Bar or EstablishmentType.Club => "modern-dark",
+        EstablishmentType.Bar or EstablishmentType.Club or EstablishmentType.ShishaBar => "modern-dark",
         _ => "classic-light"
     };
 

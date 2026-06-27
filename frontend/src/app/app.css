@@ -139,6 +139,10 @@
 .status-paused { background: #fef2f2 !important; color: #b91c1c !important; }
 .status-overdue { background: #fff7ed !important; color: #c2410c !important; }
 .plan-pill { background: var(--menispot-green-soft); color: var(--menispot-green-dark); }
+.menu-status { display: inline-flex; align-items: center; gap: 8px; border: 1px solid color-mix(in srgb,var(--brand,#84cc16) 28%,transparent); border-radius: 999px; background: color-mix(in srgb,var(--brand,#84cc16) 12%,white); padding: 8px 12px; color: #3f6212; font-size: 12px; font-weight: 800; box-shadow: 0 10px 25px rgba(132,204,22,.1); white-space: nowrap; }
+.menu-status span { width: 8px; height: 8px; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,.12); }
+.menu-status-paused { border-color: #fecaca; background: #fff7f7; color: #b91c1c; }
+.menu-status-paused span { background: #ef4444; box-shadow: 0 0 0 4px rgba(239,68,68,.12); }
 .billing-stat-value { font-size: 21px !important; }
 .billing-toolbar { flex-wrap: wrap; }
 .billing-toolbar .search-box { flex: 1 1 280px; }
@@ -208,9 +212,13 @@
 .readiness-list span { width: 10px; height: 10px; border-radius: 999px; background: #cbd5e1; }
 .readiness-list .ready { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
 .readiness-list .ready span { background: #22c55e; }
-.category-row { display: flex; align-items: center; gap: 15px; border-bottom: 1px solid #f1f5f9; padding: 16px 18px; }
+.category-row { display: grid; grid-template-columns: 42px minmax(0,1fr) auto auto; align-items: center; gap: 15px; border-bottom: 1px solid #f1f5f9; padding: 16px 18px; }
 .category-row:last-child { border: 0; }
-.toggle { position: relative; width: 42px; height: 24px; border: 0; border-radius: 999px; background: #cbd5e1; padding: 3px; }
+.category-icon { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 12px; background: #f8fafc; font-size: 20px; }
+.category-main { min-width: 0; }
+.category-order { color: #94a3b8; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.category-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.toggle { position: relative; width: 42px; height: 24px; flex: 0 0 auto; border: 0; border-radius: 999px; background: #cbd5e1; padding: 3px; }
 .toggle i { display: block; width: 18px; height: 18px; border-radius: 999px; background: white; box-shadow: 0 2px 5px rgba(0,0,0,.18); transition: .18s; }
 .toggle-on { background: #10b981; }
 .toggle-on i { transform: translateX(18px); }
@@ -385,9 +393,20 @@
   .landing-actions { flex-direction: column; }
   .landing-actions .primary-button, .landing-actions .secondary-button { width: 100%; }
   .landing-proof span { flex: 1 1 100%; justify-content: center; }
-  .hours-editor-row { grid-template-columns: 1fr 1fr; }
+  .hours-editor-row { grid-template-columns: 1fr 1fr; gap: 8px; border: 1px solid #eef2f7; border-radius: 14px; padding: 12px; }
+  .hours-editor-row b, .hours-editor-row .check-label { grid-column: 1 / -1; }
+  .hours-editor-row > span { display: none; }
+  .hours-editor-row input[type="time"] { min-width: 0; width: 100%; }
   .page-heading { align-items: flex-start; flex-direction: column; }
   .stat-grid, .product-admin-grid { grid-template-columns: 1fr; }
+  .topbar { gap: 10px; }
+  .topbar h1 { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .menu-status { padding: 7px 9px; font-size: 11px; }
+  .category-row { grid-template-columns: 40px minmax(0,1fr); align-items: start; gap: 12px; }
+  .category-order { grid-column: 2; }
+  .category-actions { grid-column: 1 / -1; justify-content: space-between; border-top: 1px solid #f1f5f9; padding-top: 12px; }
+  .offer-admin .p-5 > .flex, .panel-card .flex.items-start.justify-between { align-items: flex-start; gap: 12px; }
+  .offer-admin .p-5 > .flex .status-pill { max-width: 130px; }
   .restaurant-table article { grid-template-columns: 44px 1fr auto; gap: 10px; }
   .restaurant-table article > :nth-child(n+4) { display: none; }
   .form-grid { grid-template-columns: 1fr; }

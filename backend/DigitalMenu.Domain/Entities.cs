@@ -9,7 +9,7 @@ public abstract class Entity
 
 public enum RestaurantStatus { Draft, Active, Suspended, Cancelled }
 public enum SubscriptionStatus { Trial, Active, Overdue, Suspended, Cancelled }
-public enum EstablishmentType { Restaurant, Cafe, Bar, Club, FastFood, Other }
+public enum EstablishmentType { Restaurant, Cafe, Bar, Club, FastFood, Other, ShishaBar }
 public enum PaymentMethod { BankTransfer, Cash, Card, Other }
 public enum SpecialOfferKind { Promotion, DailyMenu }
 

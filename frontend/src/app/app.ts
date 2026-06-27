@@ -26,7 +26,7 @@ import { AdminRestaurantsService } from './core/restaurants/admin-restaurants.se
 import { QrCodeService } from './core/qr-code.service';
 import { BillingAccountSummary, BillingOverview, PaymentHistoryItem, PaymentMethod } from './core/billing/billing.models';
 import { BillingService } from './core/billing/billing.service';
-import { OwnerMenuCategory, OwnerMenuItem, OwnerRestaurant, OwnerSpecialOffer, SpecialOfferKind } from './core/owner/owner.models';
+import { OwnerMenuCategory, OwnerMenuItem, OwnerRestaurant, OwnerSpecialOffer, SpecialOfferKind, SpecialOfferRequest } from './core/owner/owner.models';
 import { OwnerService } from './core/owner/owner.service';
 
 interface RestaurantForm {
@@ -102,7 +102,7 @@ export class App {
   ];
   readonly establishmentTypes: { value: EstablishmentType; label: string }[] = [
     { value: 'Restaurant', label: 'Restoran' }, { value: 'Cafe', label: 'Kafić' },
-    { value: 'Bar', label: 'Bar' }, { value: 'Club', label: 'Klub' },
+    { value: 'Bar', label: 'Bar' }, { value: 'ShishaBar', label: 'Shisha bar' }, { value: 'Club', label: 'Klub' },
     { value: 'FastFood', label: 'Fast food' }, { value: 'Other', label: 'Ostalo' },
   ];
   readonly subscriptionStatuses: { value: SubscriptionStatus; label: string }[] = [
@@ -196,6 +196,7 @@ export class App {
   get promotions(): OwnerSpecialOffer[] { return (this.ownerRestaurant?.offers ?? []).filter((offer) => offer.kind === 'Promotion'); }
   get adminTitle(): string { return this.adminTabs.find((item) => item.id === this.adminTab)?.label ?? ''; }
   get ownerTitle(): string { return this.ownerTabs.find((item) => item.id === this.ownerTab)?.label ?? ''; }
+  get ownerThemeLabel(): string { return this.themeLabel(this.restaurant.theme); }
   get platformGrowth(): { day: string; views: number }[] {
     return (this.adminDashboard?.growth ?? []).map((point) => ({
       day: new Intl.DateTimeFormat('bs-BA', { month: 'short' }).format(new Date(`${point.month}-01T00:00:00`)),
@@ -626,7 +627,7 @@ export class App {
   }
 
   toggleOffer(offer: OwnerSpecialOffer): void {
-    this.ownerService.saveOffer(offer.id, { ...offer, isVisible: !offer.isVisible })
+    this.ownerService.saveOffer(offer.id, this.offerRequestFromOffer(offer, !offer.isVisible))
       .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: () => this.loadOwnerRestaurant(true), error: () => this.ownerError = 'Status ponude nije promijenjen.' });
   }
 
@@ -707,6 +708,10 @@ export class App {
 
   establishmentLabel(type: EstablishmentType): string {
     return this.establishmentTypes.find((item) => item.value === type)?.label ?? type;
+  }
+
+  themeLabel(theme: string): string {
+    return this.themes.find((item) => item.id === theme)?.name ?? theme;
   }
 
   restaurantStatusLabel(status: RestaurantStatus): string {
@@ -917,6 +922,20 @@ export class App {
   private emptyOfferForm(kind: SpecialOfferKind): OfferForm { return { id: null, kind, title: '', description: '', price: 0, originalPrice: 0, imageUrl: '', startsAt: '', endsAt: '', isVisible: true, items: '' }; }
   private dateTimeInputValue(value: string | null): string { return value ? new Date(value).toISOString().slice(0, 16) : ''; }
   private isoDateTime(value: string): string | null { return value ? new Date(value).toISOString() : null; }
+  private offerRequestFromOffer(offer: OwnerSpecialOffer, isVisible = offer.isVisible): SpecialOfferRequest {
+    return {
+      title: offer.title,
+      description: offer.description,
+      price: offer.price,
+      originalPrice: offer.originalPrice,
+      imageUrl: offer.imageUrl,
+      startsAt: offer.startsAt,
+      endsAt: offer.endsAt,
+      isVisible,
+      kind: offer.kind,
+      items: offer.items,
+    };
+  }
   private offerDateLabel(offer: OwnerSpecialOffer): string { return offer.startsAt ? new Intl.DateTimeFormat('bs-BA', { dateStyle: 'medium' }).format(new Date(offer.startsAt)) : 'Danas'; }
   private dayLabel(day: string): string { return ({ Monday: 'Ponedjeljak', Tuesday: 'Utorak', Wednesday: 'Srijeda', Thursday: 'Četvrtak', Friday: 'Petak', Saturday: 'Subota', Sunday: 'Nedjelja' } as Record<string, string>)[day] ?? day; }
   private completeBusinessHours(hours: OwnerRestaurant['businessHours']): OwnerRestaurant['businessHours'] {
