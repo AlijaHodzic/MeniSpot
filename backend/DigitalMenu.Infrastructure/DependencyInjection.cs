@@ -40,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IRestaurantService, RestaurantService>();
         services.AddScoped<IMenuManagementService, MenuManagementService>();
+        services.AddScoped<IGlobalDrinkService, GlobalDrinkService>();
         services.AddScoped<IPublicMenuService, PublicMenuService>();
         services.AddScoped<IBillingService, BillingService>();
         return services;

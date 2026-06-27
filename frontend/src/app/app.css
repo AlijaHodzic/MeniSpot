@@ -53,8 +53,8 @@
 .admin-shell { color: #e5e7eb; background: radial-gradient(circle at top left, rgba(132,204,22,.12), transparent 32%), #1f2228; }
 .admin-shell .sidebar { border-color: #303640; background: #171b22; box-shadow: 18px 0 45px rgba(0,0,0,.18); }
 .admin-shell .sidebar-footer { border-color: #303640; }
-.admin-shell .brand-lockup, .admin-shell .sidebar-brand-text p:first-child, .admin-shell .topbar h1, .admin-shell .page-heading h2, .admin-shell .panel-title h3, .admin-shell .section-title, .admin-shell .stat-card strong, .admin-shell .restaurant-table h3, .admin-shell .billing-table h3, .admin-shell .billing-table b { color: #f8fafc; }
-.admin-shell .brand-type small, .admin-shell .text-slate-400, .admin-shell .text-slate-500, .admin-shell .page-heading p:not(.eyebrow), .admin-shell .panel-title p, .admin-shell .stat-card p, .admin-shell .restaurant-table p, .admin-shell .billing-table p, .admin-shell .mini-empty, .admin-shell .table-state, .admin-shell .chart-column small { color: #96a1b3 !important; }
+.admin-shell .brand-lockup, .admin-shell .sidebar-brand-text p:first-child, .admin-shell .topbar h1, .admin-shell .page-heading h2, .admin-shell .panel-title h3, .admin-shell .section-title, .admin-shell .stat-card strong, .admin-shell .restaurant-table h3, .admin-shell .billing-table h3, .admin-shell .billing-table b, .admin-shell .admin-drink-heading h3 { color: #f8fafc; }
+.admin-shell .brand-type small, .admin-shell .text-slate-400, .admin-shell .text-slate-500, .admin-shell .page-heading p:not(.eyebrow), .admin-shell .panel-title p, .admin-shell .stat-card p, .admin-shell .restaurant-table p, .admin-shell .billing-table p, .admin-shell .admin-drink-card p, .admin-shell .admin-drink-card small, .admin-shell .mini-empty, .admin-shell .table-state, .admin-shell .chart-column small { color: #96a1b3 !important; }
 .admin-shell .topbar { border-color: #303640; background: rgba(31,34,40,.86); box-shadow: 0 12px 35px rgba(0,0,0,.16); }
 .admin-shell .icon-button, .admin-shell .secondary-button { border-color: #3a414d; background: #242932; color: #d6dbe5; }
 .admin-shell .icon-button:hover, .admin-shell .secondary-button:hover { background: #2d333d; }
@@ -62,7 +62,8 @@
 .admin-shell .nav-item:hover { color: #f8fafc; background: #232932; }
 .admin-shell .nav-active { color: #d9f99d !important; background: rgba(132,204,22,.13) !important; box-shadow: inset 3px 0 0 #84cc16; }
 .admin-shell .stat-card, .admin-shell .panel-card, .admin-shell .theme-card { border-color: #343b46; background: #252a33; box-shadow: 0 16px 45px rgba(0,0,0,.17); }
-.admin-shell .table-toolbar, .admin-shell .restaurant-table article, .admin-shell .billing-table article, .admin-shell .activity-list p { border-color: #343b46; }
+.admin-shell .table-toolbar, .admin-shell .restaurant-table article, .admin-shell .billing-table article, .admin-shell .admin-drink-card, .admin-shell .activity-list p { border-color: #343b46; }
+.admin-shell .admin-drink-card { background: #20252e; }
 .admin-shell .search-box, .admin-shell .menu-search, .admin-shell .billing-toolbar > select { border-color: #3a414d; background: #1f242c; color: #aab4c3; }
 .admin-shell .search-box input, .admin-shell .menu-search input, .admin-shell .billing-toolbar > select { color: #f8fafc; }
 .admin-shell .chart-grid i { border-color: #343b46; }
@@ -152,6 +153,14 @@
 .billing-table article:last-child { border-bottom: 0; }
 .billing-table h3, .billing-table b { margin: 0; color: #1e293b; font-size: 13px; font-weight: 750; }
 .billing-table p { margin: 4px 0 0; color: #94a3b8; font-size: 10px; }
+.admin-drink-grid { display: grid; gap: 12px; padding: 16px; }
+.admin-drink-card { display: grid; grid-template-columns: 66px minmax(0,1fr) auto; align-items: center; gap: 15px; border: 1px solid #e2e8f0; border-radius: 16px; background: white; padding: 13px; }
+.admin-drink-card > img { width: 64px; height: 64px; border-radius: 15px; background: #f8fafc; object-fit: cover; }
+.admin-drink-heading { display: flex; align-items: center; gap: 10px; }
+.admin-drink-heading h3 { margin: 0; font-size: 15px; font-weight: 800; }
+.admin-drink-card p { margin: 4px 0 0; color: #94a3b8; font-size: 11px; }
+.admin-drink-card small { display: block; overflow: hidden; max-width: 780px; margin-top: 6px; color: #64748b; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-drink-hidden { opacity: .65; }
 .admin-alert { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; border: 1px solid #fecaca; border-radius: 12px; background: #fef2f2; padding: 12px 15px; color: #991b1b; font-size: 13px; }
 .admin-alert button { border: 0; background: transparent; color: #991b1b; font-weight: 800; }
 .table-state { display: grid; min-height: 250px; place-items: center; align-content: center; gap: 10px; padding: 30px; color: #94a3b8; text-align: center; }
@@ -376,6 +385,8 @@
   .restaurant-table article > :nth-child(5), .restaurant-table article > :nth-child(4) { display: none; }
   .billing-table article { grid-template-columns: minmax(160px,1fr) auto auto auto; }
   .billing-table article > :nth-child(4), .billing-table article > :nth-child(5) { display: none; }
+  .admin-drink-card { grid-template-columns: 58px minmax(0,1fr); }
+  .admin-drink-card .admin-row-actions { grid-column: 1 / -1; justify-content: flex-start; }
 }
 @media (max-width: 900px) {
   .landing-hero { grid-template-columns: 1fr; }
@@ -434,6 +445,11 @@
   .form-grid .sm\:col-span-2 { grid-column: auto; }
   .billing-table article { grid-template-columns: minmax(0,1fr) auto; }
   .billing-table article > :not(:first-child):not(:last-child) { display: none; }
+  .admin-drink-card { grid-template-columns: 52px minmax(0,1fr); align-items: start; }
+  .admin-drink-card > img { width: 52px; height: 52px; }
+  .admin-drink-heading { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .admin-drink-card .admin-row-actions { flex-wrap: wrap; }
+  .admin-drink-card .admin-row-actions .secondary-button { flex: 1 1 140px; }
   .drink-library-tools { grid-template-columns: 1fr; }
   .drink-library-list article { grid-template-columns: 30px 46px minmax(0,1fr); }
   .drink-library-list article > label { grid-column: 2 / -1; }

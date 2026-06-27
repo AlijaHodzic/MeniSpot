@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.RegularExpressions;
 using DigitalMenu.Application;
 using DigitalMenu.Domain;
 using Microsoft.AspNetCore.Identity;
@@ -494,6 +495,55 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
         var x = await set.FirstOrDefaultAsync(x => x.Id == id && EF.Property<Guid>(x, "RestaurantId") == rid, ct); if (x is null) return false;
         set.Remove(x); await db.SaveChangesAsync(ct); return true;
     }
+}
+
+public sealed class GlobalDrinkService(ApplicationDbContext db) : IGlobalDrinkService
+{
+    public async Task<IReadOnlyList<AdminGlobalDrink>> GetAllAsync(CancellationToken ct) =>
+        await db.GlobalDrinks.AsNoTracking()
+            .OrderBy(x => x.Category).ThenBy(x => x.SortOrder).ThenBy(x => x.Name)
+            .Select(x => new AdminGlobalDrink(x.Id, x.Name, x.Slug, x.Category, x.Description, x.ImageUrl, x.SortOrder, x.IsActive, x.UpdatedAt))
+            .ToListAsync(ct);
+
+    public async Task<AdminGlobalDrink?> SaveAsync(Guid? id, GlobalDrinkRequest r, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(r.Name)) throw new InvalidOperationException("Drink name is required.");
+        if (string.IsNullOrWhiteSpace(r.Category)) throw new InvalidOperationException("Drink category is required.");
+        if (r.SortOrder < 0) throw new InvalidOperationException("Drink sort order cannot be negative.");
+        var slug = NormalizeSlug(string.IsNullOrWhiteSpace(r.Slug) ? r.Name : r.Slug);
+        if (string.IsNullOrWhiteSpace(slug)) throw new InvalidOperationException("Drink slug is required.");
+        if (await db.GlobalDrinks.AnyAsync(x => x.Slug == slug && x.Id != id, ct)) throw new InvalidOperationException("Drink slug is already in use.");
+
+        var item = id is null ? new GlobalDrink { Name = r.Name.Trim(), Slug = slug } : await db.GlobalDrinks.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (item is null) return null;
+        item.Name = r.Name.Trim();
+        item.Slug = slug;
+        item.Category = r.Category.Trim();
+        item.Description = string.IsNullOrWhiteSpace(r.Description) ? null : r.Description.Trim();
+        item.ImageUrl = string.IsNullOrWhiteSpace(r.ImageUrl) ? null : r.ImageUrl.Trim();
+        item.SortOrder = r.SortOrder;
+        item.IsActive = r.IsActive;
+        item.UpdatedAt = DateTimeOffset.UtcNow;
+        if (id is null) db.GlobalDrinks.Add(item);
+        await db.SaveChangesAsync(ct);
+        return ToAdmin(item);
+    }
+
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
+    {
+        var item = await db.GlobalDrinks.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (item is null) return false;
+        item.IsActive = false;
+        item.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    private static AdminGlobalDrink ToAdmin(GlobalDrink x) =>
+        new(x.Id, x.Name, x.Slug, x.Category, x.Description, x.ImageUrl, x.SortOrder, x.IsActive, x.UpdatedAt);
+
+    private static string NormalizeSlug(string? value) =>
+        Regex.Replace((value ?? string.Empty).Trim().ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');
 }
 
 public sealed class PublicMenuService(ApplicationDbContext db) : IPublicMenuService

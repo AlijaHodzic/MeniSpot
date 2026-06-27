@@ -122,6 +122,17 @@
           <div class="grid gap-5 md:grid-cols-2">@for (theme of themes; track theme.id) { <article class="theme-card"><div class="theme-preview" [style.background]="theme.colors[0]"><div [style.background]="theme.colors[1]"><span [style.background]="theme.colors[2]"></span><i [style.background]="theme.colors[2]"></i><i [style.background]="theme.colors[2]"></i></div></div><div class="p-5"><div class="flex items-center justify-between"><h3 class="font-display text-lg font-bold">{{ theme.name }}</h3><span class="rounded-full bg-lime-50 px-2.5 py-1 text-xs font-bold text-lime-700">{{ themeUsageCount(theme.id) }} objekata</span></div><p class="mt-2 text-sm text-slate-500">{{ theme.description }}</p><div class="mt-4 flex gap-2">@for (color of theme.colors; track color) { <span class="h-6 w-6 rounded-full border-2 border-white shadow" [style.background]="color"></span> }</div></div></article> }</div>
         }
 
+        @if (adminTab === 'drink-library') {
+          <div class="page-heading"><div><p class="eyebrow">Globalna ponuda</p><h2>Biblioteka pića</h2><p>Jednom dodaj sliku i opis, vlasnici restorana samo biraju piće i upisuju cijenu.</p></div><button class="primary-button" (click)="openAdminDrink()"><svg lucidePlus [size]="17"></svg> Novo piće</button></div>
+          @if (adminDrinksError) { <div class="admin-alert"><span>{{ adminDrinksError }}</span><button (click)="loadAdminDrinks(true)">Pokušaj ponovo</button></div> }
+          <div class="panel-card overflow-hidden p-0">
+            <div class="table-toolbar"><div class="search-box"><svg lucideSearch [size]="17"></svg><input name="adminDrinkSearch" [(ngModel)]="adminDrinkSearch" placeholder="Pretraži pića, kategorije ili slug..."></div><span class="text-sm text-slate-500">{{ filteredAdminDrinks.length }} pića</span></div>
+            @if (adminDrinksLoading) { <div class="table-state"><span class="auth-spinner"></span><p>Učitavanje biblioteke pića...</p></div> }
+            @else if (!filteredAdminDrinks.length) { <div class="table-state"><svg lucideUtensilsCrossed [size]="30"></svg><h3>Nema pića</h3><p>Dodaj prvo piće i sliku za globalnu biblioteku.</p><button class="primary-button" (click)="openAdminDrink()"><svg lucidePlus [size]="16"></svg> Dodaj piće</button></div> }
+            @else { <div class="admin-drink-grid">@for (drink of filteredAdminDrinks; track drink.id) { <article class="admin-drink-card" [class.admin-drink-hidden]="!drink.isActive"><img [src]="drink.imageUrl || '/menispot-mark.png'" [alt]="drink.name"><div class="min-w-0"><div class="admin-drink-heading"><h3>{{ drink.name }}</h3><span class="status-pill" [class.status-paused]="!drink.isActive">{{ drink.isActive ? 'Aktivno' : 'Sakriveno' }}</span></div><p>{{ drink.category }} · {{ drink.slug }}</p>@if (drink.description) { <small>{{ drink.description }}</small> }</div><div class="admin-row-actions"><button class="secondary-button" (click)="openAdminDrink(drink)"><svg lucideEdit2 [size]="15"></svg> Uredi</button><button class="icon-button" (click)="toggleAdminDrink(drink)" [attr.aria-label]="drink.isActive ? 'Sakrij piće' : 'Aktiviraj piće'">@if (drink.isActive) { <svg lucideEyeOff [size]="16"></svg> } @else { <svg lucideEye [size]="16"></svg> }</button><button class="icon-button text-red-600" (click)="hideAdminDrink(drink)" aria-label="Sakrij piće"><svg lucideTrash2 [size]="16"></svg></button></div></article> }</div> }
+          </div>
+        }
+
         @if (adminTab === 'qr-codes') {
           <div class="page-heading"><div><p class="eyebrow">QR distribucija</p><h2>QR kodovi</h2><p>Pregled i preuzimanje kodova svih restorana.</p></div></div>
           @if (adminRestaurantsLoading) { <div class="table-state"><span class="auth-spinner"></span><p>Generisanje QR kodova...</p></div> }
@@ -206,6 +217,28 @@
           <section class="payment-history-panel"><div class="payment-history-heading"><h3>Historija uplata</h3><span>{{ paymentHistory.length }}</span></div>@if (paymentHistoryLoading) { <div class="table-state"><span class="auth-spinner"></span><p>Učitavanje...</p></div> } @else if (!paymentHistory.length) { <div class="payment-history-empty"><svg lucideCalendar [size]="28"></svg><p>Još nema evidentiranih uplata.</p></div> } @else { <div class="payment-history-list">@for (payment of paymentHistory; track payment.id) { <article><div><b>{{ formatMoney(payment.amount, payment.currency) }}</b><span>{{ paymentMethodLabel(payment.method) }}</span></div><p>{{ payment.paidOn | date:'dd.MM.yyyy.' }} · {{ payment.coverageMonths }} mj.</p><small>Period {{ payment.periodStartsOn | date:'dd.MM.yyyy.' }} – {{ payment.periodEndsOn | date:'dd.MM.yyyy.' }}</small>@if (payment.reference) { <small>Ref: {{ payment.reference }}</small> }@if (payment.note) { <em>{{ payment.note }}</em> }</article> }</div> }</section>
         </div>
       </section>
+    </div>
+  }
+
+  @if (showAdminDrinkModal) {
+    <div class="modal-backdrop" (click)="closeAdminDrinkModal()">
+      <form class="modal drink-admin-modal" (click)="$event.stopPropagation()" (ngSubmit)="saveAdminDrink()">
+        <header class="modal-header"><div><p class="eyebrow">Biblioteka pića</p><h2>{{ adminDrinkForm.id ? 'Uredi piće' : 'Novo piće' }}</h2><p class="modal-subtitle">Ova slika i opis se koriste u svim restoranima koji povuku piće iz biblioteke.</p></div><button type="button" class="icon-button" (click)="closeAdminDrinkModal()" aria-label="Zatvori"><svg lucideX [size]="20"></svg></button></header>
+        <div class="modal-body">
+          @if (adminDrinkFormError) { <div class="auth-error">{{ adminDrinkFormError }}</div> }
+          <div class="form-grid">
+            <label>Naziv pića<input name="adminDrinkName" [(ngModel)]="adminDrinkForm.name" (ngModelChange)="syncAdminDrinkSlug()" required></label>
+            <label>Kategorija<input name="adminDrinkCategory" [(ngModel)]="adminDrinkForm.category" placeholder="Bezalkoholna pića" required></label>
+            <label>Slug<input name="adminDrinkSlug" [(ngModel)]="adminDrinkForm.slug" placeholder="coca-cola-025"></label>
+            <label>Redoslijed<input name="adminDrinkSort" type="number" min="0" [(ngModel)]="adminDrinkForm.sortOrder"></label>
+            <label class="form-span-2">Opis<textarea name="adminDrinkDescription" rows="3" [(ngModel)]="adminDrinkForm.description" placeholder="Kratak opis koji se može prikazati u meniju."></textarea></label>
+            <label class="form-span-2">Fotografija<input name="adminDrinkImageUpload" type="file" accept="image/png,image/jpeg,image/webp" (change)="selectAdminDrinkImage($event)">@if (adminDrinkUploading) { <span class="field-hint">Upload u toku...</span> } @if (adminDrinkForm.imageUrl) { <img class="upload-preview" [src]="adminDrinkForm.imageUrl" alt="Pregled fotografije"> }</label>
+            <label class="form-span-2">URL fotografije<input name="adminDrinkImageUrl" [(ngModel)]="adminDrinkForm.imageUrl" placeholder="/uploads/drinks/..."></label>
+            <label class="check-label form-span-2"><input name="adminDrinkActive" type="checkbox" [(ngModel)]="adminDrinkForm.isActive"> Aktivno u biblioteci za vlasnike restorana</label>
+          </div>
+        </div>
+        <footer class="modal-footer"><button type="button" class="secondary-button" (click)="closeAdminDrinkModal()">Odustani</button><button type="submit" class="primary-button" [disabled]="adminDrinkSaving || adminDrinkUploading">@if (adminDrinkSaving) { <span class="auth-spinner"></span> Čuvanje... } @else { Sačuvaj piće }</button></footer>
+      </form>
     </div>
   }
 }

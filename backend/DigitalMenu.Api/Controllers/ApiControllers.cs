@@ -44,6 +44,31 @@ public sealed class AdminBillingController(IBillingService billing) : ApiControl
     [HttpPost("{restaurantId:guid}/payments")] public async Task<ActionResult> Record(Guid restaurantId, RecordManualPaymentRequest request, CancellationToken ct) => await billing.RecordPaymentAsync(restaurantId, request, ct) is { } item ? Ok(item) : NotFound();
 }
 
+[Route("api/admin/drinks"), Authorize(Roles = Roles.SuperAdmin)]
+public sealed class AdminDrinksController(IGlobalDrinkService drinks, IWebHostEnvironment environment) : ApiController
+{
+    [HttpGet] public async Task<ActionResult> All(CancellationToken ct) => Ok(await drinks.GetAllAsync(ct));
+    [HttpPost] public async Task<ActionResult> Create(GlobalDrinkRequest request, CancellationToken ct) => Ok(await drinks.SaveAsync(null, request, ct));
+    [HttpPut("{id:guid}")] public async Task<ActionResult> Update(Guid id, GlobalDrinkRequest request, CancellationToken ct) => await drinks.SaveAsync(id, request, ct) is { } item ? Ok(item) : NotFound();
+    [HttpDelete("{id:guid}")] public async Task<ActionResult> Delete(Guid id, CancellationToken ct) => await drinks.DeleteAsync(id, ct) ? NoContent() : NotFound();
+
+    [HttpPost("images"), RequestSizeLimit(6_000_000)]
+    public async Task<ActionResult> UploadImage(IFormFile file, CancellationToken ct)
+    {
+        if (file.Length is <= 0 or > 5_242_880) return BadRequest("Image must be smaller than 5 MB.");
+        var extensions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["image/jpeg"] = ".jpg", ["image/png"] = ".png", ["image/webp"] = ".webp" };
+        if (!extensions.TryGetValue(file.ContentType, out var extension)) return BadRequest("Only JPEG, PNG and WebP images are supported.");
+        var relativeDirectory = Path.Combine("uploads", "drinks");
+        var directory = Path.Combine(environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot"), relativeDirectory);
+        Directory.CreateDirectory(directory);
+        var fileName = $"{Guid.NewGuid():N}{extension}";
+        await using var stream = System.IO.File.Create(Path.Combine(directory, fileName));
+        await file.CopyToAsync(stream, ct);
+        var path = $"/{relativeDirectory.Replace('\\', '/')}/{fileName}";
+        return Ok(new { Url = $"{Request.Scheme}://{Request.Host}{path}" });
+    }
+}
+
 [Route("api/restaurant"), Authorize(Roles = Roles.RestaurantOwner + "," + Roles.RestaurantStaff)]
 public sealed class RestaurantController(IRestaurantService restaurants, IMenuManagementService menu, IWebHostEnvironment environment) : ApiController
 {

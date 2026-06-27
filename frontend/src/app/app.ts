@@ -26,6 +26,8 @@ import { AdminRestaurantsService } from './core/restaurants/admin-restaurants.se
 import { QrCodeService } from './core/qr-code.service';
 import { BillingAccountSummary, BillingOverview, PaymentHistoryItem, PaymentMethod } from './core/billing/billing.models';
 import { BillingService } from './core/billing/billing.service';
+import { AdminGlobalDrink } from './core/drinks/admin-drinks.models';
+import { AdminDrinksService } from './core/drinks/admin-drinks.service';
 import { GlobalDrinkSummary, OwnerMenuCategory, OwnerMenuItem, OwnerRestaurant, OwnerSpecialOffer, SpecialOfferKind, SpecialOfferRequest } from './core/owner/owner.models';
 import { OwnerService } from './core/owner/owner.service';
 
@@ -60,6 +62,7 @@ interface RestaurantForm {
 interface CategoryForm { id: string | null; name: string; description: string; sortOrder: number; isVisible: boolean }
 interface ProductForm { id: string | null; categoryId: string; globalDrinkId: string | null; name: string; description: string; price: number; imageUrl: string; allergens: string; sortOrder: number; isVisible: boolean; isAvailable: boolean; isVegetarian: boolean; isSpicy: boolean; isFeatured: boolean }
 interface OfferForm { id: string | null; kind: SpecialOfferKind; title: string; description: string; price: number; originalPrice: number; imageUrl: string; startsAt: string; endsAt: string; isVisible: boolean; items: string }
+interface AdminDrinkForm { id: string | null; name: string; slug: string; category: string; description: string; imageUrl: string; sortOrder: number; isActive: boolean }
 
 const themeOptions: { id: ThemeType; name: string; description: string; colors: string[] }[] = [
   { id: 'classic-light', name: 'Classic Light', description: 'Svijetla tema za restorane i porodične objekte.', colors: ['#f8fafc', '#ffffff', '#84cc16'] },
@@ -85,6 +88,7 @@ export class App {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly adminRestaurantsService = inject(AdminRestaurantsService);
+  private readonly adminDrinksService = inject(AdminDrinksService);
   private readonly qrCodeService = inject(QrCodeService);
   private readonly billingService = inject(BillingService);
   private readonly ownerService = inject(OwnerService);
@@ -92,7 +96,7 @@ export class App {
   readonly themes = themeOptions;
   readonly adminTabs: { id: AdminTab; label: string }[] = [
     { id: 'dashboard', label: 'Pregled' }, { id: 'restaurants', label: 'Restorani' },
-    { id: 'billing', label: 'Pretplate' },
+    { id: 'billing', label: 'Pretplate' }, { id: 'drink-library', label: 'Biblioteka pića' },
     { id: 'themes', label: 'Teme' }, { id: 'qr-codes', label: 'QR kodovi' },
   ];
   readonly ownerTabs: { id: OwnerTab; label: string }[] = [
@@ -160,6 +164,16 @@ export class App {
   billingError = '';
   billingSearch = '';
   billingStatusFilter = 'all';
+  adminDrinks: AdminGlobalDrink[] = [];
+  adminDrinksLoading = false;
+  adminDrinksLoaded = false;
+  adminDrinksError = '';
+  adminDrinkSearch = '';
+  showAdminDrinkModal = false;
+  adminDrinkSaving = false;
+  adminDrinkUploading = false;
+  adminDrinkFormError = '';
+  adminDrinkForm = this.emptyAdminDrinkForm();
   showPaymentModal = false;
   selectedBillingAccount: BillingAccountSummary | null = null;
   paymentHistory: PaymentHistoryItem[] = [];
@@ -227,6 +241,15 @@ export class App {
     return (this.billingOverview?.accounts ?? []).filter((item) =>
       (this.billingStatusFilter === 'all' || item.status === this.billingStatusFilter) &&
       (!term || item.restaurantName.toLocaleLowerCase().includes(term) || item.slug.toLocaleLowerCase().includes(term)));
+  }
+  get filteredAdminDrinks(): AdminGlobalDrink[] {
+    const term = this.adminDrinkSearch.trim().toLocaleLowerCase();
+    return this.adminDrinks.filter((item) =>
+      !term ||
+      item.name.toLocaleLowerCase().includes(term) ||
+      item.slug.toLocaleLowerCase().includes(term) ||
+      item.category.toLocaleLowerCase().includes(term) ||
+      (item.description ?? '').toLocaleLowerCase().includes(term));
   }
 
   get filteredProducts(): Product[] {
@@ -372,6 +395,120 @@ export class App {
           this.billingLoaded = true;
         },
         error: () => this.billingError = 'Pretplate se trenutno ne mogu učitati. Provjeri backend i pokušaj ponovo.',
+      });
+  }
+
+  loadAdminDrinks(force = false): void {
+    if (this.adminDrinksLoading || this.adminDrinksLoaded && !force) return;
+    this.adminDrinksLoading = true;
+    this.adminDrinksError = '';
+    this.adminDrinksService.getAll()
+      .pipe(finalize(() => this.adminDrinksLoading = false), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (items) => {
+          this.adminDrinks = items;
+          this.adminDrinksLoaded = true;
+        },
+        error: () => this.adminDrinksError = 'Biblioteka pića se trenutno ne može učitati.',
+      });
+  }
+
+  openAdminDrink(item?: AdminGlobalDrink): void {
+    this.adminDrinkForm = item ? {
+      id: item.id,
+      name: item.name,
+      slug: item.slug,
+      category: item.category,
+      description: item.description ?? '',
+      imageUrl: item.imageUrl ?? '',
+      sortOrder: item.sortOrder,
+      isActive: item.isActive,
+    } : this.emptyAdminDrinkForm();
+    this.adminDrinkFormError = '';
+    this.showAdminDrinkModal = true;
+  }
+
+  closeAdminDrinkModal(): void {
+    if (this.adminDrinkSaving || this.adminDrinkUploading) return;
+    this.showAdminDrinkModal = false;
+    this.adminDrinkFormError = '';
+  }
+
+  syncAdminDrinkSlug(): void {
+    if (this.adminDrinkForm.id) return;
+    this.adminDrinkForm.slug = this.adminDrinkForm.name
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  }
+
+  saveAdminDrink(): void {
+    const form = this.adminDrinkForm;
+    if (!form.name.trim() || !form.category.trim()) {
+      this.adminDrinkFormError = 'Naziv i kategorija su obavezni.';
+      return;
+    }
+    this.adminDrinkSaving = true;
+    this.adminDrinkFormError = '';
+    const request = {
+      name: form.name.trim(),
+      slug: this.nullIfEmpty(form.slug),
+      category: form.category.trim(),
+      description: this.nullIfEmpty(form.description),
+      imageUrl: this.nullIfEmpty(form.imageUrl),
+      sortOrder: Number(form.sortOrder) || 0,
+      isActive: form.isActive,
+    };
+    const action = form.id ? this.adminDrinksService.update(form.id, request) : this.adminDrinksService.create(request);
+    action.pipe(finalize(() => this.adminDrinkSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        this.showAdminDrinkModal = false;
+        this.loadAdminDrinks(true);
+        this.drinkLibrary = [];
+      },
+      error: (error: HttpErrorResponse) => this.adminDrinkFormError = error.error?.title ?? 'Piće nije sačuvano. Provjeri unesene podatke.',
+    });
+  }
+
+  toggleAdminDrink(item: AdminGlobalDrink): void {
+    this.adminDrinksService.update(item.id, {
+      name: item.name,
+      slug: item.slug,
+      category: item.category,
+      description: item.description,
+      imageUrl: item.imageUrl,
+      sortOrder: item.sortOrder,
+      isActive: !item.isActive,
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (updated) => {
+        this.adminDrinks = this.adminDrinks.map((drink) => drink.id === updated.id ? updated : drink);
+        this.drinkLibrary = [];
+      },
+      error: () => this.adminDrinksError = 'Status pića nije promijenjen.',
+    });
+  }
+
+  hideAdminDrink(item: AdminGlobalDrink): void {
+    if (!confirm(`Sakriti piće "${item.name}" iz biblioteke?`)) return;
+    this.adminDrinksService.hide(item.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        this.adminDrinks = this.adminDrinks.map((drink) => drink.id === item.id ? { ...drink, isActive: false } : drink);
+        this.drinkLibrary = [];
+      },
+      error: () => this.adminDrinksError = 'Piće nije sakriveno.',
+    });
+  }
+
+  selectAdminDrinkImage(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    this.adminDrinkUploading = true;
+    this.adminDrinkFormError = '';
+    this.adminDrinksService.uploadImage(file)
+      .pipe(finalize(() => { this.adminDrinkUploading = false; input.value = ''; }), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: ({ url }) => this.adminDrinkForm.imageUrl = url,
+        error: (error: HttpErrorResponse) => this.adminDrinkFormError = error.error?.title ?? 'Fotografija nije učitana. Maksimalna veličina je 5 MB.',
       });
   }
 
@@ -847,6 +984,7 @@ export class App {
       this.adminTab = this.isAdminTab(segments[1]) ? segments[1] : 'dashboard';
       this.loadAdminRestaurants();
       if (this.adminTab === 'billing') this.loadBilling();
+      if (this.adminTab === 'drink-library') this.loadAdminDrinks();
     } else if (segments[0] === 'restaurant') {
       this.view = 'restaurant-owner';
       this.ownerTab = this.isOwnerTab(segments[2]) ? segments[2] : 'dashboard';
@@ -912,6 +1050,19 @@ export class App {
       method: 'BankTransfer',
       reference: '',
       note: '',
+    };
+  }
+
+  private emptyAdminDrinkForm(): AdminDrinkForm {
+    return {
+      id: null,
+      name: '',
+      slug: '',
+      category: 'Bezalkoholna pića',
+      description: '',
+      imageUrl: '',
+      sortOrder: this.adminDrinks.length + 1,
+      isActive: true,
     };
   }
 

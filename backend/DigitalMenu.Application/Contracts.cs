@@ -37,6 +37,8 @@ public sealed record ThemeRequest(string ThemeKey, string PrimaryColor, string A
 public sealed record CategoryRequest(string Name, string? Description, int SortOrder, bool IsVisible);
 public sealed record MenuItemRequest(Guid CategoryId, string Name, string? Description, decimal Price, string? ImageUrl, string? Allergens, int SortOrder, bool IsVisible, bool IsAvailable, bool IsVegetarian, bool IsSpicy, bool IsFeatured);
 public sealed record GlobalDrinkSummary(Guid Id, string Name, string Category, string? Description, string? ImageUrl, int SortOrder);
+public sealed record AdminGlobalDrink(Guid Id, string Name, string Slug, string Category, string? Description, string? ImageUrl, int SortOrder, bool IsActive, DateTimeOffset UpdatedAt);
+public sealed record GlobalDrinkRequest(string Name, string? Slug, string Category, string? Description, string? ImageUrl, int SortOrder, bool IsActive);
 public sealed record LibraryDrinkSelection(Guid DrinkId, decimal Price, bool IsVisible, bool IsAvailable);
 public sealed record AddLibraryDrinksRequest(Guid? CategoryId, IReadOnlyList<LibraryDrinkSelection> Drinks);
 public sealed record SpecialOfferRequest(string Title, string? Description, decimal? Price, decimal? OriginalPrice, string? ImageUrl, DateTimeOffset? StartsAt, DateTimeOffset? EndsAt, bool IsVisible, SpecialOfferKind Kind, string? Items);
@@ -93,6 +95,13 @@ public interface IMenuManagementService
     Task<bool> DeleteCategoryAsync(Guid restaurantId, Guid id, CancellationToken cancellationToken);
     Task<bool> DeleteItemAsync(Guid restaurantId, Guid id, CancellationToken cancellationToken);
     Task<bool> DeleteOfferAsync(Guid restaurantId, Guid id, CancellationToken cancellationToken);
+}
+
+public interface IGlobalDrinkService
+{
+    Task<IReadOnlyList<AdminGlobalDrink>> GetAllAsync(CancellationToken cancellationToken);
+    Task<AdminGlobalDrink?> SaveAsync(Guid? id, GlobalDrinkRequest request, CancellationToken cancellationToken);
+    Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
 }
 
 public interface IPublicMenuService
