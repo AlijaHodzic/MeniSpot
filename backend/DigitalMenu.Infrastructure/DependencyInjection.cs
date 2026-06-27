@@ -75,25 +75,25 @@ public static class DatabaseInitializer
         if (await db.GlobalDrinks.AnyAsync()) return;
         var drinks = new (string Name, string Slug, string Category, string? Description)[]
         {
-            ("Coca-Cola 0.25l", "coca-cola-025", "Bezalkoholna pića", "Gazirano bezalkoholno piće"),
-            ("Coca-Cola Zero 0.25l", "coca-cola-zero-025", "Bezalkoholna pića", "Gazirano bezalkoholno piće bez šećera"),
-            ("Fanta 0.25l", "fanta-025", "Bezalkoholna pića", "Gazirano bezalkoholno piće"),
-            ("Sprite 0.25l", "sprite-025", "Bezalkoholna pića", "Gazirano bezalkoholno piće"),
-            ("Schweppes Tonic 0.25l", "schweppes-tonic-025", "Bezalkoholna pića", "Tonic water"),
+            ("Coca-Cola", "coca-cola", "Bezalkoholna pića", "Gazirano bezalkoholno piće"),
+            ("Coca-Cola Zero", "coca-cola-zero", "Bezalkoholna pića", "Gazirano bezalkoholno piće bez šećera"),
+            ("Fanta", "fanta", "Bezalkoholna pića", "Gazirano bezalkoholno piće"),
+            ("Sprite", "sprite", "Bezalkoholna pića", "Gazirano bezalkoholno piće"),
+            ("Schweppes Tonic", "schweppes-tonic", "Bezalkoholna pića", "Tonic water"),
             ("Cedevita", "cedevita", "Bezalkoholna pića", "Vitaminski napitak"),
-            ("Prirodna voda 0.33l", "prirodna-voda-033", "Vode", "Negazirana voda"),
-            ("Kisela voda 0.33l", "kisela-voda-033", "Vode", "Gazirana voda"),
+            ("Prirodna voda", "prirodna-voda", "Vode", "Negazirana voda"),
+            ("Kisela voda", "kisela-voda", "Vode", "Gazirana voda"),
             ("Espresso", "espresso", "Topli napici", "Kratka kafa"),
             ("Americano", "americano", "Topli napici", "Produžena kafa"),
             ("Cappuccino", "cappuccino", "Topli napici", "Kafa s mlijekom"),
             ("Latte", "latte", "Topli napici", "Kafa s mlijekom"),
             ("Čaj", "caj", "Topli napici", "Topli čaj"),
-            ("Red Bull 0.25l", "red-bull-025", "Energetska pića", "Energetsko piće"),
-            ("Heineken 0.33l", "heineken-033", "Piva", "Pivo"),
-            ("Tuborg 0.33l", "tuborg-033", "Piva", "Pivo"),
-            ("Sarajevsko 0.33l", "sarajevsko-033", "Piva", "Pivo"),
-            ("Bijelo vino 0.1l", "bijelo-vino-01", "Vina", "Vino na čašu"),
-            ("Crno vino 0.1l", "crno-vino-01", "Vina", "Vino na čašu"),
+            ("Red Bull", "red-bull", "Energetska pića", "Energetsko piće"),
+            ("Heineken", "heineken", "Piva", "Pivo"),
+            ("Tuborg", "tuborg", "Piva", "Pivo"),
+            ("Sarajevsko", "sarajevsko", "Piva", "Pivo"),
+            ("Bijelo vino", "bijelo-vino", "Vina", "Vino na čašu"),
+            ("Crno vino", "crno-vino", "Vina", "Vino na čašu"),
         };
         db.GlobalDrinks.AddRange(drinks.Select((x, index) => new GlobalDrink
         {
@@ -102,6 +102,7 @@ public static class DatabaseInitializer
             Category = x.Category,
             Description = x.Description,
             ImageUrl = "/menispot-mark.png",
+            ServingOptions = DefaultServingOptions(x.Category),
             SortOrder = index + 1,
             IsActive = true
         }));
@@ -116,19 +117,81 @@ public static class DatabaseInitializer
         {
             var category = drink.Slug switch
             {
-                "prirodna-voda-033" or "kisela-voda-033" => "Vode",
+                "prirodna-voda-033" or "kisela-voda-033" or "prirodna-voda" or "kisela-voda" => "Vode",
                 "espresso" or "americano" or "cappuccino" or "latte" or "caj" => "Topli napici",
-                "heineken-033" or "tuborg-033" or "sarajevsko-033" => "Pivo",
-                "bijelo-vino-01" => "Bijela vina",
-                "crno-vino-01" => "Crna vina",
+                "heineken-033" or "tuborg-033" or "sarajevsko-033" or "heineken" or "tuborg" or "sarajevsko" => "Pivo",
+                "bijelo-vino-01" or "bijelo-vino" => "Bijela vina",
+                "crno-vino-01" or "crno-vino" => "Crna vina",
                 _ when drink.Category is "Bezalkoholna piÄ‡a" or "Bezalkoholna pića" or "Energetska piÄ‡a" or "Energetska pića" => "Gazirana pića",
                 _ => drink.Category
             };
-            if (drink.Category == category) continue;
-            drink.Category = category;
+            var normalizedName = NormalizeDrinkLibraryName(drink.Name);
+            var normalizedSlug = NormalizeDrinkLibrarySlug(drink.Slug);
+            var itemChanged = false;
+            if (drink.Category != category)
+            {
+                drink.Category = category;
+                itemChanged = true;
+            }
+            if (drink.Name != normalizedName)
+            {
+                drink.Name = normalizedName;
+                itemChanged = true;
+            }
+            if (drink.Slug != normalizedSlug && !drinks.Any(x => x.Id != drink.Id && x.Slug == normalizedSlug))
+            {
+                drink.Slug = normalizedSlug;
+                itemChanged = true;
+            }
+            if (itemChanged)
+            {
+                drink.UpdatedAt = DateTimeOffset.UtcNow;
+                changed = true;
+            }
+        }
+        foreach (var drink in drinks.Where(x => string.IsNullOrWhiteSpace(x.ServingOptions)))
+        {
+            drink.ServingOptions = DefaultServingOptions(drink.Category);
             drink.UpdatedAt = DateTimeOffset.UtcNow;
             changed = true;
         }
         if (changed) await db.SaveChangesAsync();
     }
+
+    private static string DefaultServingOptions(string category) => category switch
+    {
+        "Vode" => "0.25l, 0.33l, 0.50l, 0.75l, 1.00l",
+        "Gazirana pića" or "Negazirana pića" => "0.20l, 0.25l, 0.33l, 0.50l, 1.00l",
+        "Cijeđeni sokovi" => "0.20l, 0.25l, 0.30l, 0.40l, 0.50l",
+        "Topli napici" => "porcija",
+        "Točeno pivo" => "0.20l, 0.25l, 0.30l, 0.33l, 0.40l, 0.50l, 1.00l",
+        "Pivo" => "0.25l, 0.33l, 0.50l",
+        "Alkoholni napici" => "0.03l, 0.04l, 0.05l",
+        "Crna vina" or "Bijela vina" => "0.10l, 0.15l, 0.187l, 0.75l, 1.00l",
+        _ => "porcija"
+    };
+
+    private static string NormalizeDrinkLibraryName(string name) =>
+        name.Replace(" 0.25l", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace(" 0.33l", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace(" 0.1l", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Trim();
+
+    private static string NormalizeDrinkLibrarySlug(string slug) => slug switch
+    {
+        "coca-cola-025" => "coca-cola",
+        "coca-cola-zero-025" => "coca-cola-zero",
+        "fanta-025" => "fanta",
+        "sprite-025" => "sprite",
+        "schweppes-tonic-025" => "schweppes-tonic",
+        "prirodna-voda-033" => "prirodna-voda",
+        "kisela-voda-033" => "kisela-voda",
+        "red-bull-025" => "red-bull",
+        "heineken-033" => "heineken",
+        "tuborg-033" => "tuborg",
+        "sarajevsko-033" => "sarajevsko",
+        "bijelo-vino-01" => "bijelo-vino",
+        "crno-vino-01" => "crno-vino",
+        _ => slug
+    };
 }

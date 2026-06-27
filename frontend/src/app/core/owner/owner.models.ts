@@ -9,6 +9,7 @@ export interface OwnerMenuItem {
   name: string;
   description: string | null;
   price: number;
+  servingSize: string | null;
   imageUrl: string | null;
   allergens: string | null;
   sortOrder: number;
@@ -74,6 +75,6 @@ export interface OwnerRestaurant {
 export interface CategoryRequest { name: string; description: string | null; sortOrder: number; isVisible: boolean }
 export interface MenuItemRequest extends Omit<OwnerMenuItem, 'id' | 'globalDrinkId'> {}
 export interface SpecialOfferRequest extends Omit<OwnerSpecialOffer, 'id'> {}
-export interface GlobalDrinkSummary { id: string; name: string; category: string; description: string | null; imageUrl: string | null; sortOrder: number }
-export interface LibraryDrinkSelection { drinkId: string; price: number; isVisible: boolean; isAvailable: boolean }
+export interface GlobalDrinkSummary { id: string; name: string; category: string; description: string | null; imageUrl: string | null; servingOptions: string | null; sortOrder: number }
+export interface LibraryDrinkSelection { drinkId: string; servingSize: string | null; price: number; isVisible: boolean; isAvailable: boolean }
 export interface AddLibraryDrinksRequest { categoryId: string | null; drinks: LibraryDrinkSelection[] }

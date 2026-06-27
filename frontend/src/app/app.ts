@@ -60,9 +60,10 @@ interface RestaurantForm {
 }
 
 interface CategoryForm { id: string | null; name: string; description: string; sortOrder: number; isVisible: boolean }
-interface ProductForm { id: string | null; categoryId: string; globalDrinkId: string | null; name: string; description: string; price: number; imageUrl: string; allergens: string; sortOrder: number; isVisible: boolean; isAvailable: boolean; isVegetarian: boolean; isSpicy: boolean; isFeatured: boolean }
+interface ProductForm { id: string | null; categoryId: string; globalDrinkId: string | null; name: string; description: string; price: number; servingSize: string; imageUrl: string; allergens: string; sortOrder: number; isVisible: boolean; isAvailable: boolean; isVegetarian: boolean; isSpicy: boolean; isFeatured: boolean }
 interface OfferForm { id: string | null; kind: SpecialOfferKind; title: string; description: string; price: number; originalPrice: number; imageUrl: string; startsAt: string; endsAt: string; isVisible: boolean; items: string }
-interface AdminDrinkForm { id: string | null; name: string; slug: string; category: string; description: string; imageUrl: string; sortOrder: number; isActive: boolean }
+interface AdminDrinkForm { id: string | null; name: string; slug: string; category: string; description: string; imageUrl: string; servingOptions: string; sortOrder: number; isActive: boolean }
+interface DrinkLibraryVariant { key: string; drink: GlobalDrinkSummary; servingSize: string | null }
 
 const themeOptions: { id: ThemeType; name: string; description: string; colors: string[] }[] = [
   { id: 'classic-light', name: 'Classic Light', description: 'Svijetla tema za restorane i porodične objekte.', colors: ['#f8fafc', '#ffffff', '#84cc16'] },
@@ -209,7 +210,7 @@ export class App {
   drinkLibrarySearch = '';
   drinkLibraryCategoryFilter = 'all';
   drinkLibraryCategoryId = '';
-  drinkSelections: Record<string, { selected: boolean; price: number }> = {};
+  drinkSelections: Record<string, { drinkId: string; servingSize: string | null; selected: boolean; price: number }> = {};
   categoryForm: CategoryForm = this.emptyCategoryForm();
   productForm: ProductForm = this.emptyProductForm();
   offerForm: OfferForm = this.emptyOfferForm('Promotion');
@@ -285,6 +286,13 @@ export class App {
         drink.name.toLocaleLowerCase().includes(term) ||
         drink.category.toLocaleLowerCase().includes(term) ||
         (drink.description ?? '').toLocaleLowerCase().includes(term)));
+  }
+  get filteredDrinkVariants(): DrinkLibraryVariant[] {
+    return this.filteredDrinkLibrary.flatMap((drink) => this.servingOptionsFor(drink).map((servingSize) => ({
+      key: this.drinkVariantKey(drink.id, servingSize),
+      drink,
+      servingSize,
+    })));
   }
   get selectedLibraryDrinkCount(): number {
     return Object.values(this.drinkSelections).filter((item) => item.selected).length;
@@ -444,6 +452,7 @@ export class App {
       category: item.category,
       description: item.description ?? '',
       imageUrl: item.imageUrl ?? '',
+      servingOptions: item.servingOptions ?? '',
       sortOrder: item.sortOrder,
       isActive: item.isActive,
     } : this.emptyAdminDrinkForm();
@@ -478,6 +487,7 @@ export class App {
       category: form.category.trim(),
       description: this.nullIfEmpty(form.description),
       imageUrl: this.nullIfEmpty(form.imageUrl),
+      servingOptions: this.nullIfEmpty(form.servingOptions),
       sortOrder: Number(form.sortOrder) || 0,
       isActive: form.isActive,
     };
@@ -499,6 +509,7 @@ export class App {
       category: item.category,
       description: item.description,
       imageUrl: item.imageUrl,
+      servingOptions: item.servingOptions,
       sortOrder: item.sortOrder,
       isActive: !item.isActive,
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
@@ -750,7 +761,7 @@ export class App {
 
   openProduct(product?: OwnerMenuItem): void {
     this.productForm = product ? {
-      id: product.id, categoryId: product.categoryId, globalDrinkId: product.globalDrinkId, name: product.name, description: product.description ?? '', price: product.price,
+      id: product.id, categoryId: product.categoryId, globalDrinkId: product.globalDrinkId, name: product.name, description: product.description ?? '', price: product.price, servingSize: product.servingSize ?? '',
       imageUrl: product.globalDrinkId ? '' : product.imageUrl ?? '', allergens: product.allergens ?? '', sortOrder: product.sortOrder, isVisible: product.isVisible,
       isAvailable: product.isAvailable, isVegetarian: product.isVegetarian, isSpicy: product.isSpicy, isFeatured: product.isFeatured,
     } : this.emptyProductForm();
@@ -762,7 +773,7 @@ export class App {
     this.ownerSaving = true;
     this.ownerService.saveItem(this.productForm.id, {
       categoryId: this.productForm.categoryId, name: this.productForm.name.trim(), description: this.nullIfEmpty(this.productForm.description),
-      price: this.productForm.price, imageUrl: this.nullIfEmpty(this.productForm.imageUrl), allergens: this.nullIfEmpty(this.productForm.allergens),
+      price: this.productForm.price, servingSize: this.nullIfEmpty(this.productForm.servingSize), imageUrl: this.nullIfEmpty(this.productForm.imageUrl), allergens: this.nullIfEmpty(this.productForm.allergens),
       sortOrder: this.productForm.sortOrder, isVisible: this.productForm.isVisible, isAvailable: this.productForm.isAvailable,
       isVegetarian: this.productForm.isVegetarian, isSpicy: this.productForm.isSpicy, isFeatured: this.productForm.isFeatured,
     }).pipe(finalize(() => this.ownerSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
@@ -781,26 +792,26 @@ export class App {
     this.ownerService.getDrinkLibrary().pipe(finalize(() => this.drinkLibraryLoading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (items) => {
         this.drinkLibrary = items;
-        this.drinkSelections = Object.fromEntries(items.map((item) => [item.id, { selected: false, price: 0 }]));
+        this.drinkSelections = this.emptyDrinkSelections(items);
       },
       error: () => this.drinkLibraryError = 'Biblioteka pića nije učitana.',
     });
   }
 
-  libraryDrinkAdded(drinkId: string): boolean {
-    return this.ownerItems.some((item) => item.globalDrinkId === drinkId);
+  libraryDrinkAdded(drinkId: string, servingSize?: string | null): boolean {
+    return this.ownerItems.some((item) => item.globalDrinkId === drinkId && this.normalizeServing(item.servingSize) === this.normalizeServing(servingSize));
   }
 
-  toggleLibraryDrink(drink: GlobalDrinkSummary): void {
-    if (this.libraryDrinkAdded(drink.id)) return;
-    const current = this.drinkSelections[drink.id] ?? { selected: false, price: 0 };
-    this.drinkSelections = { ...this.drinkSelections, [drink.id]: { ...current, selected: !current.selected } };
+  toggleLibraryDrink(variant: DrinkLibraryVariant): void {
+    if (this.libraryDrinkAdded(variant.drink.id, variant.servingSize)) return;
+    const current = this.drinkSelections[variant.key] ?? { drinkId: variant.drink.id, servingSize: variant.servingSize, selected: false, price: 0 };
+    this.drinkSelections = { ...this.drinkSelections, [variant.key]: { ...current, selected: !current.selected } };
   }
 
   addSelectedLibraryDrinks(): void {
     const drinks = Object.entries(this.drinkSelections)
-      .filter(([id, selection]) => selection.selected && !this.libraryDrinkAdded(id))
-      .map(([drinkId, selection]) => ({ drinkId, price: Number(selection.price) || 0, isVisible: true, isAvailable: true }));
+      .filter(([, selection]) => selection.selected && !this.libraryDrinkAdded(selection.drinkId, selection.servingSize))
+      .map(([, selection]) => ({ drinkId: selection.drinkId, servingSize: selection.servingSize, price: Number(selection.price) || 0, isVisible: true, isAvailable: true }));
     if (!drinks.length) { this.drinkLibraryError = 'Odaberi barem jedno piće iz biblioteke.'; return; }
     this.ownerSaving = true;
     this.drinkLibraryError = '';
@@ -809,7 +820,7 @@ export class App {
       .subscribe({
         next: () => {
           this.showDrinkLibraryModal = false;
-          this.drinkSelections = Object.fromEntries(this.drinkLibrary.map((item) => [item.id, { selected: false, price: this.drinkSelections[item.id]?.price ?? 0 }]));
+          this.drinkSelections = this.emptyDrinkSelections(this.drinkLibrary);
           this.loadOwnerRestaurant(true);
         },
         error: () => this.drinkLibraryError = 'Pića nisu dodana u meni.',
@@ -821,7 +832,7 @@ export class App {
     if (!source) { product.available = !product.available; return; }
     this.ownerService.saveItem(source.id, {
       categoryId: source.categoryId, name: source.name, description: source.description, price: source.price,
-      imageUrl: source.globalDrinkId ? null : source.imageUrl, allergens: source.allergens, sortOrder: source.sortOrder,
+      servingSize: source.servingSize, imageUrl: source.globalDrinkId ? null : source.imageUrl, allergens: source.allergens, sortOrder: source.sortOrder,
       isVisible: source.isVisible, isAvailable: !source.isAvailable, isVegetarian: source.isVegetarian, isSpicy: source.isSpicy, isFeatured: source.isFeatured,
     })
       .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: () => this.loadOwnerRestaurant(true), error: () => this.ownerError = 'Dostupnost proizvoda nije promijenjena.' });
@@ -1065,6 +1076,42 @@ export class App {
     return value.trim() || null;
   }
 
+  private servingOptionsFor(drink: GlobalDrinkSummary): (string | null)[] {
+    const options = (drink.servingOptions ?? '').split(',').map((value) => value.trim()).filter(Boolean);
+    return options.length ? options : [null];
+  }
+
+  private emptyDrinkSelections(items: GlobalDrinkSummary[]): Record<string, { drinkId: string; servingSize: string | null; selected: boolean; price: number }> {
+    return Object.fromEntries(items.flatMap((item) => this.servingOptionsFor(item).map((servingSize) => {
+      const key = this.drinkVariantKey(item.id, servingSize);
+      return [key, { drinkId: item.id, servingSize, selected: false, price: this.drinkSelections[key]?.price ?? 0 }];
+    })));
+  }
+
+  private drinkVariantKey(drinkId: string, servingSize?: string | null): string {
+    return `${drinkId}:${this.normalizeServing(servingSize)}`;
+  }
+
+  private normalizeServing(value?: string | null): string {
+    return (value ?? '').trim().toLocaleLowerCase();
+  }
+
+  defaultServingOptions(category: string): string {
+    const options: Record<string, string> = {
+      'Vode': '0.25l, 0.33l, 0.50l, 0.75l, 1.00l',
+      'Gazirana pića': '0.20l, 0.25l, 0.33l, 0.50l, 1.00l',
+      'Negazirana pića': '0.20l, 0.25l, 0.33l, 0.50l, 1.00l',
+      'Cijeđeni sokovi': '0.20l, 0.25l, 0.30l, 0.40l, 0.50l',
+      'Topli napici': 'porcija',
+      'Točeno pivo': '0.20l, 0.25l, 0.30l, 0.33l, 0.40l, 0.50l, 1.00l',
+      'Pivo': '0.25l, 0.33l, 0.50l',
+      'Alkoholni napici': '0.03l, 0.04l, 0.05l',
+      'Crna vina': '0.10l, 0.15l, 0.187l, 0.75l, 1.00l',
+      'Bijela vina': '0.10l, 0.15l, 0.187l, 0.75l, 1.00l',
+    };
+    return options[category] ?? 'porcija';
+  }
+
   private emptyPaymentForm(account?: BillingAccountSummary): { amount: number; currency: string; paidOn: string; coverageMonths: number; method: PaymentMethod; reference: string; note: string } {
     return {
       amount: account?.monthlyPrice ?? 0,
@@ -1085,6 +1132,7 @@ export class App {
       category: this.drinkCategories[0],
       description: '',
       imageUrl: '',
+      servingOptions: this.defaultServingOptions(this.drinkCategories[0]),
       sortOrder: this.adminDrinks.length + 1,
       isActive: true,
     };
@@ -1140,6 +1188,7 @@ export class App {
     this.ownerRestaurant = { ...restaurant, businessHours: this.completeBusinessHours(restaurant.businessHours) };
     const products: Product[] = restaurant.categories.flatMap((category) => category.items.map((item) => ({
       id: item.id, categoryId: item.categoryId, name: item.name, description: item.description ?? '', price: item.price,
+      servingSize: item.servingSize,
       image: item.imageUrl || '/menispot-mark.png', available: item.isAvailable && item.isVisible,
       badges: [item.isVegetarian ? 'vegetarian' : null, item.isSpicy ? 'spicy' : null, item.isFeatured ? 'chefs-choice' : null].filter(Boolean) as BadgeType[],
       allergens: (item.allergens ?? '').split(',').map((value) => value.trim()).filter(Boolean),
@@ -1160,7 +1209,7 @@ export class App {
   }
 
   private emptyCategoryForm(): CategoryForm { return { id: null, name: '', description: '', sortOrder: (this.ownerCategories.at(-1)?.sortOrder ?? 0) + 1, isVisible: true }; }
-  private emptyProductForm(): ProductForm { return { id: null, categoryId: this.ownerCategories[0]?.id ?? '', globalDrinkId: null, name: '', description: '', price: 0, imageUrl: '', allergens: '', sortOrder: this.ownerItems.length + 1, isVisible: true, isAvailable: true, isVegetarian: false, isSpicy: false, isFeatured: false }; }
+  private emptyProductForm(): ProductForm { return { id: null, categoryId: this.ownerCategories[0]?.id ?? '', globalDrinkId: null, name: '', description: '', price: 0, servingSize: '', imageUrl: '', allergens: '', sortOrder: this.ownerItems.length + 1, isVisible: true, isAvailable: true, isVegetarian: false, isSpicy: false, isFeatured: false }; }
   private emptyOfferForm(kind: SpecialOfferKind): OfferForm { return { id: null, kind, title: '', description: '', price: 0, originalPrice: 0, imageUrl: '', startsAt: '', endsAt: '', isVisible: true, items: '' }; }
   private dateTimeInputValue(value: string | null): string { return value ? new Date(value).toISOString().slice(0, 16) : ''; }
   private isoDateTime(value: string): string | null { return value ? new Date(value).toISOString() : null; }

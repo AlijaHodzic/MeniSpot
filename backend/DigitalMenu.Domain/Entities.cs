@@ -98,6 +98,7 @@ public sealed class MenuItem : Entity
     public required string Name { get; set; }
     public string? Description { get; set; }
     public decimal Price { get; set; }
+    public string? ServingSize { get; set; }
     public string? ImageUrl { get; set; }
     public string? Allergens { get; set; }
     public int SortOrder { get; set; }
@@ -117,6 +118,7 @@ public sealed class GlobalDrink : Entity
     public string Category { get; set; } = "Pića";
     public string? Description { get; set; }
     public string? ImageUrl { get; set; }
+    public string? ServingOptions { get; set; }
     public int SortOrder { get; set; }
     public bool IsActive { get; set; } = true;
 }

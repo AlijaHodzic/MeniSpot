@@ -48,6 +48,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         {
             e.HasIndex(x => new { x.RestaurantId, x.CategoryId, x.SortOrder });
             e.Property(x => x.Name).HasMaxLength(160);
+            e.Property(x => x.ServingSize).HasMaxLength(40);
             e.Property(x => x.Price).HasPrecision(12, 2);
             e.HasOne(x => x.Category).WithMany(x => x.Items).HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.GlobalDrink).WithMany().HasForeignKey(x => x.GlobalDrinkId).OnDelete(DeleteBehavior.SetNull);
@@ -59,6 +60,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.Name).HasMaxLength(160);
             e.Property(x => x.Slug).HasMaxLength(120);
             e.Property(x => x.Category).HasMaxLength(80);
+            e.Property(x => x.ServingOptions).HasMaxLength(500);
         });
         builder.Entity<SpecialOffer>(e =>
         {

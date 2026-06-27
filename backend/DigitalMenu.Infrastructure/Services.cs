@@ -274,7 +274,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         new OwnerTheme(restaurant.Theme?.ThemeKey ?? NormalizeThemeKey(null, restaurant.Type), restaurant.Theme?.PrimaryColor ?? "#111827", restaurant.Theme?.AccentColor ?? "#84cc16", restaurant.Theme?.BackgroundImageUrl, restaurant.Theme?.FontFamily ?? "Inter"),
         restaurant.BusinessHours.OrderBy(x => x.DayOfWeek).Select(x => new OwnerBusinessHour(x.DayOfWeek, x.OpensAt, x.ClosesAt, x.IsClosed)).ToList(),
         restaurant.Categories.OrderBy(x => x.SortOrder).Select(x => new OwnerMenuCategory(x.Id, x.Name, x.Description, x.SortOrder, x.IsVisible,
-            x.Items.OrderBy(i => i.SortOrder).Select(i => new OwnerMenuItem(i.Id, i.CategoryId, i.GlobalDrinkId, i.Name, i.Description, i.Price, i.ImageUrl ?? (i.GlobalDrink == null ? null : i.GlobalDrink.ImageUrl), i.Allergens, i.SortOrder, i.IsVisible, i.IsAvailable, i.IsVegetarian, i.IsSpicy, i.IsFeatured)).ToList())).ToList(),
+            x.Items.OrderBy(i => i.SortOrder).Select(i => new OwnerMenuItem(i.Id, i.CategoryId, i.GlobalDrinkId, i.Name, i.Description, i.Price, i.ServingSize, i.ImageUrl ?? (i.GlobalDrink == null ? null : i.GlobalDrink.ImageUrl), i.Allergens, i.SortOrder, i.IsVisible, i.IsAvailable, i.IsVegetarian, i.IsSpicy, i.IsFeatured)).ToList())).ToList(),
         restaurant.SpecialOffers.OrderByDescending(x => x.CreatedAt).Select(x => new OwnerSpecialOffer(x.Id, x.Title, x.Description, x.Price, x.OriginalPrice, x.ImageUrl, x.StartsAt, x.EndsAt, x.IsVisible, x.Kind, x.Items)).ToList());
 
     private static SubscriptionStatus ActiveSubscriptionStatus(Subscription subscription)
@@ -415,12 +415,12 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
         if (r.SortOrder < 0) throw new InvalidOperationException("Menu item sort order cannot be negative.");
         if (!await db.MenuCategories.AnyAsync(x => x.Id == r.CategoryId && x.RestaurantId == rid, ct)) return null;
         var x = id is null ? new MenuItem { RestaurantId = rid, CategoryId = r.CategoryId, Name = r.Name } : await db.MenuItems.FirstOrDefaultAsync(x => x.Id == id && x.RestaurantId == rid, ct);
-        if (x is null) return null; x.CategoryId = r.CategoryId; x.Name = r.Name.Trim(); x.Description = r.Description; x.Price = r.Price; x.ImageUrl = r.ImageUrl; x.Allergens = r.Allergens; x.SortOrder = r.SortOrder; x.IsVisible = r.IsVisible; x.IsAvailable = r.IsAvailable; x.IsVegetarian = r.IsVegetarian; x.IsSpicy = r.IsSpicy; x.IsFeatured = r.IsFeatured; x.UpdatedAt = DateTimeOffset.UtcNow;
+        if (x is null) return null; x.CategoryId = r.CategoryId; x.Name = r.Name.Trim(); x.Description = r.Description; x.Price = r.Price; x.ServingSize = NormalizeServingSize(r.ServingSize); x.ImageUrl = r.ImageUrl; x.Allergens = r.Allergens; x.SortOrder = r.SortOrder; x.IsVisible = r.IsVisible; x.IsAvailable = r.IsAvailable; x.IsVegetarian = r.IsVegetarian; x.IsSpicy = r.IsSpicy; x.IsFeatured = r.IsFeatured; x.UpdatedAt = DateTimeOffset.UtcNow;
         if (id is null) db.Add(x); await db.SaveChangesAsync(ct); return x;
     }
     public async Task<IReadOnlyList<GlobalDrinkSummary>> GetDrinkLibraryAsync(CancellationToken ct) =>
         await db.GlobalDrinks.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Category).ThenBy(x => x.SortOrder).ThenBy(x => x.Name)
-            .Select(x => new GlobalDrinkSummary(x.Id, x.Name, x.Category, x.Description, x.ImageUrl, x.SortOrder)).ToListAsync(ct);
+            .Select(x => new GlobalDrinkSummary(x.Id, x.Name, x.Category, x.Description, x.ImageUrl, x.ServingOptions, x.SortOrder)).ToListAsync(ct);
 
     public async Task<IReadOnlyList<MenuItem>> AddLibraryDrinksAsync(Guid rid, AddLibraryDrinksRequest r, CancellationToken ct)
     {
@@ -428,17 +428,19 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
         if (r.Drinks.Any(x => x.Price < 0)) throw new InvalidOperationException("Drink prices cannot be negative.");
         var drinkIds = r.Drinks.Select(x => x.DrinkId).Distinct().ToArray();
         var drinks = await db.GlobalDrinks.Where(x => x.IsActive && drinkIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, ct);
-        var existing = await db.MenuItems.Where(x => x.RestaurantId == rid && x.GlobalDrinkId != null && drinkIds.Contains(x.GlobalDrinkId.Value)).Select(x => x.GlobalDrinkId!.Value).ToListAsync(ct);
-        var existingSet = existing.ToHashSet();
+        var existing = await db.MenuItems.Where(x => x.RestaurantId == rid && x.GlobalDrinkId != null && drinkIds.Contains(x.GlobalDrinkId.Value))
+            .Select(x => new { DrinkId = x.GlobalDrinkId!.Value, x.ServingSize }).ToListAsync(ct);
+        var existingSet = existing.Select(x => LibraryKey(x.DrinkId, x.ServingSize)).ToHashSet();
         var categories = await db.MenuCategories.Where(x => x.RestaurantId == rid).ToListAsync(ct);
         var selectedCategory = r.CategoryId is { } id ? categories.FirstOrDefault(x => x.Id == id) : null;
         var categorySort = categories.Select(x => (int?)x.SortOrder).Max() ?? 0;
         var itemSortOrders = await db.MenuItems.Where(x => x.RestaurantId == rid).GroupBy(x => x.CategoryId)
             .Select(x => new { CategoryId = x.Key, SortOrder = x.Max(item => item.SortOrder) }).ToDictionaryAsync(x => x.CategoryId, x => x.SortOrder, ct);
         var created = new List<MenuItem>();
-        foreach (var selection in r.Drinks.Where(x => !existingSet.Contains(x.DrinkId)))
+        foreach (var selection in r.Drinks.Where(x => !existingSet.Contains(LibraryKey(x.DrinkId, x.ServingSize))))
         {
             if (!drinks.TryGetValue(selection.DrinkId, out var drink)) continue;
+            var servingSize = NormalizeServingSize(selection.ServingSize);
             var category = selectedCategory ?? categories.FirstOrDefault(x => string.Equals(x.Name, drink.Category, StringComparison.OrdinalIgnoreCase));
             if (category is null)
             {
@@ -457,6 +459,7 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
                 Name = drink.Name,
                 Description = drink.Description,
                 Price = selection.Price,
+                ServingSize = servingSize,
                 ImageUrl = null,
                 SortOrder = sortOrder,
                 IsVisible = selection.IsVisible,
@@ -464,6 +467,7 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
             };
             db.MenuItems.Add(item);
             created.Add(item);
+            existingSet.Add(LibraryKey(drink.Id, servingSize));
         }
         await db.SaveChangesAsync(ct);
         return created;
@@ -492,6 +496,8 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
     public Task<bool> DeleteCategoryAsync(Guid rid, Guid id, CancellationToken ct) => DeleteAsync(db.MenuCategories, rid, id, ct);
     public Task<bool> DeleteItemAsync(Guid rid, Guid id, CancellationToken ct) => DeleteAsync(db.MenuItems, rid, id, ct);
     public Task<bool> DeleteOfferAsync(Guid rid, Guid id, CancellationToken ct) => DeleteAsync(db.SpecialOffers, rid, id, ct);
+    private static string? NormalizeServingSize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static string LibraryKey(Guid drinkId, string? servingSize) => $"{drinkId:N}:{NormalizeServingSize(servingSize)?.ToLowerInvariant() ?? string.Empty}";
     private async Task<bool> DeleteAsync<T>(DbSet<T> set, Guid rid, Guid id, CancellationToken ct) where T : Entity
     {
         var x = await set.FirstOrDefaultAsync(x => x.Id == id && EF.Property<Guid>(x, "RestaurantId") == rid, ct); if (x is null) return false;
@@ -504,7 +510,7 @@ public sealed class GlobalDrinkService(ApplicationDbContext db) : IGlobalDrinkSe
     public async Task<IReadOnlyList<AdminGlobalDrink>> GetAllAsync(CancellationToken ct) =>
         await db.GlobalDrinks.AsNoTracking()
             .OrderBy(x => x.Category).ThenBy(x => x.SortOrder).ThenBy(x => x.Name)
-            .Select(x => new AdminGlobalDrink(x.Id, x.Name, x.Slug, x.Category, x.Description, x.ImageUrl, x.SortOrder, x.IsActive, x.UpdatedAt))
+            .Select(x => new AdminGlobalDrink(x.Id, x.Name, x.Slug, x.Category, x.Description, x.ImageUrl, x.ServingOptions, x.SortOrder, x.IsActive, x.UpdatedAt))
             .ToListAsync(ct);
 
     public async Task<AdminGlobalDrink?> SaveAsync(Guid? id, GlobalDrinkRequest r, CancellationToken ct)
@@ -523,6 +529,7 @@ public sealed class GlobalDrinkService(ApplicationDbContext db) : IGlobalDrinkSe
         item.Category = r.Category.Trim();
         item.Description = string.IsNullOrWhiteSpace(r.Description) ? null : r.Description.Trim();
         item.ImageUrl = string.IsNullOrWhiteSpace(r.ImageUrl) ? null : r.ImageUrl.Trim();
+        item.ServingOptions = NormalizeServingOptions(r.ServingOptions);
         item.SortOrder = r.SortOrder;
         item.IsActive = r.IsActive;
         item.UpdatedAt = DateTimeOffset.UtcNow;
@@ -542,10 +549,17 @@ public sealed class GlobalDrinkService(ApplicationDbContext db) : IGlobalDrinkSe
     }
 
     private static AdminGlobalDrink ToAdmin(GlobalDrink x) =>
-        new(x.Id, x.Name, x.Slug, x.Category, x.Description, x.ImageUrl, x.SortOrder, x.IsActive, x.UpdatedAt);
+        new(x.Id, x.Name, x.Slug, x.Category, x.Description, x.ImageUrl, x.ServingOptions, x.SortOrder, x.IsActive, x.UpdatedAt);
 
     private static string NormalizeSlug(string? value) =>
         Regex.Replace((value ?? string.Empty).Trim().ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');
+
+    private static string? NormalizeServingOptions(string? value)
+    {
+        var options = (value ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        return options.Length == 0 ? null : string.Join(", ", options);
+    }
 }
 
 public sealed class PublicMenuService(ApplicationDbContext db) : IPublicMenuService

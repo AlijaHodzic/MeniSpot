@@ -5,6 +5,7 @@ export interface AdminGlobalDrink {
   category: string;
   description: string | null;
   imageUrl: string | null;
+  servingOptions: string | null;
   sortOrder: number;
   isActive: boolean;
   updatedAt: string;
@@ -16,6 +17,7 @@ export interface GlobalDrinkRequest {
   category: string;
   description: string | null;
   imageUrl: string | null;
+  servingOptions: string | null;
   sortOrder: number;
   isActive: boolean;
 }
