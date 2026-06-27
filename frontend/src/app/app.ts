@@ -325,6 +325,10 @@ export class App {
     void this.router.navigate(['/auth/login']);
   }
 
+  openDemoMenu(): void {
+    globalThis.open('/menu/demomeni', '_blank', 'noopener,noreferrer');
+  }
+
   toggleSidebar(): void {
     if (globalThis.innerWidth <= 900) {
       this.mobileNav = !this.mobileNav;
