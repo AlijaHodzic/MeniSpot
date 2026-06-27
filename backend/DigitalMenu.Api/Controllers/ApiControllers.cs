@@ -3,6 +3,10 @@ using DigitalMenu.Application;
 using DigitalMenu.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Webp;
+using SixLabors.ImageSharp.Processing;
 
 namespace DigitalMenu.Api.Controllers;
 
@@ -12,6 +16,58 @@ public abstract class ApiController : ControllerBase
     protected Guid? RestaurantId => Guid.TryParse(User.FindFirstValue("restaurant_id"), out var id) ? id : null;
     protected bool IsSuperAdmin => User.IsInRole(Roles.SuperAdmin);
     protected ActionResult MissingTenant() => Forbid();
+}
+
+internal static class ImageUploadHelper
+{
+    private const long MaxUploadBytes = 5_242_880;
+    private static readonly HashSet<string> SupportedContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+    };
+
+    public static async Task<ActionResult> SaveOptimizedWebpAsync(
+        ControllerBase controller,
+        IWebHostEnvironment environment,
+        IFormFile file,
+        string relativeDirectory,
+        CancellationToken ct)
+    {
+        if (file.Length is <= 0 or > MaxUploadBytes) return controller.BadRequest("Image must be smaller than 5 MB.");
+        if (!SupportedContentTypes.Contains(file.ContentType)) return controller.BadRequest("Only JPEG, PNG and WebP images are supported.");
+
+        var webRoot = environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot");
+        var directory = Path.Combine(webRoot, relativeDirectory);
+        Directory.CreateDirectory(directory);
+
+        try
+        {
+            await using var input = file.OpenReadStream();
+            using var image = await Image.LoadAsync(input, ct);
+            image.Mutate(x => x.AutoOrient().Resize(new ResizeOptions
+            {
+                Mode = ResizeMode.Max,
+                Size = new Size(1600, 1600)
+            }));
+
+            var fileName = $"{Guid.NewGuid():N}.webp";
+            var fullPath = Path.Combine(directory, fileName);
+            await image.SaveAsWebpAsync(fullPath, new WebpEncoder { Quality = 78 }, ct);
+
+            var path = $"/{Path.Combine(relativeDirectory, fileName).Replace('\\', '/')}";
+            return controller.Ok(new { Url = $"{controller.Request.Scheme}://{controller.Request.Host}{path}" });
+        }
+        catch (UnknownImageFormatException)
+        {
+            return controller.BadRequest("Only valid JPEG, PNG and WebP images are supported.");
+        }
+        catch (InvalidImageContentException)
+        {
+            return controller.BadRequest("The uploaded image is corrupted or unsupported.");
+        }
+    }
 }
 
 [Route("api/auth")]
@@ -55,17 +111,7 @@ public sealed class AdminDrinksController(IGlobalDrinkService drinks, IWebHostEn
     [HttpPost("images"), RequestSizeLimit(6_000_000)]
     public async Task<ActionResult> UploadImage(IFormFile file, CancellationToken ct)
     {
-        if (file.Length is <= 0 or > 5_242_880) return BadRequest("Image must be smaller than 5 MB.");
-        var extensions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["image/jpeg"] = ".jpg", ["image/png"] = ".png", ["image/webp"] = ".webp" };
-        if (!extensions.TryGetValue(file.ContentType, out var extension)) return BadRequest("Only JPEG, PNG and WebP images are supported.");
-        var relativeDirectory = Path.Combine("uploads", "drinks");
-        var directory = Path.Combine(environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot"), relativeDirectory);
-        Directory.CreateDirectory(directory);
-        var fileName = $"{Guid.NewGuid():N}{extension}";
-        await using var stream = System.IO.File.Create(Path.Combine(directory, fileName));
-        await file.CopyToAsync(stream, ct);
-        var path = $"/{relativeDirectory.Replace('\\', '/')}/{fileName}";
-        return Ok(new { Url = $"{Request.Scheme}://{Request.Host}{path}" });
+        return await ImageUploadHelper.SaveOptimizedWebpAsync(this, environment, file, Path.Combine("uploads", "drinks"), ct);
     }
 }
 
@@ -91,17 +137,7 @@ public sealed class RestaurantController(IRestaurantService restaurants, IMenuMa
     public async Task<ActionResult> UploadImage(IFormFile file, CancellationToken ct)
     {
         if (RestaurantId is not { } rid) return MissingTenant();
-        if (file.Length is <= 0 or > 5_242_880) return BadRequest("Image must be smaller than 5 MB.");
-        var extensions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["image/jpeg"] = ".jpg", ["image/png"] = ".png", ["image/webp"] = ".webp" };
-        if (!extensions.TryGetValue(file.ContentType, out var extension)) return BadRequest("Only JPEG, PNG and WebP images are supported.");
-        var relativeDirectory = Path.Combine("uploads", rid.ToString("N"));
-        var directory = Path.Combine(environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot"), relativeDirectory);
-        Directory.CreateDirectory(directory);
-        var fileName = $"{Guid.NewGuid():N}{extension}";
-        await using var stream = System.IO.File.Create(Path.Combine(directory, fileName));
-        await file.CopyToAsync(stream, ct);
-        var path = $"/{relativeDirectory.Replace('\\', '/')}/{fileName}";
-        return Ok(new { Url = $"{Request.Scheme}://{Request.Host}{path}" });
+        return await ImageUploadHelper.SaveOptimizedWebpAsync(this, environment, file, Path.Combine("uploads", rid.ToString("N")), ct);
     }
 }
 
