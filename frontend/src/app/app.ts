@@ -326,7 +326,7 @@ export class App {
   }
 
   openDemoMenu(): void {
-    globalThis.open('/menu/demomeni', '_blank', 'noopener,noreferrer');
+    globalThis.open('/menu/demo-meni', '_blank', 'noopener,noreferrer');
   }
 
   toggleSidebar(): void {
@@ -652,7 +652,7 @@ export class App {
     const request: Observable<unknown> = form.id
       ? forkJoin([
           this.adminRestaurantsService.update(form.id, {
-            name: form.name.trim(), description: this.nullIfEmpty(form.description),
+            name: form.name.trim(), slug: this.nullIfEmpty(form.slug), description: this.nullIfEmpty(form.description),
             logoUrl: this.nullIfEmpty(form.logoUrl), coverImageUrl: this.nullIfEmpty(form.coverImageUrl),
             address: this.nullIfEmpty(form.address), phone: this.nullIfEmpty(form.phone), email: this.nullIfEmpty(form.email),
             websiteUrl: this.nullIfEmpty(form.websiteUrl), instagramUrl: this.nullIfEmpty(form.instagramUrl),

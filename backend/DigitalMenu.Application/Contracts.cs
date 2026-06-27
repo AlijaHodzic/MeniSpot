@@ -30,7 +30,7 @@ public sealed record CreateRestaurantRequest(
     string Currency,
     string DefaultLanguage,
     string ThemeKey);
-public sealed record UpdateRestaurantRequest(string Name, string? Description, string? LogoUrl, string? CoverImageUrl, string? Address, string? Phone, string? Email, string? WebsiteUrl, string? InstagramUrl, string Currency, string DefaultLanguage, EstablishmentType Type, string ThemeKey);
+public sealed record UpdateRestaurantRequest(string Name, string? Slug, string? Description, string? LogoUrl, string? CoverImageUrl, string? Address, string? Phone, string? Email, string? WebsiteUrl, string? InstagramUrl, string Currency, string DefaultLanguage, EstablishmentType Type, string ThemeKey);
 public sealed record UpdateOwnerAccessRequest(string Email, string? NewPassword);
 public sealed record SetSubscriptionRequest(SubscriptionStatus Status, string Plan, decimal MonthlyPrice, DateOnly StartsOn, DateOnly ExpiresOn, DateOnly? GracePeriodEndsOn);
 public sealed record ThemeRequest(string ThemeKey, string PrimaryColor, string AccentColor, string? BackgroundImageUrl, string FontFamily);

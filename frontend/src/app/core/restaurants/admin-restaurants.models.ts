@@ -78,6 +78,7 @@ export interface CreateRestaurantRequest {
 
 export interface UpdateRestaurantRequest {
   name: string;
+  slug?: string | null;
   description: string | null;
   logoUrl: string | null;
   coverImageUrl: string | null;

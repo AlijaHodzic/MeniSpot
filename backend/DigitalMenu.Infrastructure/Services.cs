@@ -179,6 +179,13 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         var x = await db.Restaurants.Include(x => x.Theme).FirstOrDefaultAsync(x => x.Id == id && (admin || x.Id == tenantId), ct);
         if (x is null) return false;
         if (!SupportedThemes.Contains(r.ThemeKey)) throw new InvalidOperationException("Selected theme is not supported.");
+        if (admin && !string.IsNullOrWhiteSpace(r.Slug))
+        {
+            var slug = NormalizeRestaurantSlug(r.Slug);
+            if (string.IsNullOrWhiteSpace(slug)) throw new InvalidOperationException("Restaurant slug is required.");
+            if (await db.Restaurants.AnyAsync(item => item.Id != x.Id && item.Slug == slug, ct)) throw new InvalidOperationException("Slug is already in use.");
+            x.Slug = slug;
+        }
         x.Name = r.Name.Trim(); x.Description = r.Description; x.LogoUrl = r.LogoUrl; x.CoverImageUrl = r.CoverImageUrl;
         x.Address = r.Address; x.Phone = r.Phone; x.Email = r.Email; x.WebsiteUrl = r.WebsiteUrl; x.InstagramUrl = r.InstagramUrl;
         x.Currency = r.Currency.ToUpperInvariant(); x.DefaultLanguage = r.DefaultLanguage.ToLowerInvariant(); x.Type = r.Type;
@@ -264,6 +271,9 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
 
     private static string NormalizeThemeKey(string? key, EstablishmentType type) =>
         string.IsNullOrWhiteSpace(key) || key == "restaurant" ? DefaultThemeKey(type) : key;
+
+    private static string NormalizeRestaurantSlug(string? value) =>
+        Regex.Replace((value ?? string.Empty).Trim().ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');
 
     private static readonly string[] SupportedThemes = ["modern-dark", "classic-light", "premium-gold", "natural-green"];
 
