@@ -576,13 +576,20 @@ public sealed class PublicMenuService(ApplicationDbContext db) : IPublicMenuServ
 {
     public async Task<PublicMenu?> GetAsync(string slug, CancellationToken ct)
     {
+        var resolvedSlug = ResolvePublicSlug(slug);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var now = DateTimeOffset.UtcNow;
         var restaurant = await db.Restaurants.AsNoTracking().AsSplitQuery()
             .Include(x => x.Subscription).Include(x => x.Theme).Include(x => x.BusinessHours)
             .Include(x => x.Categories.Where(c => c.IsVisible).OrderBy(c => c.SortOrder)).ThenInclude(c => c.Items.Where(i => i.IsVisible).OrderBy(i => i.SortOrder)).ThenInclude(i => i.GlobalDrink)
             .Include(x => x.SpecialOffers.Where(o => o.IsVisible && (o.StartsAt == null || o.StartsAt <= now) && (o.EndsAt == null || o.EndsAt >= now)))
-            .FirstOrDefaultAsync(x => x.Slug == slug && x.Status == RestaurantStatus.Active, ct);
+            .FirstOrDefaultAsync(x => x.Slug == resolvedSlug && x.Status == RestaurantStatus.Active, ct);
         return restaurant?.IsPubliclyAvailable(today) == true ? new PublicMenu(RestaurantService.ToOwnerDetails(restaurant)) : null;
     }
+
+    private static string ResolvePublicSlug(string slug) => slug switch
+    {
+        "demo-meni" => "test",
+        _ => slug
+    };
 }
