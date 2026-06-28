@@ -52,7 +52,7 @@ AllowedOrigins__0
 For the first IP-based deploy:
 
 ```text
-AllowedOrigins__0=http://167.233.132.92
+AllowedOrigins__0=http://<server-ip>
 ```
 
 Production admin password must be stronger than the local development password:
@@ -78,8 +78,8 @@ docker compose -f docker-compose.prod.yml logs -f api
 Open:
 
 ```text
-http://167.233.132.92
-http://167.233.132.92/health
+http://<server-ip>
+http://<server-ip>/health
 ```
 
 ### 5. Later with domain
@@ -87,13 +87,13 @@ http://167.233.132.92/health
 Point the domain A record to the VPS IPv4 address. Then update `deploy/Caddyfile` from `:80` to the domain name:
 
 ```text
-menispot.ba {
+your-domain.com {
 ```
 
 Update `.env.production`:
 
 ```text
-AllowedOrigins__0=https://menispot.ba
+AllowedOrigins__0=https://your-domain.com
 ```
 
 Then redeploy:
