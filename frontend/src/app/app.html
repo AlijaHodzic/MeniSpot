@@ -24,10 +24,10 @@
         <span class="eyebrow">Zainteresovani ste?</span>
         <h2>Pošaljite upit za digitalni meni</h2>
         <p>Ostavite email i osnovne podatke o objektu. Javit ćemo vam se sa prijedlogom i sljedećim koracima.</p>
-        <label>Naziv objekta<input name="businessName" [(ngModel)]="leadForm.businessName" placeholder="Npr. Restoran Una"></label>
+        <label>Naziv objekta <small>obavezno</small><input name="businessName" [(ngModel)]="leadForm.businessName" placeholder="Npr. Restoran Una" required minlength="2"></label>
         <label>Email adresa <small>obavezno</small><input name="leadEmail" type="email" autocomplete="email" [(ngModel)]="leadForm.email" placeholder="ime@primjer.ba" required></label>
         <label>Telefon<input name="leadPhone" type="tel" autocomplete="tel" [(ngModel)]="leadForm.phone" placeholder="+387 ..."></label>
-        <label>Tip objekta<select name="leadType" [(ngModel)]="leadForm.type"><option>Restoran</option><option>Kafić</option><option>Bar</option><option>Shisha bar</option><option>Klub</option><option>Fast food</option><option>Ostalo</option></select></label>
+        <label>Tip objekta <small>obavezno</small><select name="leadType" [(ngModel)]="leadForm.type" required><option value="" disabled>Izaberite tip objekta</option><option>Restoran</option><option>Kafić</option><option>Bar</option><option>Shisha bar</option><option>Klub</option><option>Fast food</option><option>Ostalo</option></select></label>
         <label class="lead-span">Poruka<textarea name="leadMessage" rows="4" [(ngModel)]="leadForm.message" placeholder="Napišite šta vam treba ili kada vam odgovara kontakt."></textarea></label>
         @if (leadSuccess) { <div class="auth-success">{{ leadSuccess }}</div> }
         @if (leadError) { <div class="auth-error">{{ leadError }}</div> }

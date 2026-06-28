@@ -170,7 +170,7 @@ export class App {
   passwordSaving = false;
   passwordError = '';
   passwordSuccess = '';
-  leadForm = { businessName: '', email: '', phone: '', type: 'Restoran', message: '' };
+  leadForm = { businessName: '', email: '', phone: '', type: '', message: '' };
   leadLoading = false;
   leadSuccess = '';
   leadError = '';
@@ -367,7 +367,13 @@ export class App {
   }
 
   submitLeadForm(): void {
+    const businessName = this.leadForm.businessName.trim();
     const email = this.leadForm.email.trim();
+    const type = this.leadForm.type.trim();
+    if (businessName.length < 2) {
+      this.leadError = 'Naziv objekta je obavezan.';
+      return;
+    }
     if (!email) {
       this.leadError = 'Email adresa je obavezna kako bismo vas mogli kontaktirati.';
       return;
@@ -376,18 +382,22 @@ export class App {
       this.leadError = 'Unesite ispravnu email adresu, npr. ime@primjer.ba.';
       return;
     }
+    if (!type) {
+      this.leadError = 'Morate izabrati tip objekta.';
+      return;
+    }
 
     this.leadLoading = true;
     this.leadError = '';
     this.leadSuccess = '';
     const payload = new FormData();
     payload.append('_subject', 'Novi MeniSpot upit');
-    payload.append('Naziv objekta', this.leadForm.businessName.trim());
+    payload.append('Naziv objekta', businessName);
     payload.append('Email', email);
     payload.append('_replyto', email);
     payload.append('email', email);
     payload.append('Telefon', this.leadForm.phone.trim());
-    payload.append('Tip objekta', this.leadForm.type);
+    payload.append('Tip objekta', type);
     payload.append('Poruka', this.leadForm.message.trim());
 
     void fetch('https://formspree.io/f/xojojzoe', {
@@ -398,7 +408,7 @@ export class App {
       .then((response) => {
         if (!response.ok) throw new Error('Formspree request failed.');
         this.leadSuccess = 'Upit je poslan. Javit ćemo vam se uskoro na email.';
-        this.leadForm = { businessName: '', email: '', phone: '', type: 'Restoran', message: '' };
+        this.leadForm = { businessName: '', email: '', phone: '', type: '', message: '' };
       })
       .catch(() => {
         this.leadError = 'Upit trenutno nije moguće poslati. Pokušajte ponovo malo kasnije.';
