@@ -31,6 +31,10 @@ The platform includes a central administration panel for managing restaurants, s
 - Docker and Docker Compose
 - xUnit
 
+## Project Status
+
+MeniSpot is under active development and currently supports the core digital menu workflow, restaurant administration, owner menu management, QR menu access, image uploads, reusable drink library items, and basic public menu analytics.
+
 ## Screenshots
 
 ### Public Landing And Authentication
@@ -133,6 +137,13 @@ docs/
   Project screenshots and documentation assets
 ```
 
+## Prerequisites
+
+- Docker and Docker Compose
+- .NET 10 SDK
+- Node.js
+- pnpm
+
 ## Local Development
 
 Start the full local development stack:
@@ -140,6 +151,12 @@ Start the full local development stack:
 ```powershell
 .\start-dev.ps1
 ```
+
+The script:
+
+1. Starts the local PostgreSQL database through Docker Compose
+2. Runs the ASP.NET Core API
+3. Starts the Angular development server
 
 Stop the backend and frontend dev processes:
 
@@ -151,10 +168,10 @@ The stop script leaves PostgreSQL running so the local database stays ready for 
 
 ### Database
 
-Start PostgreSQL in Docker:
+Start the local PostgreSQL database in Docker:
 
 ```powershell
-docker compose up -d
+docker compose up -d postgres
 ```
 
 Check or stop the database:
@@ -174,6 +191,9 @@ Username: postgres
 Password: postgres
 ```
 
+> [!WARNING]
+> These database credentials are intended only for local development. Never use default credentials in production.
+
 ### Backend
 
 ```powershell
@@ -189,7 +209,8 @@ Email: admin@admin.com
 Password: admin
 ```
 
-These credentials are intended for local development only. Production credentials must be provided through environment variables or a secure secret store.
+> [!WARNING]
+> These credentials are intended for local development only. Production credentials must be provided through environment variables or a secure secret store.
 
 ### Frontend
 
@@ -204,15 +225,52 @@ The Angular application is available at:
 http://localhost:4200
 ```
 
+## Environment Configuration
+
+Production configuration is based on environment variables. Use `.env.production.example` as a template and replace every placeholder value before deployment.
+
+```env
+POSTGRES_DB=menispot
+POSTGRES_USER=menispot
+POSTGRES_PASSWORD=change-this-postgres-password
+
+Jwt__Issuer=DigitalMenu.Api
+Jwt__Audience=DigitalMenu.Web
+Jwt__Key=change-this-to-a-long-random-secret-with-at-least-32-characters
+Jwt__ExpirationMinutes=60
+
+SeedAdmin__Email=admin@example.com
+SeedAdmin__Password=change-this-admin-password
+
+AllowedOrigins__0=https://your-domain.com
+```
+
+Never commit real production secrets, database passwords, JWT signing keys, administrator credentials, SMTP credentials, or external service API keys.
+
+## Security
+
+- JWT-based authentication
+- Role-based authorization
+- Password hashing through ASP.NET Core Identity
+- Environment-based production secrets
+- PostgreSQL runs inside the Docker network in production
+- Uploaded image validation with WebP conversion and compression
+
 ## Production Deployment
 
-The project includes Docker Compose production configuration for running the frontend, API, and PostgreSQL database on a VPS.
+The project includes Docker Compose production configuration for running the Angular frontend, ASP.NET Core API, PostgreSQL database, and Caddy reverse proxy on a VPS.
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-Production values such as database passwords, JWT secrets, allowed origins, and admin credentials should be configured through environment variables.
+Before deploying:
+
+1. Copy `.env.production.example` to `.env.production`
+2. Replace all placeholder secrets
+3. Configure the public domain and allowed origins
+4. Ensure ports 80 and 443 are open
+5. Never expose PostgreSQL port 5432 publicly
 
 ## Testing
 
@@ -228,4 +286,3 @@ Build frontend:
 cd frontend
 npm run build
 ```
-
