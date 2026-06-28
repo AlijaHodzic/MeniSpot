@@ -11,6 +11,8 @@ public static class Roles
 
 public sealed record LoginRequest(string Email, string Password);
 public sealed record LoginResponse(string AccessToken, DateTimeOffset ExpiresAt, string Role, Guid? RestaurantId);
+public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+public sealed record ChangePasswordResult(bool Succeeded, IReadOnlyList<string> Errors);
 public sealed record CreateRestaurantRequest(
     string Name,
     string Slug,
@@ -70,6 +72,7 @@ public interface IAuthService
 {
     Task<LoginResponse?> LoginAsync(LoginRequest request, CancellationToken cancellationToken);
     Task<LoginResponse?> ImpersonateRestaurantOwnerAsync(Guid restaurantId, CancellationToken cancellationToken);
+    Task<ChangePasswordResult> ChangePasswordAsync(Guid userId, ChangePasswordRequest request, CancellationToken cancellationToken);
 }
 
 public interface IRestaurantService

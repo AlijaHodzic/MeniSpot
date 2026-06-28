@@ -69,7 +69,7 @@
       <nav class="space-y-1 px-3">
         @for (item of adminTabs; track item.id) { <button class="nav-item" [class.nav-active]="adminTab === item.id" (click)="selectAdminTab(item.id)"><span class="nav-label">{{ item.label }}</span></button> }
       </nav>
-      <div class="sidebar-footer"><button class="nav-item" (click)="logout()"><svg lucideLogOut [size]="17"></svg><span class="nav-label">Odjava</span></button></div>
+      <div class="sidebar-footer"><button class="nav-item" (click)="openChangePassword()"><svg lucideLock [size]="17"></svg><span class="nav-label">Promijeni lozinku</span></button><button class="nav-item" (click)="logout()"><svg lucideLogOut [size]="17"></svg><span class="nav-label">Odjava</span></button></div>
     </aside>
     <section class="main-panel">
       <header class="topbar"><button class="icon-button mobile-menu-trigger" (click)="toggleSidebar()"><svg lucideMenu [size]="21"></svg></button><div><p class="text-sm text-slate-500">Administracija platforme</p><h1 class="font-display text-xl font-bold">{{ adminTitle }}</h1></div><div class="ml-auto hidden items-center gap-3 sm:flex"><span class="h-9 w-9 rounded-full bg-violet-100"></span><div><p class="text-sm font-semibold">Alija Hodžić</p><p class="text-xs text-slate-400">Super administrator</p></div></div></header>
@@ -241,6 +241,25 @@
           </div>
         </div>
         <footer class="modal-footer"><button type="button" class="secondary-button" (click)="closeAdminDrinkModal()">Odustani</button><button type="submit" class="primary-button" [disabled]="adminDrinkSaving || adminDrinkUploading">@if (adminDrinkSaving) { <span class="auth-spinner"></span> Čuvanje... } @else { Sačuvaj piće }</button></footer>
+      </form>
+    </div>
+  }
+
+  @if (showChangePasswordModal) {
+    <div class="modal-backdrop" (click)="closeChangePassword()">
+      <form class="modal modal-compact" (click)="$event.stopPropagation()" (ngSubmit)="submitPasswordChange()">
+        <header class="modal-header"><div><p class="eyebrow">Sigurnost naloga</p><h2>Promijeni lozinku</h2><p class="modal-subtitle">Unesi trenutnu lozinku i postavi novu lozinku za super admin nalog.</p></div><button type="button" class="icon-button" (click)="closeChangePassword()" aria-label="Zatvori"><svg lucideX [size]="20"></svg></button></header>
+        <div class="modal-body">
+          @if (passwordError) { <div class="auth-error">{{ passwordError }}</div> }
+          @if (passwordSuccess) { <div class="auth-success">{{ passwordSuccess }}</div> }
+          <div class="form-grid">
+            <label class="form-span-2">Trenutna lozinka<input name="currentAdminPassword" type="password" autocomplete="current-password" [(ngModel)]="passwordForm.currentPassword" required></label>
+            <label class="form-span-2">Nova lozinka<input name="newAdminPassword" type="password" autocomplete="new-password" minlength="8" [(ngModel)]="passwordForm.newPassword" required></label>
+            <label class="form-span-2">Potvrdi novu lozinku<input name="confirmAdminPassword" type="password" autocomplete="new-password" minlength="8" [(ngModel)]="passwordForm.confirmPassword" required></label>
+          </div>
+          <p class="form-help">Za produkciju koristi jaku lozinku sa velikim slovom, brojem i specijalnim znakom.</p>
+        </div>
+        <footer class="modal-footer"><button type="button" class="secondary-button" (click)="closeChangePassword()">Odustani</button><button type="submit" class="primary-button" [disabled]="passwordSaving">@if (passwordSaving) { <span class="auth-spinner"></span> Čuvanje... } @else { Sačuvaj novu lozinku }</button></footer>
       </form>
     </div>
   }

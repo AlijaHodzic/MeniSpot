@@ -76,6 +76,16 @@ public sealed class AuthController(IAuthService auth) : ApiController
     [HttpPost("login"), AllowAnonymous]
     public async Task<ActionResult<LoginResponse>> Login(LoginRequest request, CancellationToken ct)
         => await auth.LoginAsync(request, ct) is { } result ? Ok(result) : Unauthorized();
+
+    [HttpPost("change-password"), Authorize]
+    public async Task<ActionResult> ChangePassword(ChangePasswordRequest request, CancellationToken ct)
+    {
+        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        if (!Guid.TryParse(userIdValue, out var userId)) return Unauthorized();
+
+        var result = await auth.ChangePasswordAsync(userId, request, ct);
+        return result.Succeeded ? NoContent() : BadRequest(new { errors = result.Errors });
+    }
 }
 
 [Route("api/admin/restaurants"), Authorize(Roles = Roles.SuperAdmin)]

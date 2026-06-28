@@ -5,6 +5,11 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
 export interface AuthSession {
   accessToken: string;
   expiresAt: string;

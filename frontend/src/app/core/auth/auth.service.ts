@@ -3,7 +3,7 @@ import { computed, inject, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
 import { API_URL } from '../api.config';
-import { AuthSession, LoginRequest, UserRole } from './auth.models';
+import { AuthSession, ChangePasswordRequest, LoginRequest, UserRole } from './auth.models';
 
 const SESSION_KEY = 'menispot.auth';
 const ADMIN_SESSION_KEY = 'menispot.admin_backup';
@@ -27,6 +27,10 @@ export class AuthService {
         this.sessionState.set(session);
       }),
     );
+  }
+
+  changePassword(request: ChangePasswordRequest): Observable<void> {
+    return this.http.post<void>(`${API_URL}/auth/change-password`, request);
   }
 
   logout(): void {

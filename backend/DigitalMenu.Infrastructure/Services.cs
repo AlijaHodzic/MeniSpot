@@ -39,6 +39,15 @@ public sealed class AuthService(UserManager<ApplicationUser> users, ApplicationD
         return owner is null ? null : await CreateSessionAsync(owner);
     }
 
+    public async Task<ChangePasswordResult> ChangePasswordAsync(Guid userId, ChangePasswordRequest request, CancellationToken cancellationToken)
+    {
+        var user = await users.FindByIdAsync(userId.ToString());
+        if (user is null) return new ChangePasswordResult(false, new[] { "User was not found." });
+
+        var result = await users.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+        return new ChangePasswordResult(result.Succeeded, result.Errors.Select(x => x.Description).ToArray());
+    }
+
     private async Task<LoginResponse> CreateSessionAsync(ApplicationUser user)
     {
         var roles = await users.GetRolesAsync(user);

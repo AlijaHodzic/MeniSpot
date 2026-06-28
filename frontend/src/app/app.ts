@@ -64,6 +64,7 @@ interface ProductForm { id: string | null; categoryId: string; globalDrinkId: st
 interface OfferForm { id: string | null; kind: SpecialOfferKind; title: string; description: string; price: number; originalPrice: number; imageUrl: string; startsAt: string; endsAt: string; isVisible: boolean; items: string }
 interface AdminDrinkForm { id: string | null; name: string; slug: string; category: string; description: string; imageUrl: string; servingOptions: string; isByGlass: boolean; sortOrder: number; isActive: boolean }
 interface DrinkLibraryVariant { key: string; drink: GlobalDrinkSummary; servingSize: string | null }
+interface PasswordForm { currentPassword: string; newPassword: string; confirmPassword: string }
 
 const themeOptions: { id: ThemeType; name: string; description: string; colors: string[] }[] = [
   { id: 'classic-light', name: 'Classic Light', description: 'Svijetla tema za restorane i porodične objekte.', colors: ['#f8fafc', '#ffffff', '#84cc16'] },
@@ -159,11 +160,16 @@ export class App {
   showDrinkLibraryModal = false;
   showCategoryModal = false;
   showOfferModal = false;
+  showChangePasswordModal = false;
   showPassword = false;
   loginEmail = '';
   loginPassword = '';
   loginLoading = false;
   loginError = '';
+  passwordForm: PasswordForm = { currentPassword: '', newPassword: '', confirmPassword: '' };
+  passwordSaving = false;
+  passwordError = '';
+  passwordSuccess = '';
   leadForm = { businessName: '', email: '', phone: '', type: 'Restoran', message: '' };
   leadLoading = false;
   leadSuccess = '';
@@ -425,6 +431,61 @@ export class App {
     this.ownerViewRestaurant = null;
     this.productMap = {};
     this.auth.logout();
+  }
+
+  openChangePassword(): void {
+    this.passwordForm = { currentPassword: '', newPassword: '', confirmPassword: '' };
+    this.passwordError = '';
+    this.passwordSuccess = '';
+    this.showChangePasswordModal = true;
+  }
+
+  closeChangePassword(): void {
+    if (this.passwordSaving) return;
+    this.showChangePasswordModal = false;
+    this.passwordForm = { currentPassword: '', newPassword: '', confirmPassword: '' };
+    this.passwordError = '';
+  }
+
+  submitPasswordChange(): void {
+    const currentPassword = this.passwordForm.currentPassword;
+    const newPassword = this.passwordForm.newPassword;
+    const confirmPassword = this.passwordForm.confirmPassword;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      this.passwordError = 'Unesi trenutnu lozinku, novu lozinku i potvrdu.';
+      return;
+    }
+    if (newPassword.length < 8) {
+      this.passwordError = 'Nova lozinka mora imati najmanje 8 znakova.';
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      this.passwordError = 'Nova lozinka i potvrda se ne poklapaju.';
+      return;
+    }
+    if (currentPassword === newPassword) {
+      this.passwordError = 'Nova lozinka mora biti drugačija od trenutne.';
+      return;
+    }
+
+    this.passwordSaving = true;
+    this.passwordError = '';
+    this.passwordSuccess = '';
+    this.auth.changePassword({ currentPassword, newPassword })
+      .pipe(finalize(() => this.passwordSaving = false))
+      .subscribe({
+        next: () => {
+          this.passwordForm = { currentPassword: '', newPassword: '', confirmPassword: '' };
+          this.passwordSuccess = 'Lozinka je uspješno promijenjena.';
+        },
+        error: (error: HttpErrorResponse) => {
+          const errors = error.error?.errors;
+          this.passwordError = Array.isArray(errors) && errors.length
+            ? errors.join(' ')
+            : 'Lozinka nije promijenjena. Provjeri trenutnu lozinku i pravila za novu lozinku.';
+        },
+      });
   }
 
   loadAdminRestaurants(force = false): void {
