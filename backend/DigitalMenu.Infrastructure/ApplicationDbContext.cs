@@ -23,6 +23,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<SpecialOffer> SpecialOffers => Set<SpecialOffer>();
     public DbSet<BusinessHour> BusinessHours => Set<BusinessHour>();
     public DbSet<SubscriptionPayment> SubscriptionPayments => Set<SubscriptionPayment>();
+    public DbSet<MenuView> MenuViews => Set<MenuView>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -84,6 +85,12 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.Reference).HasMaxLength(120);
             e.Property(x => x.Note).HasMaxLength(1000);
             e.HasOne(x => x.Restaurant).WithMany(x => x.Payments).HasForeignKey(x => x.RestaurantId).OnDelete(DeleteBehavior.Cascade);
+        });
+        builder.Entity<MenuView>(e =>
+        {
+            e.HasIndex(x => new { x.RestaurantId, x.ViewedOn });
+            e.Property(x => x.Source).HasMaxLength(40);
+            e.HasOne(x => x.Restaurant).WithMany(x => x.MenuViews).HasForeignKey(x => x.RestaurantId).OnDelete(DeleteBehavior.Cascade);
         });
         builder.Entity<Subscription>().Property(x => x.MonthlyPrice).HasPrecision(12, 2);
         builder.Entity<ApplicationUser>().HasIndex(x => x.RestaurantId);

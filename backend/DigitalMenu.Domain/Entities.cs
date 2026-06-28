@@ -36,6 +36,7 @@ public sealed class Restaurant : Entity
     public ICollection<SpecialOffer> SpecialOffers { get; set; } = [];
     public ICollection<BusinessHour> BusinessHours { get; set; } = [];
     public ICollection<SubscriptionPayment> Payments { get; set; } = [];
+    public ICollection<MenuView> MenuViews { get; set; } = [];
 
     public bool IsPubliclyAvailable(DateOnly today) => Status == RestaurantStatus.Active && Subscription?.IsPubliclyAvailable(today) == true;
 }
@@ -66,6 +67,14 @@ public sealed class SubscriptionPayment : Entity
     public PaymentMethod Method { get; set; }
     public string? Reference { get; set; }
     public string? Note { get; set; }
+    public Restaurant Restaurant { get; set; } = null!;
+}
+
+public sealed class MenuView : Entity
+{
+    public Guid RestaurantId { get; set; }
+    public DateOnly ViewedOn { get; set; }
+    public string? Source { get; set; }
     public Restaurant Restaurant { get; set; } = null!;
 }
 

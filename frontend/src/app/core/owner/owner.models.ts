@@ -52,6 +52,18 @@ export interface OwnerBusinessHour {
   isClosed: boolean;
 }
 
+export interface OwnerMenuViewPoint {
+  date: string;
+  label: string;
+  views: number;
+}
+
+export interface OwnerMenuAnalytics {
+  totalViews: number;
+  last7DaysViews: number;
+  weeklyViews: OwnerMenuViewPoint[];
+}
+
 export interface OwnerRestaurant {
   id: string;
   name: string;
@@ -72,6 +84,7 @@ export interface OwnerRestaurant {
   businessHours: OwnerBusinessHour[];
   categories: OwnerMenuCategory[];
   offers: OwnerSpecialOffer[];
+  analytics: OwnerMenuAnalytics;
 }
 
 export interface CategoryRequest { name: string; description: string | null; type: MenuCategoryType; sortOrder: number; isVisible: boolean }

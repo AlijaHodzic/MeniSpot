@@ -61,7 +61,9 @@ public sealed record OwnerMenuCategory(Guid Id, string Name, string? Description
 public sealed record OwnerSpecialOffer(Guid Id, string Title, string? Description, decimal? Price, decimal? OriginalPrice, string? ImageUrl, DateTimeOffset? StartsAt, DateTimeOffset? EndsAt, bool IsVisible, SpecialOfferKind Kind, string? Items);
 public sealed record OwnerBusinessHour(DayOfWeek DayOfWeek, TimeOnly? OpensAt, TimeOnly? ClosesAt, bool IsClosed);
 public sealed record OwnerTheme(string ThemeKey, string PrimaryColor, string AccentColor, string? BackgroundImageUrl, string FontFamily);
-public sealed record OwnerRestaurantDetails(Guid Id, string Name, string Slug, string? Description, string? LogoUrl, string? CoverImageUrl, string? Address, string? Phone, string? Email, string? WebsiteUrl, string? InstagramUrl, string Currency, string DefaultLanguage, EstablishmentType Type, RestaurantStatus Status, OwnerTheme Theme, IReadOnlyList<OwnerBusinessHour> BusinessHours, IReadOnlyList<OwnerMenuCategory> Categories, IReadOnlyList<OwnerSpecialOffer> Offers);
+public sealed record OwnerMenuViewPoint(DateOnly Date, string Label, int Views);
+public sealed record OwnerMenuAnalytics(int TotalViews, int Last7DaysViews, IReadOnlyList<OwnerMenuViewPoint> WeeklyViews);
+public sealed record OwnerRestaurantDetails(Guid Id, string Name, string Slug, string? Description, string? LogoUrl, string? CoverImageUrl, string? Address, string? Phone, string? Email, string? WebsiteUrl, string? InstagramUrl, string Currency, string DefaultLanguage, EstablishmentType Type, RestaurantStatus Status, OwnerTheme Theme, IReadOnlyList<OwnerBusinessHour> BusinessHours, IReadOnlyList<OwnerMenuCategory> Categories, IReadOnlyList<OwnerSpecialOffer> Offers, OwnerMenuAnalytics Analytics);
 public sealed record PublicMenu(OwnerRestaurantDetails Restaurant);
 
 public interface IAuthService

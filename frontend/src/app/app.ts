@@ -8,7 +8,7 @@ import { concatMap, filter, finalize, forkJoin, Observable } from 'rxjs';
 import {
   LucideArrowLeft, LucideAward, LucideCalendar, LucideChefHat, LucideClock, LucideEdit2,
   LucideEye, LucideEyeOff, LucideFlame, LucideGlobe, LucideLeaf, LucideLock, LucideLogIn, LucideLogOut, LucideMail,
-  LucideMapPin, LucideMenu, LucidePalette, LucidePercent, LucidePhone, LucidePlus,
+  LucideMapPin, LucideMenu, LucidePercent, LucidePhone, LucidePlus,
   LucidePower, LucideQrCode, LucideSearch, LucideShield, LucideSparkles,
   LucideStore, LucideTrash2, LucideTrendingUp, LucideUtensilsCrossed, LucideX,
 } from '@lucide/angular';
@@ -94,7 +94,7 @@ const drinkCategories = [
   imports: [
     CommonModule, FormsModule, LucideArrowLeft, LucideAward, LucideCalendar, LucideChefHat,
     LucideClock, LucideEdit2, LucideEye, LucideFlame, LucideGlobe,
-    LucideLeaf, LucideLock, LucideLogIn, LucideLogOut, LucideMail, LucideMapPin, LucideMenu, LucidePalette, LucidePercent,
+    LucideLeaf, LucideLock, LucideLogIn, LucideLogOut, LucideMail, LucideMapPin, LucideMenu, LucidePercent,
     LucidePhone, LucidePlus, LucidePower, LucideQrCode, LucideSearch,
     LucideShield, LucideSparkles, LucideStore, LucideTrash2, LucideTrendingUp,
     LucideUtensilsCrossed, LucideX, LucideEyeOff,
@@ -246,6 +246,17 @@ export class App {
   get publicProductCount(): number { return this.publicCategories.reduce((total, category) => total + this.publicProductsFor(category.id).length, 0); }
   get hasPublicMenuSections(): boolean { return this.publicFoodCategories.length > 0 && this.publicDrinkCategories.length > 0; }
   get showFoodHighlights(): boolean { return this.publicMenuSection === 'food' || !this.publicDrinkCategories.length; }
+  get ownerWeeklyViews(): { label: string; views: number }[] { return this.ownerRestaurant?.analytics.weeklyViews ?? []; }
+  get ownerTotalViews(): number { return this.ownerRestaurant?.analytics.totalViews ?? 0; }
+  get ownerLast7DaysViews(): number { return this.ownerRestaurant?.analytics.last7DaysViews ?? 0; }
+  get ownerViewsMaximum(): number {
+    const peak = Math.max(0, ...this.ownerWeeklyViews.map((point) => point.views));
+    return Math.max(10, Math.ceil(peak / 10) * 10);
+  }
+  get ownerViewsTicks(): number[] {
+    const maximum = this.ownerViewsMaximum;
+    return [maximum, Math.round(maximum * .75), Math.round(maximum * .5), Math.round(maximum * .25), 0];
+  }
   get adminTitle(): string { return this.adminTabs.find((item) => item.id === this.adminTab)?.label ?? ''; }
   get ownerTitle(): string { return this.ownerTabs.find((item) => item.id === this.ownerTab)?.label ?? ''; }
   get ownerThemeLabel(): string { return this.themeLabel(this.restaurant.theme); }

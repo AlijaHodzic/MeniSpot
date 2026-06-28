@@ -128,7 +128,8 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         .Include(x => x.Subscription).Include(x => x.Theme).Include(x => x.BusinessHours)
         .Include(x => x.Categories).ThenInclude(x => x.Items).ThenInclude(x => x.GlobalDrink).Include(x => x.SpecialOffers)
         .FirstOrDefaultAsync(x => x.Id == id && (admin || x.Id == tenantId), ct);
-        return restaurant is null ? null : ToOwnerDetails(restaurant);
+        if (restaurant is null) return null;
+        return ToOwnerDetails(restaurant, await GetMenuAnalyticsAsync(restaurant.Id, ct));
     }
 
     public async Task<Restaurant> CreateAsync(CreateRestaurantRequest request, CancellationToken ct)
@@ -277,7 +278,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
 
     private static readonly string[] SupportedThemes = ["modern-dark", "classic-light", "premium-gold", "natural-green"];
 
-    internal static OwnerRestaurantDetails ToOwnerDetails(Restaurant restaurant) => new(
+    internal static OwnerRestaurantDetails ToOwnerDetails(Restaurant restaurant, OwnerMenuAnalytics? analytics = null) => new(
         restaurant.Id, restaurant.Name, restaurant.Slug, restaurant.Description, restaurant.LogoUrl, restaurant.CoverImageUrl,
         restaurant.Address, restaurant.Phone, restaurant.Email, restaurant.WebsiteUrl, restaurant.InstagramUrl,
         restaurant.Currency, restaurant.DefaultLanguage, restaurant.Type, restaurant.Status,
@@ -285,7 +286,45 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         restaurant.BusinessHours.OrderBy(x => x.DayOfWeek).Select(x => new OwnerBusinessHour(x.DayOfWeek, x.OpensAt, x.ClosesAt, x.IsClosed)).ToList(),
         restaurant.Categories.OrderBy(x => x.SortOrder).Select(x => new OwnerMenuCategory(x.Id, x.Name, x.Description, x.Type, x.SortOrder, x.IsVisible,
             x.Items.OrderBy(i => i.SortOrder).Select(i => new OwnerMenuItem(i.Id, i.CategoryId, i.GlobalDrinkId, i.Name, i.Description, i.Price, i.ServingSize, i.ImageUrl ?? (i.GlobalDrink == null ? null : i.GlobalDrink.ImageUrl), i.Allergens, i.SortOrder, i.IsVisible, i.IsAvailable, i.IsVegetarian, i.IsSpicy, i.IsFeatured)).ToList())).ToList(),
-        restaurant.SpecialOffers.OrderByDescending(x => x.CreatedAt).Select(x => new OwnerSpecialOffer(x.Id, x.Title, x.Description, x.Price, x.OriginalPrice, x.ImageUrl, x.StartsAt, x.EndsAt, x.IsVisible, x.Kind, x.Items)).ToList());
+        restaurant.SpecialOffers.OrderByDescending(x => x.CreatedAt).Select(x => new OwnerSpecialOffer(x.Id, x.Title, x.Description, x.Price, x.OriginalPrice, x.ImageUrl, x.StartsAt, x.EndsAt, x.IsVisible, x.Kind, x.Items)).ToList(),
+        analytics ?? EmptyMenuAnalytics());
+
+    private async Task<OwnerMenuAnalytics> GetMenuAnalyticsAsync(Guid restaurantId, CancellationToken ct)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var start = today.AddDays(-6);
+        var rows = await db.MenuViews.AsNoTracking()
+            .Where(x => x.RestaurantId == restaurantId && x.ViewedOn >= start && x.ViewedOn <= today)
+            .GroupBy(x => x.ViewedOn)
+            .Select(x => new { Date = x.Key, Views = x.Count() })
+            .ToListAsync(ct);
+        var total = await db.MenuViews.AsNoTracking().CountAsync(x => x.RestaurantId == restaurantId, ct);
+        var weekly = Enumerable.Range(0, 7).Select(offset =>
+        {
+            var date = start.AddDays(offset);
+            return new OwnerMenuViewPoint(date, DayLabel(date.DayOfWeek), rows.FirstOrDefault(x => x.Date == date)?.Views ?? 0);
+        }).ToList();
+        return new OwnerMenuAnalytics(total, weekly.Sum(x => x.Views), weekly);
+    }
+
+    private static OwnerMenuAnalytics EmptyMenuAnalytics() =>
+        new(0, 0, Enumerable.Range(0, 7).Select(offset =>
+        {
+            var date = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(offset - 6);
+            return new OwnerMenuViewPoint(date, DayLabel(date.DayOfWeek), 0);
+        }).ToList());
+
+    private static string DayLabel(DayOfWeek day) => day switch
+    {
+        DayOfWeek.Monday => "Pon",
+        DayOfWeek.Tuesday => "Uto",
+        DayOfWeek.Wednesday => "Sri",
+        DayOfWeek.Thursday => "Cet",
+        DayOfWeek.Friday => "Pet",
+        DayOfWeek.Saturday => "Sub",
+        DayOfWeek.Sunday => "Ned",
+        _ => day.ToString()
+    };
 
     private static SubscriptionStatus ActiveSubscriptionStatus(Subscription subscription)
     {
@@ -584,7 +623,10 @@ public sealed class PublicMenuService(ApplicationDbContext db) : IPublicMenuServ
             .Include(x => x.Categories.Where(c => c.IsVisible).OrderBy(c => c.SortOrder)).ThenInclude(c => c.Items.Where(i => i.IsVisible).OrderBy(i => i.SortOrder)).ThenInclude(i => i.GlobalDrink)
             .Include(x => x.SpecialOffers.Where(o => o.IsVisible && (o.StartsAt == null || o.StartsAt <= now) && (o.EndsAt == null || o.EndsAt >= now)))
             .FirstOrDefaultAsync(x => x.Slug == resolvedSlug && x.Status == RestaurantStatus.Active, ct);
-        return restaurant?.IsPubliclyAvailable(today) == true ? new PublicMenu(RestaurantService.ToOwnerDetails(restaurant)) : null;
+        if (restaurant?.IsPubliclyAvailable(today) != true) return null;
+        db.MenuViews.Add(new MenuView { RestaurantId = restaurant.Id, ViewedOn = today, Source = "menu" });
+        await db.SaveChangesAsync(ct);
+        return new PublicMenu(RestaurantService.ToOwnerDetails(restaurant));
     }
 
     private static string ResolvePublicSlug(string slug) => slug switch

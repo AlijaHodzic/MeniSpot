@@ -232,6 +232,21 @@
 .readiness-list span { width: 10px; height: 10px; border-radius: 999px; background: #cbd5e1; }
 .readiness-list .ready { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
 .readiness-list .ready span { background: #22c55e; }
+.owner-views-card { overflow: hidden; }
+.owner-views-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.owner-views-head h3 { margin: 0; font-family: 'Outfit',sans-serif; font-size: 18px; font-weight: 800; }
+.owner-views-head p { margin: 5px 0 0; color: #64748b; font-size: 12px; }
+.owner-views-head > span { color: #94a3b8; font-size: 12px; white-space: nowrap; }
+.owner-views-head b { color: var(--brand,#84cc16); font-weight: 800; }
+.owner-views-chart { display: grid; grid-template-columns: 34px minmax(0,1fr); gap: 10px; margin-top: 22px; }
+.owner-views-axis { display: grid; height: 150px; color: #94a3b8; font-size: 11px; }
+.owner-views-axis span { transform: translateY(-6px); }
+.owner-views-plot { position: relative; display: grid; height: 170px; padding-bottom: 20px; }
+.owner-views-plot > i { border-top: 1px dashed #e2e8f0; }
+.owner-views-bars { position: absolute; inset: 0 0 0 0; display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); align-items: end; gap: clamp(9px,2.4vw,28px); padding: 0 8px; }
+.owner-views-bars > div { display: grid; min-width: 0; height: 100%; grid-template-rows: 1fr 20px; justify-items: center; }
+.owner-views-bars span { align-self: end; width: min(46px,70%); min-height: 4px; border-radius: 7px 7px 0 0; background: var(--brand,#84cc16); box-shadow: 0 10px 24px color-mix(in srgb,var(--brand,#84cc16) 24%,transparent); }
+.owner-views-bars small { align-self: end; color: #94a3b8; font-size: 11px; font-weight: 700; }
 .category-row { display: grid; grid-template-columns: 42px minmax(0,1fr) auto auto; align-items: center; gap: 15px; border-bottom: 1px solid #f1f5f9; padding: 16px 18px; }
 .category-row:last-child { border: 0; }
 .category-icon { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 12px; background: #f8fafc; font-size: 20px; }
@@ -484,6 +499,11 @@
   .admin-drink-heading { align-items: flex-start; flex-direction: column; gap: 6px; }
   .admin-drink-card .admin-row-actions { flex-wrap: wrap; }
   .admin-drink-card .admin-row-actions .secondary-button { flex: 1 1 140px; }
+  .owner-views-head { flex-direction: column; gap: 8px; }
+  .owner-views-chart { grid-template-columns: 28px minmax(0,1fr); }
+  .owner-views-axis { font-size: 10px; }
+  .owner-views-bars { gap: 7px; padding: 0 3px; }
+  .owner-views-bars span { width: min(34px,78%); }
   .drink-library-tools { grid-template-columns: 1fr; }
   .drink-library-list article { grid-template-columns: 30px 46px minmax(0,1fr); }
   .drink-library-list article > label { grid-column: 2 / -1; }
