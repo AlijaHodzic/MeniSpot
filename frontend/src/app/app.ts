@@ -7,7 +7,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { concatMap, filter, finalize, forkJoin, Observable } from 'rxjs';
 import {
   LucideArrowLeft, LucideAward, LucideCalendar, LucideChefHat, LucideClock, LucideEdit2,
-  LucideEye, LucideEyeOff, LucideFlame, LucideGlobe, LucideLeaf, LucideLock, LucideLogIn, LucideLogOut, LucideMail,
+  LucideDownload, LucideEye, LucideEyeOff, LucideFlame, LucideGlobe, LucideLeaf, LucideLock, LucideLogIn, LucideLogOut, LucideMail,
   LucideMapPin, LucideMenu, LucidePercent, LucidePhone, LucidePlus,
   LucidePower, LucideQrCode, LucideSearch, LucideShield, LucideSparkles,
   LucideStore, LucideTrash2, LucideTrendingUp, LucideUtensilsCrossed, LucideX,
@@ -95,7 +95,7 @@ const drinkCategories = [
   selector: 'app-root',
   imports: [
     CommonModule, FormsModule, LucideArrowLeft, LucideAward, LucideCalendar, LucideChefHat,
-    LucideClock, LucideEdit2, LucideEye, LucideFlame, LucideGlobe,
+    LucideClock, LucideDownload, LucideEdit2, LucideEye, LucideFlame, LucideGlobe,
     LucideLeaf, LucideLock, LucideLogIn, LucideLogOut, LucideMail, LucideMapPin, LucideMenu, LucidePercent,
     LucidePhone, LucidePlus, LucidePower, LucideQrCode, LucideSearch,
     LucideShield, LucideSparkles, LucideStore, LucideTrash2, LucideTrendingUp,
@@ -203,6 +203,7 @@ export class App {
   showAdminDrinkModal = false;
   adminDrinkSaving = false;
   adminDrinkUploading = false;
+  adminDrinkInlineSaving = new Set<string>();
   adminDrinkFormError = '';
   adminDrinkForm = this.emptyAdminDrinkForm();
   showPaymentModal = false;
@@ -230,6 +231,8 @@ export class App {
   categoryForm: CategoryForm = this.emptyCategoryForm();
   productForm: ProductForm = this.emptyProductForm();
   offerForm: OfferForm = this.emptyOfferForm('Promotion');
+  private readonly allowedImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+  private readonly maxImageUploadSize = 5 * 1024 * 1024;
 
   constructor() {
     this.syncRoute(this.router.url);
@@ -630,22 +633,75 @@ export class App {
   }
 
   toggleAdminDrink(item: AdminGlobalDrink): void {
-    this.adminDrinksService.update(item.id, {
-      name: item.name,
-      slug: item.slug,
-      category: item.category,
-      description: item.description,
-      imageUrl: item.imageUrl,
-      servingOptions: item.servingOptions,
-      sortOrder: item.sortOrder,
-      isActive: !item.isActive,
-    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.adminDrinksService.update(item.id, this.adminDrinkRequest(item, { isActive: !item.isActive })).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (updated) => {
         this.adminDrinks = this.adminDrinks.map((drink) => drink.id === updated.id ? updated : drink);
         this.drinkLibrary = [];
       },
       error: () => this.adminDrinksError = 'Status pića nije promijenjen.',
     });
+  }
+
+  quickUpdateAdminDrink(item: AdminGlobalDrink, changes: Partial<Pick<AdminGlobalDrink, 'category' | 'servingOptions' | 'sortOrder' | 'isActive'>>): void {
+    if (this.adminDrinkInlineSaving.has(item.id)) return;
+    this.adminDrinkInlineSaving.add(item.id);
+    this.adminDrinksError = '';
+    this.adminDrinksService.update(item.id, this.adminDrinkRequest(item, changes))
+      .pipe(finalize(() => this.adminDrinkInlineSaving.delete(item.id)), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updated) => {
+          this.adminDrinks = this.adminDrinks.map((drink) => drink.id === updated.id ? updated : drink);
+          this.drinkLibrary = [];
+        },
+        error: () => this.adminDrinksError = 'Brza izmjena pića nije sačuvana.',
+      });
+  }
+
+  exportAdminRestaurantsCsv(): void {
+    this.downloadCsv('menispot-restaurants.csv',
+      ['Name', 'Slug', 'Type', 'Status', 'Plan', 'Subscription', 'Expires on', 'Address'],
+      this.filteredAdminRestaurants.map((item) => [item.name, item.slug, this.establishmentLabel(item.type), this.restaurantStatusLabel(item.status), item.plan, this.subscriptionStatusLabel(item.subscriptionStatus), item.expiresOn, item.address ?? '']));
+  }
+
+  exportAdminDrinksCsv(): void {
+    this.downloadCsv('menispot-drink-library.csv',
+      ['Name', 'Slug', 'Category', 'Serving options', 'Description', 'Image URL', 'Sort order', 'Active'],
+      this.filteredAdminDrinks.map((item) => [item.name, item.slug, item.category, item.servingOptions ?? '', item.description ?? '', item.imageUrl ?? '', item.sortOrder, item.isActive ? 'Yes' : 'No']));
+  }
+
+  exportOwnerProductsCsv(): void {
+    this.downloadCsv(`${this.restaurant.slug || 'restaurant'}-products.csv`,
+      ['Name', 'Category', 'Price', 'Serving size', 'Available', 'Visible', 'Image', 'Description'],
+      this.ownerItems.map((item) => [item.name, this.categoryName(item.categoryId), item.price, item.servingSize ?? '', item.isAvailable ? 'Yes' : 'No', item.isVisible ? 'Yes' : 'No', item.imageUrl ?? '', item.description ?? '']));
+  }
+
+  productWarnings(product: Product): string[] {
+    const warnings: string[] = [];
+    if (!product.price || product.price <= 0) warnings.push('Cijena 0');
+    if (!this.ownerCategories.some((category) => category.id === product.categoryId)) warnings.push('Bez kategorije');
+    if (!product.image || product.image.includes('menispot-mark.png')) warnings.push('Nema slike');
+    return warnings;
+  }
+
+  numberFromInput(value: string): number {
+    return Number(value) || 0;
+  }
+
+  clearAdminDrinkImage(): void { this.adminDrinkForm.imageUrl = ''; }
+  clearProductImage(): void { this.productForm.imageUrl = ''; }
+  clearOfferImage(): void { this.offerForm.imageUrl = ''; }
+
+  private adminDrinkRequest(item: AdminGlobalDrink, changes: Partial<Pick<AdminGlobalDrink, 'category' | 'servingOptions' | 'sortOrder' | 'isActive'>>) {
+    return {
+      name: item.name,
+      slug: item.slug,
+      category: changes.category ?? item.category,
+      description: item.description,
+      imageUrl: item.imageUrl,
+      servingOptions: changes.servingOptions ?? item.servingOptions,
+      sortOrder: changes.sortOrder ?? item.sortOrder,
+      isActive: changes.isActive ?? item.isActive,
+    };
   }
 
   deleteAdminDrink(item: AdminGlobalDrink): void {
@@ -663,6 +719,12 @@ export class App {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
+    const validationError = this.validateImageFile(file);
+    if (validationError) {
+      this.adminDrinkFormError = validationError;
+      input.value = '';
+      return;
+    }
     this.adminDrinkUploading = true;
     this.adminDrinkFormError = '';
     this.adminDrinksService.uploadImage(file)
@@ -1038,6 +1100,12 @@ export class App {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
+    const validationError = this.validateImageFile(file);
+    if (validationError) {
+      this.ownerError = validationError;
+      input.value = '';
+      return;
+    }
     this.ownerSaving = true;
     this.ownerService.uploadImage(file).pipe(finalize(() => { this.ownerSaving = false; input.value = ''; }), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: ({ url }) => {
@@ -1399,6 +1467,27 @@ export class App {
   }
   private offerDateLabel(offer: OwnerSpecialOffer): string { return offer.startsAt ? new Intl.DateTimeFormat('bs-BA', { dateStyle: 'medium' }).format(new Date(offer.startsAt)) : 'Danas'; }
   private dayLabel(day: string): string { return ({ Monday: 'Ponedjeljak', Tuesday: 'Utorak', Wednesday: 'Srijeda', Thursday: 'Četvrtak', Friday: 'Petak', Saturday: 'Subota', Sunday: 'Nedjelja' } as Record<string, string>)[day] ?? day; }
+  private validateImageFile(file: File): string | null {
+    if (!this.allowedImageTypes.has(file.type)) return 'Dozvoljene su samo JPG, PNG ili WebP fotografije.';
+    if (file.size > this.maxImageUploadSize) return 'Fotografija može biti maksimalno 5 MB.';
+    return null;
+  }
+  private downloadCsv(fileName: string, headers: string[], rows: (string | number | boolean | null | undefined)[][]): void {
+    const csv = [headers, ...rows]
+      .map((row) => row.map((value) => this.csvCell(value)).join(','))
+      .join('\r\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+  private csvCell(value: string | number | boolean | null | undefined): string {
+    const text = String(value ?? '');
+    return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+  }
   private completeBusinessHours(hours: OwnerRestaurant['businessHours']): OwnerRestaurant['businessHours'] {
     const days: OwnerRestaurant['businessHours'][number]['dayOfWeek'][] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     return days.map((day) => hours.find((hour) => hour.dayOfWeek === day) ?? { dayOfWeek: day, opensAt: '09:00:00', closesAt: '23:00:00', isClosed: false });
