@@ -256,6 +256,8 @@ Never commit real production secrets, database passwords, JWT signing keys, admi
 - PostgreSQL runs inside the Docker network in production
 - Uploaded image validation with WebP conversion and compression
 
+Additional production security notes are documented in [docs/SECURITY.md](docs/SECURITY.md).
+
 ## Production Deployment
 
 The project includes Docker Compose production configuration for running the Angular frontend, ASP.NET Core API, PostgreSQL database, and Caddy reverse proxy on a VPS.
@@ -271,6 +273,20 @@ Before deploying:
 3. Configure the public domain and allowed origins
 4. Ensure ports 80 and 443 are open
 5. Never expose PostgreSQL port 5432 publicly
+
+## Backups
+
+Production backup instructions are documented in [docs/BACKUPS.md](docs/BACKUPS.md).
+
+The backup script creates a PostgreSQL dump and archives uploaded images from the production container:
+
+```bash
+cd /opt/menispot
+chmod +x deploy/backup-prod.sh
+./deploy/backup-prod.sh
+```
+
+Backups must stay outside the Git repository because they may contain customer data and uploaded files.
 
 ## Testing
 

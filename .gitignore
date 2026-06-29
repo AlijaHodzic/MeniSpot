@@ -14,7 +14,31 @@ backend/DigitalMenu.Api/wwwroot/uploads/
 .env
 .env.*
 !.env.example
+!.env.production.example
 appsettings.Production.json
 *.db
 *.db-shm
 *.db-wal
+
+# Production backups and exported data
+backups/
+**/backups/
+*.backup
+*.bak
+*.dump
+*.sql
+*.sql.gz
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+*.enc
+
+# Local secret/config files
+id_rsa*
+id_ed25519*
+*.pem
+*.key
+*.pfx
+*.crt
+rclone.conf
