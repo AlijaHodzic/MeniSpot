@@ -66,6 +66,9 @@ interface AdminDrinkForm { id: string | null; name: string; slug: string; catego
 interface DrinkLibraryVariant { key: string; drink: GlobalDrinkSummary; servingSize: string | null }
 interface PasswordForm { currentPassword: string; newPassword: string; confirmPassword: string }
 interface ReadinessItem { label: string; ready: boolean; tab: OwnerTab }
+type ToastType = 'success' | 'error' | 'info';
+interface ToastMessage { id: number; type: ToastType; message: string }
+interface ConfirmDialog { title: string; message: string; confirmText: string; tone?: 'danger' | 'warning'; onConfirm: () => void }
 
 const themeOptions: { id: ThemeType; name: string; description: string; colors: string[] }[] = [
   { id: 'classic-light', name: 'Classic Light', description: 'Svijetla tema za restorane i porodične objekte.', colors: ['#f8fafc', '#ffffff', '#84cc16'] },
@@ -175,6 +178,9 @@ export class App {
   leadLoading = false;
   leadSuccess = '';
   leadError = '';
+  toasts: ToastMessage[] = [];
+  confirmDialog: ConfirmDialog | null = null;
+  private toastId = 0;
   adminRestaurants: AdminRestaurantSummary[] = [];
   adminDashboard: AdminDashboardSummary | null = null;
   adminRestaurantsLoading = false;
@@ -394,6 +400,30 @@ export class App {
     this.sidebarCollapsed = !this.sidebarCollapsed;
   }
 
+  showToast(message: string, type: ToastType = 'success'): void {
+    const toast: ToastMessage = { id: ++this.toastId, type, message };
+    this.toasts = [...this.toasts, toast];
+    setTimeout(() => this.dismissToast(toast.id), 4200);
+  }
+
+  dismissToast(id: number): void {
+    this.toasts = this.toasts.filter((toast) => toast.id !== id);
+  }
+
+  askConfirm(dialog: ConfirmDialog): void {
+    this.confirmDialog = dialog;
+  }
+
+  closeConfirm(): void {
+    this.confirmDialog = null;
+  }
+
+  confirmAction(): void {
+    const action = this.confirmDialog?.onConfirm;
+    this.confirmDialog = null;
+    action?.();
+  }
+
   submitLeadForm(): void {
     const businessName = this.leadForm.businessName.trim();
     const email = this.leadForm.email.trim();
@@ -516,12 +546,14 @@ export class App {
         next: () => {
           this.passwordForm = { currentPassword: '', newPassword: '', confirmPassword: '' };
           this.passwordSuccess = 'Nova lozinka je uspjesno postavljena.';
+          this.showToast('Nova lozinka je uspješno postavljena.');
         },
         error: (error: HttpErrorResponse) => {
           const errors = error.error?.errors;
           this.passwordError = Array.isArray(errors) && errors.length
             ? errors.join(' ')
             : 'Lozinka nije promijenjena. Provjeri trenutnu lozinku i pravila za novu lozinku.';
+          this.showToast('Lozinka nije promijenjena.', 'error');
         },
       });
   }
@@ -627,8 +659,12 @@ export class App {
         this.showAdminDrinkModal = false;
         this.loadAdminDrinks(true);
         this.drinkLibrary = [];
+        this.showToast(form.id ? 'Piće je sačuvano.' : 'Novo piće je dodano.');
       },
-      error: (error: HttpErrorResponse) => this.adminDrinkFormError = error.error?.title ?? 'Piće nije sačuvano. Provjeri unesene podatke.',
+      error: (error: HttpErrorResponse) => {
+        this.adminDrinkFormError = error.error?.title ?? 'Piće nije sačuvano. Provjeri unesene podatke.';
+        this.showToast('Piće nije sačuvano.', 'error');
+      },
     });
   }
 
@@ -637,8 +673,12 @@ export class App {
       next: (updated) => {
         this.adminDrinks = this.adminDrinks.map((drink) => drink.id === updated.id ? updated : drink);
         this.drinkLibrary = [];
+        this.showToast(updated.isActive ? 'Piće je aktivno u biblioteci.' : 'Piće je sakriveno iz biblioteke.');
       },
-      error: () => this.adminDrinksError = 'Status pića nije promijenjen.',
+      error: () => {
+        this.adminDrinksError = 'Status pića nije promijenjen.';
+        this.showToast('Status pića nije promijenjen.', 'error');
+      },
     });
   }
 
@@ -652,8 +692,12 @@ export class App {
         next: (updated) => {
           this.adminDrinks = this.adminDrinks.map((drink) => drink.id === updated.id ? updated : drink);
           this.drinkLibrary = [];
+          this.showToast('Izmjena je sačuvana.');
         },
-        error: () => this.adminDrinksError = 'Brza izmjena pića nije sačuvana.',
+        error: () => {
+          this.adminDrinksError = 'Brza izmjena pića nije sačuvana.';
+          this.showToast('Brza izmjena nije sačuvana.', 'error');
+        },
       });
   }
 
@@ -705,13 +749,22 @@ export class App {
   }
 
   deleteAdminDrink(item: AdminGlobalDrink): void {
-    if (!confirm(`Trajno obrisati piće "${item.name}" iz biblioteke? Pića koja su vlasnici već dodali ostaju u njihovim menijima.`)) return;
-    this.adminDrinksService.delete(item.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: () => {
-        this.adminDrinks = this.adminDrinks.filter((drink) => drink.id !== item.id);
-        this.drinkLibrary = [];
-      },
-      error: () => this.adminDrinksError = 'Piće nije obrisano.',
+    this.askConfirm({
+      title: 'Obrisati piće?',
+      message: `Piće "${item.name}" će biti trajno obrisano iz globalne biblioteke. Pića koja su vlasnici već dodali ostaju u njihovim menijima.`,
+      confirmText: 'Obriši piće',
+      tone: 'danger',
+      onConfirm: () => this.adminDrinksService.delete(item.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: () => {
+          this.adminDrinks = this.adminDrinks.filter((drink) => drink.id !== item.id);
+          this.drinkLibrary = [];
+          this.showToast('Piće je obrisano.');
+        },
+        error: () => {
+          this.adminDrinksError = 'Piće nije obrisano.';
+          this.showToast('Piće nije obrisano.', 'error');
+        },
+      }),
     });
   }
 
@@ -730,8 +783,14 @@ export class App {
     this.adminDrinksService.uploadImage(file)
       .pipe(finalize(() => { this.adminDrinkUploading = false; input.value = ''; }), takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ({ url }) => this.adminDrinkForm.imageUrl = url,
-        error: (error: HttpErrorResponse) => this.adminDrinkFormError = error.error?.title ?? 'Fotografija nije učitana. Maksimalna veličina je 5 MB.',
+        next: ({ url }) => {
+          this.adminDrinkForm.imageUrl = url;
+          this.showToast('Fotografija je učitana.');
+        },
+        error: (error: HttpErrorResponse) => {
+          this.adminDrinkFormError = error.error?.title ?? 'Fotografija nije učitana. Maksimalna veličina je 5 MB.';
+          this.showToast('Fotografija nije učitana.', 'error');
+        },
       });
   }
 
@@ -777,8 +836,12 @@ export class App {
         this.paymentForm = this.emptyPaymentForm(account);
         this.loadBilling(true);
         this.loadAdminRestaurants(true);
+        this.showToast('Uplata je evidentirana.');
       },
-      error: (error: HttpErrorResponse) => this.paymentError = error.error?.title ?? 'Uplata nije evidentirana.',
+      error: (error: HttpErrorResponse) => {
+        this.paymentError = error.error?.title ?? 'Uplata nije evidentirana.';
+        this.showToast('Uplata nije evidentirana.', 'error');
+      },
     });
   }
 
@@ -868,13 +931,16 @@ export class App {
         if (passwordChanged) {
           this.restaurantForm.ownerPassword = '';
           this.restaurantFormSuccess = 'Nova šifra je uspješno postavljena.';
+          this.showToast('Nova šifra je uspješno postavljena.');
         } else {
           this.showRestaurantModal = false;
+          this.showToast(form.id ? 'Restoran je sačuvan.' : 'Restoran je kreiran.');
         }
         this.loadAdminRestaurants(true);
       },
       error: (error: HttpErrorResponse) => {
         this.restaurantFormError = error.error?.title ?? 'Promjene nisu sačuvane. Provjeri unesene podatke.';
+        this.showToast('Promjene nisu sačuvane.', 'error');
       },
     });
   }
@@ -889,8 +955,12 @@ export class App {
         next: () => {
           item.status = status;
           this.loadAdminRestaurants(true);
+          this.showToast(status === 'Active' ? 'Restoran je aktiviran.' : 'Restoran je pauziran.');
         },
-        error: () => this.adminRestaurantsError = 'Status restorana nije promijenjen. Pokušaj ponovo.',
+        error: () => {
+          this.adminRestaurantsError = 'Status restorana nije promijenjen. Pokušaj ponovo.';
+          this.showToast('Status restorana nije promijenjen.', 'error');
+        },
       });
   }
 
@@ -906,7 +976,10 @@ export class App {
           this.auth.startImpersonation(session);
           void this.router.navigate(this.auth.dashboardUrl(session));
         },
-        error: () => this.adminRestaurantsError = 'Nije moguće otvoriti vlasnički panel za ovaj restoran.',
+        error: () => {
+          this.adminRestaurantsError = 'Nije moguće otvoriti vlasnički panel za ovaj restoran.';
+          this.showToast('Vlasnički panel nije moguće otvoriti.', 'error');
+        },
       });
   }
 
@@ -933,19 +1006,49 @@ export class App {
       name: this.categoryForm.name.trim(), description: this.nullIfEmpty(this.categoryForm.description),
       type: this.categoryForm.type, sortOrder: this.categoryForm.sortOrder, isVisible: this.categoryForm.isVisible,
     }).pipe(finalize(() => this.ownerSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: () => { this.showCategoryModal = false; this.loadOwnerRestaurant(true); },
-      error: () => this.ownerError = 'Kategorija nije sačuvana.',
+      next: () => {
+        this.showCategoryModal = false;
+        this.loadOwnerRestaurant(true);
+        this.showToast(this.categoryForm.id ? 'Kategorija je sačuvana.' : 'Kategorija je dodana.');
+      },
+      error: () => {
+        this.ownerError = 'Kategorija nije sačuvana.';
+        this.showToast('Kategorija nije sačuvana.', 'error');
+      },
     });
   }
 
   toggleCategory(category: OwnerMenuCategory): void {
     this.ownerService.saveCategory(category.id, { name: category.name, description: category.description, type: category.type, sortOrder: category.sortOrder, isVisible: !category.isVisible })
-      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: () => this.loadOwnerRestaurant(true), error: () => this.ownerError = 'Vidljivost kategorije nije promijenjena.' });
+      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: () => {
+          this.loadOwnerRestaurant(true);
+          this.showToast(category.isVisible ? 'Kategorija je sakrivena.' : 'Kategorija je prikazana.');
+        },
+        error: () => {
+          this.ownerError = 'Vidljivost kategorije nije promijenjena.';
+          this.showToast('Vidljivost kategorije nije promijenjena.', 'error');
+        },
+      });
   }
 
   deleteCategory(category: OwnerMenuCategory): void {
-    if (!confirm(`Obrisati kategoriju "${category.name}" i sve njene proizvode?`)) return;
-    this.ownerService.deleteCategory(category.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: () => this.loadOwnerRestaurant(true), error: () => this.ownerError = 'Kategorija nije obrisana.' });
+    this.askConfirm({
+      title: 'Obrisati kategoriju?',
+      message: `Kategorija "${category.name}" i svi proizvodi u njoj će biti obrisani iz menija.`,
+      confirmText: 'Obriši kategoriju',
+      tone: 'danger',
+      onConfirm: () => this.ownerService.deleteCategory(category.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: () => {
+          this.loadOwnerRestaurant(true);
+          this.showToast('Kategorija je obrisana.');
+        },
+        error: () => {
+          this.ownerError = 'Kategorija nije obrisana.';
+          this.showToast('Kategorija nije obrisana.', 'error');
+        },
+      }),
+    });
   }
 
   openProduct(product?: OwnerMenuItem): void {
@@ -966,7 +1069,15 @@ export class App {
       sortOrder: this.productForm.sortOrder, isVisible: this.productForm.isVisible, isAvailable: this.productForm.isAvailable,
       isVegetarian: this.productForm.isVegetarian, isSpicy: this.productForm.isSpicy, isFeatured: this.productForm.isFeatured,
     }).pipe(finalize(() => this.ownerSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: () => { this.showProductModal = false; this.loadOwnerRestaurant(true); }, error: () => this.ownerError = 'Proizvod nije sačuvan.',
+      next: () => {
+        this.showProductModal = false;
+        this.loadOwnerRestaurant(true);
+        this.showToast(this.productForm.id ? 'Proizvod je sačuvan.' : 'Proizvod je dodan.');
+      },
+      error: () => {
+        this.ownerError = 'Proizvod nije sačuvan.';
+        this.showToast('Proizvod nije sačuvan.', 'error');
+      },
     });
   }
 
@@ -1011,8 +1122,12 @@ export class App {
           this.showDrinkLibraryModal = false;
           this.drinkSelections = this.emptyDrinkSelections(this.drinkLibrary);
           this.loadOwnerRestaurant(true);
+          this.showToast(`Dodano ${drinks.length} pića u meni.`);
         },
-        error: () => this.drinkLibraryError = 'Pića nisu dodana u meni.',
+        error: () => {
+          this.drinkLibraryError = 'Pića nisu dodana u meni.';
+          this.showToast('Pića nisu dodana u meni.', 'error');
+        },
       });
   }
 
@@ -1024,12 +1139,35 @@ export class App {
       servingSize: source.servingSize, imageUrl: source.globalDrinkId ? null : source.imageUrl, allergens: source.allergens, sortOrder: source.sortOrder,
       isVisible: source.isVisible, isAvailable: !source.isAvailable, isVegetarian: source.isVegetarian, isSpicy: source.isSpicy, isFeatured: source.isFeatured,
     })
-      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: () => this.loadOwnerRestaurant(true), error: () => this.ownerError = 'Dostupnost proizvoda nije promijenjena.' });
+      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: () => {
+          this.loadOwnerRestaurant(true);
+          this.showToast(source.isAvailable ? 'Proizvod je sakriven.' : 'Proizvod je dostupan gostima.');
+        },
+        error: () => {
+          this.ownerError = 'Dostupnost proizvoda nije promijenjena.';
+          this.showToast('Dostupnost proizvoda nije promijenjena.', 'error');
+        },
+      });
   }
 
   deleteProduct(product: Product): void {
-    if (!confirm(`Obrisati proizvod "${product.name}"?`)) return;
-    this.ownerService.deleteItem(product.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: () => this.loadOwnerRestaurant(true), error: () => this.ownerError = 'Proizvod nije obrisan.' });
+    this.askConfirm({
+      title: 'Obrisati proizvod?',
+      message: `Proizvod "${product.name}" će biti trajno uklonjen iz menija.`,
+      confirmText: 'Obriši proizvod',
+      tone: 'danger',
+      onConfirm: () => this.ownerService.deleteItem(product.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: () => {
+          this.loadOwnerRestaurant(true);
+          this.showToast('Proizvod je obrisan.');
+        },
+        error: () => {
+          this.ownerError = 'Proizvod nije obrisan.';
+          this.showToast('Proizvod nije obrisan.', 'error');
+        },
+      }),
+    });
   }
 
   openOffer(kind: SpecialOfferKind, offer?: OwnerSpecialOffer): void {
@@ -1050,25 +1188,65 @@ export class App {
       startsAt: this.isoDateTime(this.offerForm.startsAt), endsAt: this.isoDateTime(this.offerForm.endsAt), isVisible: this.offerForm.isVisible,
       kind: this.offerForm.kind, items: this.nullIfEmpty(this.offerForm.items),
     }).pipe(finalize(() => this.ownerSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: () => { this.showOfferModal = false; this.loadOwnerRestaurant(true); }, error: () => this.ownerError = 'Ponuda nije sačuvana.',
+      next: () => {
+        this.showOfferModal = false;
+        this.loadOwnerRestaurant(true);
+        this.showToast(this.offerForm.kind === 'DailyMenu' ? 'Dnevni meni je sačuvan.' : 'Ponuda je sačuvana.');
+      },
+      error: () => {
+        this.ownerError = 'Ponuda nije sačuvana.';
+        this.showToast('Ponuda nije sačuvana.', 'error');
+      },
     });
   }
 
   toggleOffer(offer: OwnerSpecialOffer): void {
     this.ownerService.saveOffer(offer.id, this.offerRequestFromOffer(offer, !offer.isVisible))
-      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: () => this.loadOwnerRestaurant(true), error: () => this.ownerError = 'Status ponude nije promijenjen.' });
+      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: () => {
+          this.loadOwnerRestaurant(true);
+          this.showToast(offer.isVisible ? 'Ponuda je sakrivena.' : 'Ponuda je prikazana.');
+        },
+        error: () => {
+          this.ownerError = 'Status ponude nije promijenjen.';
+          this.showToast('Status ponude nije promijenjen.', 'error');
+        },
+      });
   }
 
   deleteOffer(offer: OwnerSpecialOffer): void {
-    if (!confirm(`Obrisati ponudu "${offer.title}"?`)) return;
-    this.ownerService.deleteOffer(offer.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: () => this.loadOwnerRestaurant(true), error: () => this.ownerError = 'Ponuda nije obrisana.' });
+    this.askConfirm({
+      title: 'Obrisati ponudu?',
+      message: `Ponuda "${offer.title}" će biti trajno uklonjena iz menija.`,
+      confirmText: 'Obriši ponudu',
+      tone: 'danger',
+      onConfirm: () => this.ownerService.deleteOffer(offer.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: () => {
+          this.loadOwnerRestaurant(true);
+          this.showToast('Ponuda je obrisana.');
+        },
+        error: () => {
+          this.ownerError = 'Ponuda nije obrisana.';
+          this.showToast('Ponuda nije obrisana.', 'error');
+        },
+      }),
+    });
   }
 
   changeTheme(theme: ThemeType): void {
     if (!this.ownerRestaurant) { this.restaurant.theme = theme; return; }
     const selected = this.themes.find((item) => item.id === theme)!;
     const request = { ...this.ownerRestaurant.theme, themeKey: theme, primaryColor: selected.colors[1], accentColor: selected.colors[2] };
-    this.ownerService.setTheme(request).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: () => this.loadOwnerRestaurant(true), error: () => this.ownerError = 'Tema nije sačuvana.' });
+    this.ownerService.setTheme(request).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        this.loadOwnerRestaurant(true);
+        this.showToast('Tema je sačuvana.');
+      },
+      error: () => {
+        this.ownerError = 'Tema nije sačuvana.';
+        this.showToast('Tema nije sačuvana.', 'error');
+      },
+    });
   }
 
   saveOwnerSettings(): void {
@@ -1081,14 +1259,30 @@ export class App {
       currency: this.ownerRestaurant.currency, defaultLanguage: this.ownerRestaurant.defaultLanguage, type: this.ownerRestaurant.type,
       themeKey: this.restaurant.theme,
     }).pipe(finalize(() => this.ownerSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: () => this.loadOwnerRestaurant(true), error: () => this.ownerError = 'Postavke nisu sačuvane.',
+      next: () => {
+        this.loadOwnerRestaurant(true);
+        this.showToast('Postavke su sačuvane.');
+      },
+      error: () => {
+        this.ownerError = 'Postavke nisu sačuvane.';
+        this.showToast('Postavke nisu sačuvane.', 'error');
+      },
     });
   }
 
   saveBusinessHours(): void {
     if (!this.ownerRestaurant) return;
     this.ownerService.setBusinessHours(this.ownerRestaurant.businessHours)
-      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: () => this.loadOwnerRestaurant(true), error: () => this.ownerError = 'Radno vrijeme nije sačuvano.' });
+      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: () => {
+          this.loadOwnerRestaurant(true);
+          this.showToast('Radno vrijeme je sačuvano.');
+        },
+        error: () => {
+          this.ownerError = 'Radno vrijeme nije sačuvano.';
+          this.showToast('Radno vrijeme nije sačuvano.', 'error');
+        },
+      });
   }
 
   downloadOwnerQr(): void {
@@ -1113,8 +1307,12 @@ export class App {
         else if (target === 'offer') this.offerForm.imageUrl = url;
         else if (target === 'logo') this.restaurant.logo = url;
         else this.restaurant.cover = url;
+        this.showToast('Fotografija je učitana.');
       },
-      error: (error: HttpErrorResponse) => this.ownerError = error.error?.title ?? 'Fotografija nije učitana. Maksimalna veličina je 5 MB.',
+      error: (error: HttpErrorResponse) => {
+        this.ownerError = error.error?.title ?? 'Fotografija nije učitana. Maksimalna veličina je 5 MB.';
+        this.showToast('Fotografija nije učitana.', 'error');
+      },
     });
   }
 
