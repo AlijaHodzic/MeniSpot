@@ -453,7 +453,7 @@ public static class DatabaseInitializer
                 "heineken-033" or "tuborg-033" or "sarajevsko-033" or "heineken" or "tuborg" or "sarajevsko" => "Pivo",
                 "bijelo-vino-01" or "bijelo-vino" => "Bijela vina",
                 "crno-vino-01" or "crno-vino" => "Crna vina",
-                _ when drink.Category is "Bezalkoholna piÄ‡a" or "Bezalkoholna pića" => "Gazirana pića",
+                _ when drink.Category is "Bezalkoholna pića" => "Gazirana pića",
                 _ when drink.Category is "Piva" => "Pivo",
                 _ => drink.Category
             };

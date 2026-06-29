@@ -228,7 +228,8 @@
 .quick-card b { color: #0f172a; font-size: 14px; }
 .quick-card small { margin-top: 3px; color: #94a3b8; }
 .readiness-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin-top: 20px; }
-.readiness-list p { display: flex; align-items: center; gap: 10px; margin: 0; border: 1px solid #e2e8f0; border-radius: 13px; background: #f8fafc; padding: 13px; color: #64748b; font-size: 13px; font-weight: 700; }
+.readiness-list button { display: flex; align-items: center; gap: 10px; margin: 0; border: 1px solid #e2e8f0; border-radius: 13px; background: #f8fafc; padding: 13px; color: #64748b; font-size: 13px; font-weight: 700; text-align: left; transition: .15s; }
+.readiness-list button:hover { border-color: #cbd5e1; background: white; }
 .readiness-list span { width: 10px; height: 10px; border-radius: 999px; background: #cbd5e1; }
 .readiness-list .ready { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
 .readiness-list .ready span { background: #22c55e; }

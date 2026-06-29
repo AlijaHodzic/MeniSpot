@@ -261,7 +261,7 @@ Never commit real production secrets, database passwords, JWT signing keys, admi
 The project includes Docker Compose production configuration for running the Angular frontend, ASP.NET Core API, PostgreSQL database, and Caddy reverse proxy on a VPS.
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 ```
 
 Before deploying:

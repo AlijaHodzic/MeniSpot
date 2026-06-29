@@ -65,6 +65,7 @@ interface OfferForm { id: string | null; kind: SpecialOfferKind; title: string; 
 interface AdminDrinkForm { id: string | null; name: string; slug: string; category: string; description: string; imageUrl: string; servingOptions: string; isByGlass: boolean; sortOrder: number; isActive: boolean }
 interface DrinkLibraryVariant { key: string; drink: GlobalDrinkSummary; servingSize: string | null }
 interface PasswordForm { currentPassword: string; newPassword: string; confirmPassword: string }
+interface ReadinessItem { label: string; ready: boolean; tab: OwnerTab }
 
 const themeOptions: { id: ThemeType; name: string; description: string; colors: string[] }[] = [
   { id: 'classic-light', name: 'Classic Light', description: 'Svijetla tema za restorane i porodične objekte.', colors: ['#f8fafc', '#ffffff', '#84cc16'] },
@@ -262,6 +263,30 @@ export class App {
   get ownerViewsTicks(): number[] {
     const maximum = this.ownerViewsMaximum;
     return [maximum, Math.round(maximum * .75), Math.round(maximum * .5), Math.round(maximum * .25), 0];
+  }
+  get ownerReadyPublicProducts(): Product[] {
+    const visibleCategoryIds = new Set(this.ownerCategories.filter((category) => category.isVisible).map((category) => category.id));
+    return this.restaurantProducts.filter((product) => product.available && visibleCategoryIds.has(product.categoryId));
+  }
+  get hasReadyPublicCategory(): boolean {
+    const readyProductCategoryIds = new Set(this.ownerReadyPublicProducts.map((product) => product.categoryId));
+    return this.ownerCategories.some((category) => category.isVisible && readyProductCategoryIds.has(category.id));
+  }
+  get hasOwnerContactInfo(): boolean {
+    return Boolean(this.restaurant.phone || this.restaurant.address || this.restaurant.website || this.restaurant.instagram);
+  }
+  get hasOwnerBusinessHours(): boolean {
+    return this.restaurant.businessHours.some((hour) => !hour.closed && hour.open && hour.close);
+  }
+  get ownerReadinessItems(): ReadinessItem[] {
+    return [
+      { label: 'Meni je aktivan', ready: this.restaurant.status === 'active', tab: 'dashboard' },
+      { label: 'Javni proizvodi dodani', ready: this.ownerReadyPublicProducts.length > 0, tab: 'products' },
+      { label: 'Kategorije imaju proizvode', ready: this.hasReadyPublicCategory, tab: 'categories' },
+      { label: 'Kontakt podaci uneseni', ready: this.hasOwnerContactInfo, tab: 'settings' },
+      { label: 'Radno vrijeme uneseno', ready: this.hasOwnerBusinessHours, tab: 'settings' },
+      { label: 'QR kod generisan', ready: Boolean(this.ownerQrCode), tab: 'qr' },
+    ];
   }
   get adminTitle(): string { return this.adminTabs.find((item) => item.id === this.adminTab)?.label ?? ''; }
   get ownerTitle(): string { return this.ownerTabs.find((item) => item.id === this.ownerTab)?.label ?? ''; }
@@ -487,7 +512,7 @@ export class App {
       .subscribe({
         next: () => {
           this.passwordForm = { currentPassword: '', newPassword: '', confirmPassword: '' };
-          this.passwordSuccess = 'Lozinka je uspješno promijenjena.';
+          this.passwordSuccess = 'Nova lozinka je uspjesno postavljena.';
         },
         error: (error: HttpErrorResponse) => {
           const errors = error.error?.errors;
