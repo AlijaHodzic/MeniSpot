@@ -21,7 +21,7 @@ export class AdminDrinksService {
     return this.http.put<AdminGlobalDrink>(`${this.endpoint}/${id}`, request);
   }
 
-  hide(id: string): Observable<void> {
+  delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.endpoint}/${id}`);
   }
 

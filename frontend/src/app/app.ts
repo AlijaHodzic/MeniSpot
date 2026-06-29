@@ -648,14 +648,14 @@ export class App {
     });
   }
 
-  hideAdminDrink(item: AdminGlobalDrink): void {
-    if (!confirm(`Sakriti piće "${item.name}" iz biblioteke?`)) return;
-    this.adminDrinksService.hide(item.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+  deleteAdminDrink(item: AdminGlobalDrink): void {
+    if (!confirm(`Trajno obrisati piće "${item.name}" iz biblioteke? Pića koja su vlasnici već dodali ostaju u njihovim menijima.`)) return;
+    this.adminDrinksService.delete(item.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
-        this.adminDrinks = this.adminDrinks.map((drink) => drink.id === item.id ? { ...drink, isActive: false } : drink);
+        this.adminDrinks = this.adminDrinks.filter((drink) => drink.id !== item.id);
         this.drinkLibrary = [];
       },
-      error: () => this.adminDrinksError = 'Piće nije sakriveno.',
+      error: () => this.adminDrinksError = 'Piće nije obrisano.',
     });
   }
 

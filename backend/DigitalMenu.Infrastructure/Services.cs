@@ -600,8 +600,7 @@ public sealed class GlobalDrinkService(ApplicationDbContext db) : IGlobalDrinkSe
     {
         var item = await db.GlobalDrinks.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (item is null) return false;
-        item.IsActive = false;
-        item.UpdatedAt = DateTimeOffset.UtcNow;
+        db.GlobalDrinks.Remove(item);
         await db.SaveChangesAsync(ct);
         return true;
     }
