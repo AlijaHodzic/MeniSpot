@@ -97,6 +97,30 @@
 .impersonation-return { border-color: #bef264 !important; background: #f7fee7 !important; color: #3f6212 !important; }
 .icon-button { width: 38px; height: 38px; border: 1px solid #e2e8f0; background: white; color: #64748b; }
 
+select {
+  --select-bg: #fff; --select-border: #dbe3eb; --select-text: #334155; --select-focus: rgba(132,204,22,.14); --select-arrow: #64748b;
+  min-height: 38px; border: 1px solid var(--select-border) !important; border-radius: 8px !important; outline: 0; appearance: none; -webkit-appearance: none;
+  background-color: var(--select-bg) !important;
+  background-image: linear-gradient(45deg,transparent 50%,var(--select-arrow) 50%),linear-gradient(135deg,var(--select-arrow) 50%,transparent 50%) !important;
+  background-repeat: no-repeat !important; background-position: calc(100% - 17px) 50%,calc(100% - 12px) 50% !important; background-size: 5px 5px !important;
+  padding-right: 38px !important; color: var(--select-text) !important; cursor: pointer; box-shadow: 0 1px 2px rgba(15,23,42,.04); transition: border-color .15s, box-shadow .15s, background-color .15s;
+}
+select:hover { border-color: #cbd5e1 !important; background-color: #f8fafc !important; }
+select:focus { border-color: var(--menispot-green) !important; box-shadow: 0 0 0 4px var(--select-focus); }
+select:disabled { cursor: not-allowed; opacity: .58; }
+select option { background: #fff; color: #334155; }
+select option:checked { background: #dbeafe; color: #2563eb; }
+.admin-shell select {
+  --select-bg: #1f242c;
+  --select-border: #3a414d;
+  --select-text: #f8fafc;
+  --select-focus: rgba(132,204,22,.18);
+  --select-arrow: #aab4c3;
+}
+.admin-shell select:hover { background-color: #242932 !important; }
+.admin-shell select option { background: #1f242c; color: #f8fafc; }
+.admin-shell select option:checked { background: #334155; color: #d9f99d; }
+
 .stat-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; }
 .stat-card, .panel-card, .theme-card, .product-admin-card, .offer-admin { border: 1px solid #e2e8f0; border-radius: 18px; background: white; box-shadow: 0 4px 18px rgba(15,23,42,.035); }
 .stat-card { padding: 21px; }
