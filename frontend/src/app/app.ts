@@ -71,12 +71,13 @@ type ToastType = 'success' | 'error' | 'info';
 interface ToastMessage { id: number; type: ToastType; message: string }
 interface ConfirmDialog { title: string; message: string; confirmText: string; tone?: 'danger' | 'warning'; onConfirm: () => void }
 
-type ThemeGroupId = 'restaurant' | 'cafe' | 'fast-food';
+type ThemeGroupId = 'restaurant' | 'cafe' | 'bar' | 'fast-food';
 interface ThemeOption { id: ThemeType; group: ThemeGroupId; name: string; description: string; colors: string[] }
 
 const themeGroupOptions: { id: ThemeGroupId; name: string; description: string }[] = [
   { id: 'restaurant', name: 'Restorani', description: 'Elegantnije i univerzalne palete za restorane.' },
   { id: 'cafe', name: 'Kafici', description: 'Toplije i mekse teme za kafe, brunch i slastice.' },
+  { id: 'bar', name: 'Barovi', description: 'Tamne i premium palete za barove, klubove i shisha lokale.' },
   { id: 'fast-food', name: 'Fast food', description: 'Energeticne boje za pizzu, burgere, grill i brzu hranu.' },
 ];
 
@@ -134,7 +135,6 @@ export class App {
   private readonly ownerService = inject(OwnerService);
   readonly auth = inject(AuthService);
   readonly themes = themeOptions;
-  readonly themeGroups = themeGroupOptions;
   readonly drinkCategories = drinkCategories;
   readonly leadTypeOptions: AppSelectOption[] = [
     { value: '', label: 'Izaberite tip objekta', disabled: true },
@@ -291,7 +291,22 @@ export class App {
   get drinkCategoryOptions(): AppSelectOption[] { return this.drinkCategories.map((category) => ({ value: category, label: category })); }
   get billingStatusOptions(): AppSelectOption[] { return [{ value: 'all', label: 'Svi statusi' }, ...this.subscriptionStatuses]; }
   get themeSelectOptions(): AppSelectOption[] { return this.themes.map((theme) => ({ value: theme.id, label: theme.name })); }
-  themesForGroup(group: ThemeGroupId): ThemeOption[] { return this.themes.filter((theme) => theme.group === group); }
+  get ownerThemeGroups(): typeof themeGroupOptions {
+    return themeGroupOptions.filter((group) => group.id === this.ownerThemeGroupId);
+  }
+  themesForGroup(group: ThemeGroupId): ThemeOption[] {
+    if (group === 'bar') return this.themes.filter((theme) => ['premium-gold', 'burgundy-dining', 'urban-espresso', 'modern-dark'].includes(theme.id));
+    return this.themes.filter((theme) => theme.group === group);
+  }
+  private get ownerThemeGroupId(): ThemeGroupId {
+    return this.ownerRestaurant?.type === 'Cafe'
+      ? 'cafe'
+      : this.ownerRestaurant?.type === 'FastFood'
+      ? 'fast-food'
+      : ['Bar', 'Club', 'ShishaBar'].includes(this.ownerRestaurant?.type ?? '')
+        ? 'bar'
+        : 'restaurant';
+  }
   get ownerCategoryOptions(): AppSelectOption[] { return this.ownerCategories.map((category) => ({ value: category.id, label: category.name })); }
   get ownerCategoryFilterOptions(): AppSelectOption[] { return [{ value: 'all', label: 'Sve kategorije' }, ...this.ownerCategoryOptions]; }
   get drinkLibraryCategoryOptions(): AppSelectOption[] { return [{ value: '', label: 'Automatski po kategorijama' }, ...this.ownerCategoryOptions]; }
