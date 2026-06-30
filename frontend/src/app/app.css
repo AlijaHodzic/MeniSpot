@@ -100,8 +100,6 @@
 .owner-dark .readiness-list button.ready { border-color: color-mix(in srgb,var(--brand,#84cc16) 38%,#343b46); background: color-mix(in srgb,var(--brand,#84cc16) 12%,#20252e) !important; color: color-mix(in srgb,var(--brand,#84cc16) 70%,white) !important; }
 .owner-dark .menu-status { background: color-mix(in srgb,var(--brand,#84cc16) 14%,#20252e); color: color-mix(in srgb,var(--brand,#84cc16) 70%,white); }
 .owner-dark .menu-status-paused { border-color: #7f1d1d; background: #2a1f22; color: #fecaca; }
-.owner-dark input, .owner-dark textarea { border-color: #3a414d; background: #1f242c; color: #f8fafc; }
-.owner-dark input::placeholder, .owner-dark textarea::placeholder { color: #7f8a9d; }
 .owner-dark .modal { color: #0f172a; }
 .nav-item { display: flex; width: 100%; align-items: center; gap: 11px; border: 0; border-radius: 11px; background: transparent; padding: 11px 13px; color: #64748b; font-size: 14px; font-weight: 600; text-align: left; transition: .15s; }
 .nav-item:hover { color: #0f172a; background: #f1f5f9; }
@@ -341,6 +339,12 @@
 .form-grid input, .form-grid select, .form-grid textarea { display: block; width: 100%; margin-top: 7px; border: 1px solid #dbe1e8; border-radius: 10px; outline: 0; padding: 10px 12px; color: #0f172a; font-weight: 400; }
 .form-grid app-select { display: block; width: 100%; margin-top: 7px; font-weight: 400; }
 .form-grid input:focus, .form-grid textarea:focus { border-color: #94a3b8; box-shadow: 0 0 0 3px #f1f5f9; }
+.owner-dark .form-grid label, .owner-dark .drink-library-tools label, .owner-dark .drink-library-list label, .owner-dark .check-label, .owner-dark .hours-editor-row b, .owner-dark .field-hint { color: #d6deea !important; }
+.owner-dark .form-grid input, .owner-dark .form-grid textarea, .owner-dark .form-grid select, .owner-dark .drink-library-list input, .owner-dark .hours-editor-row input[type="time"] { border-color: #4b5563 !important; background: #1f242c !important; color: #f8fafc !important; }
+.owner-dark .form-grid input:focus, .owner-dark .form-grid textarea:focus, .owner-dark .drink-library-list input:focus, .owner-dark .hours-editor-row input[type="time"]:focus { border-color: color-mix(in srgb,var(--brand,#84cc16) 56%,#64748b) !important; box-shadow: 0 0 0 3px color-mix(in srgb,var(--brand,#84cc16) 16%,transparent) !important; }
+.owner-dark input::placeholder, .owner-dark textarea::placeholder { color: #94a3b8 !important; }
+.owner-dark input[type="file"]::file-selector-button { border: 1px solid #4b5563; border-radius: 8px; background: #303640; color: #e5e7eb; }
+.owner-dark input[type="checkbox"] { accent-color: var(--brand,#84cc16); }
 .form-span-2 { grid-column: 1 / -1; }
 .theme-option { display: flex; width: 100%; align-items: center; gap: 14px; border: 1px solid #e2e8f0; border-radius: 13px; background: white; padding: 12px; text-align: left; }
 .theme-option > div { overflow: hidden; width: 62px; height: 42px; border-radius: 9px; }
