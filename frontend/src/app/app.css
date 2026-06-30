@@ -352,11 +352,27 @@
 .theme-option span { display: flex; flex-direction: column; }
 .theme-option small { margin-top: 2px; color: #94a3b8; font-size: 10px; }
 .theme-selected { border-color: var(--brand); box-shadow: 0 0 0 2px color-mix(in srgb,var(--brand) 15%,white); }
+.theme-groups { display: grid; gap: 18px; margin-top: 18px; }
+.theme-group { display: grid; gap: 10px; border-top: 1px solid #e2e8f0; padding-top: 16px; }
+.theme-group:first-child { border-top: 0; padding-top: 0; }
+.theme-group-heading b { display: block; color: #1e293b; font-size: 13px; }
+.theme-group-heading small { display: block; margin-top: 3px; color: #64748b; font-size: 11px; line-height: 1.45; }
+.owner-dark .theme-group { border-color: #343b46; }
+.owner-dark .theme-group-heading b { color: #f8fafc; }
+.owner-dark .theme-group-heading small { color: #96a1b3; }
 
 .public-menu { --surface: #fdf8f3; --card: white; --text: #1c1917; --muted: #78716c; min-height: 100vh; background: var(--surface); color: var(--text); transition: .2s; }
 .public-menu.theme-dark { --surface:#09090b; --card:#18181b; --text:#fafafa; --muted:#a1a1aa; }
 .public-menu.theme-gold { --surface:#0d0b08; --card:#1a1610; --text:#fefce8; --muted:#a99b7d; }
 .public-menu.theme-green { --surface:#f3f7f3; --card:white; --text:#111827; --muted:#6b7280; }
+.public-menu.theme-burgundy { --surface:#18181b; --card:#27272a; --text:#fafafa; --muted:#a1a1aa; }
+.public-menu.theme-mediterranean { --surface:#eff6ff; --card:#ffffff; --text:#0f172a; --muted:#64748b; }
+.public-menu.theme-coffee { --surface:#faf7f2; --card:#ffffff; --text:#1c1917; --muted:#78716c; }
+.public-menu.theme-espresso { --surface:#1c1917; --card:#292524; --text:#fafaf9; --muted:#a8a29e; }
+.public-menu.theme-pastel { --surface:#fff7fb; --card:#ffffff; --text:#1f2937; --muted:#6b7280; }
+.public-menu.theme-orange { --surface:#fff7ed; --card:#ffffff; --text:#1f2937; --muted:#6b7280; }
+.public-menu.theme-red { --surface:#fff1f2; --card:#ffffff; --text:#1f2937; --muted:#6b7280; }
+.public-menu.theme-yellow { --surface:#fefce8; --card:#ffffff; --text:#1f2937; --muted:#6b7280; }
 .menu-hero { position: relative; height: 310px; overflow: hidden; }
 .menu-hero > img { width: 100%; height: 100%; object-fit: cover; }
 .hero-overlay { position: absolute; inset: 0; background: linear-gradient(transparent 15%,rgba(0,0,0,.78)); }

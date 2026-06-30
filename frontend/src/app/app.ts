@@ -71,13 +71,29 @@ type ToastType = 'success' | 'error' | 'info';
 interface ToastMessage { id: number; type: ToastType; message: string }
 interface ConfirmDialog { title: string; message: string; confirmText: string; tone?: 'danger' | 'warning'; onConfirm: () => void }
 
-const themeOptions: { id: ThemeType; name: string; description: string; colors: string[] }[] = [
-  { id: 'classic-light', name: 'Classic Light', description: 'Svijetla tema za restorane i porodične objekte.', colors: ['#f8fafc', '#ffffff', '#84cc16'] },
-  { id: 'modern-dark', name: 'Modern Dark', description: 'Tamna tema za barove, klubove i premium večernji ambijent.', colors: ['#111827', '#1f2937', '#84cc16'] },
-  { id: 'premium-gold', name: 'Premium Gold', description: 'Elegantna tema za restorane s ozbiljnijim vizuelnim identitetom.', colors: ['#111827', '#27272a', '#c8a96e'] },
-  { id: 'natural-green', name: 'Natural Green', description: 'Svježa tema za kafiće, zdrave menije i dnevne ponude.', colors: ['#f0fdf4', '#ffffff', '#65a30d'] },
+type ThemeGroupId = 'restaurant' | 'cafe' | 'fast-food';
+interface ThemeOption { id: ThemeType; group: ThemeGroupId; name: string; description: string; colors: string[] }
+
+const themeGroupOptions: { id: ThemeGroupId; name: string; description: string }[] = [
+  { id: 'restaurant', name: 'Restorani', description: 'Elegantnije i univerzalne palete za restorane.' },
+  { id: 'cafe', name: 'Kafici', description: 'Toplije i mekse teme za kafe, brunch i slastice.' },
+  { id: 'fast-food', name: 'Fast food', description: 'Energeticne boje za pizzu, burgere, grill i brzu hranu.' },
 ];
 
+const themeOptions: ThemeOption[] = [
+  { id: 'classic-light', group: 'restaurant', name: 'Classic Light', description: 'Cista svijetla tema za restorane i porodicne objekte.', colors: ['#f8fafc', '#ffffff', '#84cc16'] },
+  { id: 'premium-gold', group: 'restaurant', name: 'Premium Gold', description: 'Tamna elegantna tema sa zlatnim akcentom.', colors: ['#111827', '#27272a', '#c8a96e'] },
+  { id: 'burgundy-dining', group: 'restaurant', name: 'Burgundy Dining', description: 'Bordo akcent za steakhouse, vino i tradicionalni restoran.', colors: ['#18181b', '#27272a', '#be123c'] },
+  { id: 'mediterranean-blue', group: 'restaurant', name: 'Mediterranean Blue', description: 'Svjeza plava paleta za riblje i moderne restorane.', colors: ['#eff6ff', '#ffffff', '#2563eb'] },
+  { id: 'coffee-cream', group: 'cafe', name: 'Coffee Cream', description: 'Krem i kafa tonovi za kafice i slasticarne.', colors: ['#faf7f2', '#ffffff', '#92400e'] },
+  { id: 'urban-espresso', group: 'cafe', name: 'Urban Espresso', description: 'Tamna coffee shop tema sa toplim akcentom.', colors: ['#1c1917', '#292524', '#d97706'] },
+  { id: 'soft-pastel', group: 'cafe', name: 'Soft Pastel', description: 'Njezna pastelna tema za brunch i mirnije lokale.', colors: ['#fff7fb', '#ffffff', '#db2777'] },
+  { id: 'natural-green', group: 'cafe', name: 'Fresh Mint', description: 'Svjeza mint tema za dnevne kafice i zdrave napitke.', colors: ['#f0fdf4', '#ffffff', '#65a30d'] },
+  { id: 'warm-orange', group: 'fast-food', name: 'Warm Orange', description: 'Topla narandzasta za pizzu, grill i brzu hranu.', colors: ['#fff7ed', '#ffffff', '#f97316'] },
+  { id: 'street-red', group: 'fast-food', name: 'Street Red', description: 'Jaka crvena za direktan street-food izgled.', colors: ['#fff1f2', '#ffffff', '#dc2626'] },
+  { id: 'yellow-pop', group: 'fast-food', name: 'Yellow Pop', description: 'Zuta akcentna tema za snack, chicken i casual ponudu.', colors: ['#fefce8', '#ffffff', '#eab308'] },
+  { id: 'modern-dark', group: 'fast-food', name: 'Charcoal Flame', description: 'Tamna grill tema sa vatrenim akcentom.', colors: ['#111827', '#1f2937', '#f59e0b'] },
+];
 const drinkCategories = [
   'Vode',
   'Gazirana pića',
@@ -118,6 +134,7 @@ export class App {
   private readonly ownerService = inject(OwnerService);
   readonly auth = inject(AuthService);
   readonly themes = themeOptions;
+  readonly themeGroups = themeGroupOptions;
   readonly drinkCategories = drinkCategories;
   readonly leadTypeOptions: AppSelectOption[] = [
     { value: '', label: 'Izaberite tip objekta', disabled: true },
@@ -274,6 +291,7 @@ export class App {
   get drinkCategoryOptions(): AppSelectOption[] { return this.drinkCategories.map((category) => ({ value: category, label: category })); }
   get billingStatusOptions(): AppSelectOption[] { return [{ value: 'all', label: 'Svi statusi' }, ...this.subscriptionStatuses]; }
   get themeSelectOptions(): AppSelectOption[] { return this.themes.map((theme) => ({ value: theme.id, label: theme.name })); }
+  themesForGroup(group: ThemeGroupId): ThemeOption[] { return this.themes.filter((theme) => theme.group === group); }
   get ownerCategoryOptions(): AppSelectOption[] { return this.ownerCategories.map((category) => ({ value: category.id, label: category.name })); }
   get ownerCategoryFilterOptions(): AppSelectOption[] { return [{ value: 'all', label: 'Sve kategorije' }, ...this.ownerCategoryOptions]; }
   get drinkLibraryCategoryOptions(): AppSelectOption[] { return [{ value: '', label: 'Automatski po kategorijama' }, ...this.ownerCategoryOptions]; }
@@ -1719,4 +1737,5 @@ export class App {
     return days.map((day) => hours.find((hour) => hour.dayOfWeek === day) ?? { dayOfWeek: day, opensAt: '09:00:00', closesAt: '23:00:00', isClosed: false });
   }
 }
+
 

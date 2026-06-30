@@ -187,8 +187,9 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             Currency = request.Currency.Trim().ToUpperInvariant(),
             DefaultLanguage = request.DefaultLanguage.Trim().ToLowerInvariant()
         };
+        var themeColors = ThemeColors(request.ThemeKey);
         restaurant.Subscription = new Subscription { RestaurantId = restaurant.Id, StartsOn = today, ExpiresOn = today.AddDays(request.TrialDays), Status = SubscriptionStatus.Trial, MonthlyPrice = 39.90m };
-        restaurant.Theme = new ThemeSettings { RestaurantId = restaurant.Id, ThemeKey = request.ThemeKey };
+        restaurant.Theme = new ThemeSettings { RestaurantId = restaurant.Id, ThemeKey = request.ThemeKey, PrimaryColor = themeColors.Primary, AccentColor = themeColors.Accent };
         db.Restaurants.Add(restaurant);
         await db.SaveChangesAsync(ct);
         var user = new ApplicationUser { UserName = request.OwnerEmail, Email = request.OwnerEmail, EmailConfirmed = true, RestaurantId = restaurant.Id, DisplayName = request.Name };
@@ -216,8 +217,9 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         x.Name = r.Name.Trim(); x.Description = r.Description; x.LogoUrl = AssetUrl.Normalize(r.LogoUrl); x.CoverImageUrl = AssetUrl.Normalize(r.CoverImageUrl);
         x.Address = r.Address; x.Phone = r.Phone; x.Email = r.Email; x.WebsiteUrl = r.WebsiteUrl; x.InstagramUrl = r.InstagramUrl;
         x.Currency = r.Currency.ToUpperInvariant(); x.DefaultLanguage = r.DefaultLanguage.ToLowerInvariant(); x.Type = r.Type;
-        if (x.Theme is null) { x.Theme = new ThemeSettings { RestaurantId = x.Id, ThemeKey = r.ThemeKey }; }
-        else x.Theme.ThemeKey = r.ThemeKey;
+        var themeColors = ThemeColors(r.ThemeKey);
+        if (x.Theme is null) { x.Theme = new ThemeSettings { RestaurantId = x.Id, ThemeKey = r.ThemeKey, PrimaryColor = themeColors.Primary, AccentColor = themeColors.Accent }; }
+        else { x.Theme.ThemeKey = r.ThemeKey; x.Theme.PrimaryColor = themeColors.Primary; x.Theme.AccentColor = themeColors.Accent; }
         x.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct); return true;
     }
@@ -292,6 +294,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
     private static string DefaultThemeKey(EstablishmentType type) => type switch
     {
         EstablishmentType.Cafe => "natural-green",
+        EstablishmentType.FastFood => "warm-orange",
         EstablishmentType.Bar or EstablishmentType.Club or EstablishmentType.ShishaBar => "modern-dark",
         _ => "classic-light"
     };
@@ -302,7 +305,30 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
     private static string NormalizeRestaurantSlug(string? value) =>
         Regex.Replace((value ?? string.Empty).Trim().ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');
 
-    private static readonly string[] SupportedThemes = ["modern-dark", "classic-light", "premium-gold", "natural-green"];
+    private static readonly string[] SupportedThemes =
+    [
+        "classic-light", "premium-gold", "burgundy-dining", "mediterranean-blue",
+        "coffee-cream", "urban-espresso", "soft-pastel", "natural-green",
+        "warm-orange", "street-red", "yellow-pop", "modern-dark"
+    ];
+
+    internal static bool IsSupportedTheme(string themeKey) => SupportedThemes.Contains(themeKey);
+
+    private static (string Primary, string Accent) ThemeColors(string themeKey) => themeKey switch
+    {
+        "premium-gold" => ("#27272a", "#c8a96e"),
+        "burgundy-dining" => ("#27272a", "#be123c"),
+        "mediterranean-blue" => ("#ffffff", "#2563eb"),
+        "coffee-cream" => ("#ffffff", "#92400e"),
+        "urban-espresso" => ("#292524", "#d97706"),
+        "soft-pastel" => ("#ffffff", "#db2777"),
+        "natural-green" => ("#ffffff", "#65a30d"),
+        "warm-orange" => ("#ffffff", "#f97316"),
+        "street-red" => ("#ffffff", "#dc2626"),
+        "yellow-pop" => ("#ffffff", "#eab308"),
+        "modern-dark" => ("#1f2937", "#f59e0b"),
+        _ => ("#ffffff", "#84cc16")
+    };
 
     internal static OwnerRestaurantDetails ToOwnerDetails(Restaurant restaurant, OwnerMenuAnalytics? analytics = null) => new(
         restaurant.Id, restaurant.Name, restaurant.Slug, restaurant.Description, AssetUrl.Normalize(restaurant.LogoUrl), AssetUrl.Normalize(restaurant.CoverImageUrl),
@@ -561,6 +587,7 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
     }
     public async Task<bool> SetThemeAsync(Guid rid, ThemeRequest r, CancellationToken ct)
     {
+        if (!RestaurantService.IsSupportedTheme(r.ThemeKey)) throw new InvalidOperationException("Selected theme is not supported.");
         var x = await db.ThemeSettings.SingleOrDefaultAsync(x => x.RestaurantId == rid, ct); if (x is null) return false;
         x.ThemeKey = r.ThemeKey; x.PrimaryColor = r.PrimaryColor; x.AccentColor = r.AccentColor; x.BackgroundImageUrl = AssetUrl.Normalize(r.BackgroundImageUrl); x.FontFamily = r.FontFamily; x.UpdatedAt = DateTimeOffset.UtcNow; await db.SaveChangesAsync(ct); return true;
     }

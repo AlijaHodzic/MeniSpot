@@ -1,7 +1,19 @@
 export type AppView = 'login' | 'auth-login' | 'super-admin' | 'restaurant-owner' | 'public-menu';
 export type AdminTab = 'dashboard' | 'restaurants' | 'billing' | 'drink-library' | 'themes' | 'qr-codes';
 export type OwnerTab = 'dashboard' | 'categories' | 'products' | 'daily-menu' | 'offers' | 'settings' | 'qr';
-export type ThemeType = 'modern-dark' | 'classic-light' | 'premium-gold' | 'natural-green';
+export type ThemeType =
+  | 'classic-light'
+  | 'premium-gold'
+  | 'burgundy-dining'
+  | 'mediterranean-blue'
+  | 'coffee-cream'
+  | 'urban-espresso'
+  | 'soft-pastel'
+  | 'natural-green'
+  | 'warm-orange'
+  | 'street-red'
+  | 'yellow-pop'
+  | 'modern-dark';
 export type BadgeType = 'new' | 'popular' | 'spicy' | 'vegetarian' | 'chefs-choice';
 
 export interface BusinessHour { day: string; open: string; close: string; closed: boolean; }
