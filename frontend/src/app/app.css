@@ -327,6 +327,11 @@
 .product-admin-card .icon-button { width: 34px; height: 34px; border-radius: 10px; }
 .product-admin-card .toggle { transform: scale(.9); transform-origin: left center; }
 .product-admin-card .text-xs { font-size: 10px; }
+.offer-admin-grid { grid-template-columns: repeat(auto-fill,minmax(230px,1fr)); }
+.offer-card-visual { background: linear-gradient(145deg,#fff7ed,#fef3c7) !important; }
+.offer-card-icon { display: grid; width: 58px; height: 58px; place-items: center; border-radius: 18px; background: #fbbf24; color: #78350f; box-shadow: 0 14px 28px rgba(251,191,36,.18); }
+.owner-dark .offer-card-visual { background: linear-gradient(145deg,#2f2a22,#1f242c) !important; }
+.owner-dark .offer-card-icon { background: #f59e0b; color: #1f1302; }
 .product-warning-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .product-warning-list span { border: 1px solid #fed7aa; border-radius: 999px; background: #fff7ed; padding: 4px 8px; color: #c2410c; font-size: 10px; font-weight: 800; }
 .offer-admin img { width: 100%; height: 220px; object-fit: cover; }
