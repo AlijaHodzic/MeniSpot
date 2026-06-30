@@ -235,7 +235,7 @@
 .auth-form-panel { display: grid; min-height: 100vh; place-items: center; padding: 36px; }
 .auth-card { width: min(100%,430px); }
 .auth-mobile-logo { display: none; }
-.auth-card h2 { margin: 6px 0 8px; font-family: 'Outfit',sans-serif; font-size: 34px; font-weight: 700; letter-spacing: -.02em; }
+.auth-card h2 { margin: 6px 0 8px; color: #0f172a; font-family: 'Outfit',sans-serif; font-size: 34px; font-weight: 700; letter-spacing: -.02em; }
 .auth-intro { margin: 0 0 32px; color: #64748b; font-size: 14px; }
 .auth-card > label { display: block; margin-top: 18px; color: #334155; font-size: 12px; font-weight: 700; }
 .auth-input { display: flex; height: 50px; align-items: center; gap: 11px; margin-top: 8px; border: 1px solid #dbe3eb; border-radius: 13px; background: white; padding: 0 14px; color: #94a3b8; transition: .15s; }
