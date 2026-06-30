@@ -86,13 +86,21 @@ const themeOptions: ThemeOption[] = [
   { id: 'premium-gold', group: 'restaurant', name: 'Premium Gold', description: 'Tamna elegantna tema sa zlatnim akcentom.', colors: ['#111827', '#27272a', '#c8a96e'] },
   { id: 'burgundy-dining', group: 'restaurant', name: 'Burgundy Dining', description: 'Bordo akcent za steakhouse, vino i tradicionalni restoran.', colors: ['#18181b', '#27272a', '#be123c'] },
   { id: 'mediterranean-blue', group: 'restaurant', name: 'Mediterranean Blue', description: 'Svjeza plava paleta za riblje i moderne restorane.', colors: ['#eff6ff', '#ffffff', '#2563eb'] },
+  { id: 'olive-linen', group: 'restaurant', name: 'Olive Linen', description: 'Maslinasta i lanena kombinacija za miran restoran.', colors: ['#f7f5ed', '#ffffff', '#64748b'] },
+  { id: 'ocean-slate', group: 'restaurant', name: 'Ocean Slate', description: 'Tamno plava premium tema za moderan restoran.', colors: ['#0f172a', '#1e293b', '#38bdf8'] },
   { id: 'coffee-cream', group: 'cafe', name: 'Coffee Cream', description: 'Krem i kafa tonovi za kafice i slasticarne.', colors: ['#faf7f2', '#ffffff', '#92400e'] },
   { id: 'urban-espresso', group: 'cafe', name: 'Urban Espresso', description: 'Tamna coffee shop tema sa toplim akcentom.', colors: ['#1c1917', '#292524', '#d97706'] },
   { id: 'soft-pastel', group: 'cafe', name: 'Soft Pastel', description: 'Njezna pastelna tema za brunch i mirnije lokale.', colors: ['#fff7fb', '#ffffff', '#db2777'] },
   { id: 'natural-green', group: 'cafe', name: 'Fresh Mint', description: 'Svjeza mint tema za dnevne kafice i zdrave napitke.', colors: ['#f0fdf4', '#ffffff', '#65a30d'] },
+  { id: 'rose-latte', group: 'cafe', name: 'Rose Latte', description: 'Topla roza i latte paleta za brunch i slastice.', colors: ['#fff1f2', '#ffffff', '#e11d48'] },
+  { id: 'cocoa-mint', group: 'cafe', name: 'Cocoa Mint', description: 'Tamna kakao tema sa mint akcentom.', colors: ['#211b17', '#2f2722', '#2dd4bf'] },
+  { id: 'neon-night', group: 'bar', name: 'Neon Night', description: 'Tamna neon tema za barove i klubove.', colors: ['#09090b', '#18181b', '#22d3ee'] },
+  { id: 'royal-violet', group: 'bar', name: 'Royal Violet', description: 'Ljubičasta premium tema za lounge i shisha bar.', colors: ['#17112a', '#241a3a', '#a855f7'] },
   { id: 'warm-orange', group: 'fast-food', name: 'Warm Orange', description: 'Topla narandzasta za pizzu, grill i brzu hranu.', colors: ['#fff7ed', '#ffffff', '#f97316'] },
   { id: 'street-red', group: 'fast-food', name: 'Street Red', description: 'Jaka crvena za direktan street-food izgled.', colors: ['#fff1f2', '#ffffff', '#dc2626'] },
   { id: 'yellow-pop', group: 'fast-food', name: 'Yellow Pop', description: 'Zuta akcentna tema za snack, chicken i casual ponudu.', colors: ['#fefce8', '#ffffff', '#eab308'] },
+  { id: 'burger-black', group: 'fast-food', name: 'Burger Black', description: 'Crna i cheddar tema za burgere i grill.', colors: ['#111827', '#1f2937', '#fb923c'] },
+  { id: 'lime-street', group: 'fast-food', name: 'Lime Street', description: 'Lime akcent za street food i svjeze brze menije.', colors: ['#f7fee7', '#ffffff', '#84cc16'] },
   { id: 'modern-dark', group: 'fast-food', name: 'Charcoal Flame', description: 'Tamna grill tema sa vatrenim akcentom.', colors: ['#111827', '#1f2937', '#f59e0b'] },
 ];
 const drinkCategories = [
@@ -295,7 +303,7 @@ export class App {
     return themeGroupOptions.filter((group) => group.id === this.ownerThemeGroupId);
   }
   themesForGroup(group: ThemeGroupId): ThemeOption[] {
-    if (group === 'bar') return this.themes.filter((theme) => ['premium-gold', 'burgundy-dining', 'urban-espresso', 'modern-dark'].includes(theme.id));
+    if (group === 'bar') return this.themes.filter((theme) => theme.group === 'bar' || ['premium-gold', 'burgundy-dining', 'urban-espresso', 'modern-dark'].includes(theme.id));
     return this.themes.filter((theme) => theme.group === group);
   }
   private get ownerThemeGroupId(): ThemeGroupId {

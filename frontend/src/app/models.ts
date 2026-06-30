@@ -6,13 +6,21 @@ export type ThemeType =
   | 'premium-gold'
   | 'burgundy-dining'
   | 'mediterranean-blue'
+  | 'olive-linen'
+  | 'ocean-slate'
   | 'coffee-cream'
   | 'urban-espresso'
   | 'soft-pastel'
   | 'natural-green'
+  | 'rose-latte'
+  | 'cocoa-mint'
+  | 'neon-night'
+  | 'royal-violet'
   | 'warm-orange'
   | 'street-red'
   | 'yellow-pop'
+  | 'burger-black'
+  | 'lime-street'
   | 'modern-dark';
 export type BadgeType = 'new' | 'popular' | 'spicy' | 'vegetarian' | 'chefs-choice';
 

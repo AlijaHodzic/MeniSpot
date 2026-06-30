@@ -307,9 +307,10 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
 
     private static readonly string[] SupportedThemes =
     [
-        "classic-light", "premium-gold", "burgundy-dining", "mediterranean-blue",
-        "coffee-cream", "urban-espresso", "soft-pastel", "natural-green",
-        "warm-orange", "street-red", "yellow-pop", "modern-dark"
+        "classic-light", "premium-gold", "burgundy-dining", "mediterranean-blue", "olive-linen", "ocean-slate",
+        "coffee-cream", "urban-espresso", "soft-pastel", "natural-green", "rose-latte", "cocoa-mint",
+        "neon-night", "royal-violet",
+        "warm-orange", "street-red", "yellow-pop", "burger-black", "lime-street", "modern-dark"
     ];
 
     internal static bool IsSupportedTheme(string themeKey) => SupportedThemes.Contains(themeKey);
@@ -319,13 +320,21 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         "premium-gold" => ("#27272a", "#c8a96e"),
         "burgundy-dining" => ("#27272a", "#be123c"),
         "mediterranean-blue" => ("#ffffff", "#2563eb"),
+        "olive-linen" => ("#ffffff", "#64748b"),
+        "ocean-slate" => ("#1e293b", "#38bdf8"),
         "coffee-cream" => ("#ffffff", "#92400e"),
         "urban-espresso" => ("#292524", "#d97706"),
         "soft-pastel" => ("#ffffff", "#db2777"),
         "natural-green" => ("#ffffff", "#65a30d"),
+        "rose-latte" => ("#ffffff", "#e11d48"),
+        "cocoa-mint" => ("#2f2722", "#2dd4bf"),
+        "neon-night" => ("#18181b", "#22d3ee"),
+        "royal-violet" => ("#241a3a", "#a855f7"),
         "warm-orange" => ("#ffffff", "#f97316"),
         "street-red" => ("#ffffff", "#dc2626"),
         "yellow-pop" => ("#ffffff", "#eab308"),
+        "burger-black" => ("#1f2937", "#fb923c"),
+        "lime-street" => ("#ffffff", "#84cc16"),
         "modern-dark" => ("#1f2937", "#f59e0b"),
         _ => ("#ffffff", "#84cc16")
     };
