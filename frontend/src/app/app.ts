@@ -30,6 +30,7 @@ import { AdminGlobalDrink } from './core/drinks/admin-drinks.models';
 import { AdminDrinksService } from './core/drinks/admin-drinks.service';
 import { GlobalDrinkSummary, MenuCategoryType, OwnerMenuCategory, OwnerMenuItem, OwnerRestaurant, OwnerSpecialOffer, SpecialOfferKind, SpecialOfferRequest } from './core/owner/owner.models';
 import { OwnerService } from './core/owner/owner.service';
+import { AppSelectComponent, AppSelectOption } from './shared/app-select.component';
 
 interface RestaurantForm {
   id: string | null;
@@ -102,7 +103,7 @@ const drinkCategories = [
     LucideLeaf, LucideLock, LucideLogIn, LucideLogOut, LucideMail, LucideMapPin, LucideMenu, LucidePercent,
     LucidePhone, LucidePlus, LucidePower, LucideQrCode, LucideSearch,
     LucideShield, LucideSparkles, LucideStore, LucideTrash2, LucideTrendingUp,
-    LucideUtensilsCrossed, LucideX, LucideEyeOff,
+    LucideUtensilsCrossed, LucideX, LucideEyeOff, AppSelectComponent,
   ],
   templateUrl: './app.html',
   styleUrl: './app.css',
@@ -118,6 +119,16 @@ export class App {
   readonly auth = inject(AuthService);
   readonly themes = themeOptions;
   readonly drinkCategories = drinkCategories;
+  readonly leadTypeOptions: AppSelectOption[] = [
+    { value: '', label: 'Izaberite tip objekta', disabled: true },
+    { value: 'Restoran', label: 'Restoran' },
+    { value: 'Kafić', label: 'Kafić' },
+    { value: 'Bar', label: 'Bar' },
+    { value: 'Shisha bar', label: 'Shisha bar' },
+    { value: 'Klub', label: 'Klub' },
+    { value: 'Fast food', label: 'Fast food' },
+    { value: 'Ostalo', label: 'Ostalo' },
+  ];
   readonly categoryTypes: { value: MenuCategoryType; label: string }[] = [
     { value: 'Food', label: 'Hrana' },
     { value: 'Drink', label: 'Piće' },
@@ -149,6 +160,11 @@ export class App {
   readonly paymentMethods: { value: PaymentMethod; label: string }[] = [
     { value: 'BankTransfer', label: 'Bankovna uplata' }, { value: 'Cash', label: 'Gotovina' },
     { value: 'Card', label: 'Kartica' }, { value: 'Other', label: 'Ostalo' },
+  ];
+  readonly planOptions: AppSelectOption[] = ['Basic', 'Standard', 'Premium', 'Enterprise'].map((item) => ({ value: item, label: item }));
+  readonly paymentCoverageOptions: AppSelectOption<number>[] = [
+    { value: 1, label: '1 mjesec' }, { value: 3, label: '3 mjeseca' }, { value: 6, label: '6 mjeseci' },
+    { value: 12, label: '12 mjeseci' }, { value: 24, label: '24 mjeseca' },
   ];
 
   view: AppView = 'login';
@@ -254,6 +270,12 @@ export class App {
   get restaurantProducts(): Product[] { return this.productMap[this.restaurant.id] ?? []; }
   get ownerCategories(): OwnerMenuCategory[] { return this.ownerRestaurant?.categories ?? []; }
   get ownerItems(): OwnerMenuItem[] { return this.ownerCategories.flatMap((category) => category.items); }
+  get drinkCategoryOptions(): AppSelectOption[] { return this.drinkCategories.map((category) => ({ value: category, label: category })); }
+  get billingStatusOptions(): AppSelectOption[] { return [{ value: 'all', label: 'Svi statusi' }, ...this.subscriptionStatuses]; }
+  get themeSelectOptions(): AppSelectOption[] { return this.themes.map((theme) => ({ value: theme.id, label: theme.name })); }
+  get ownerCategoryOptions(): AppSelectOption[] { return this.ownerCategories.map((category) => ({ value: category.id, label: category.name })); }
+  get ownerCategoryFilterOptions(): AppSelectOption[] { return [{ value: 'all', label: 'Sve kategorije' }, ...this.ownerCategoryOptions]; }
+  get drinkLibraryCategoryOptions(): AppSelectOption[] { return [{ value: '', label: 'Automatski po kategorijama' }, ...this.ownerCategoryOptions]; }
   get dailyOffers(): OwnerSpecialOffer[] { return (this.ownerRestaurant?.offers ?? []).filter((offer) => offer.kind === 'DailyMenu'); }
   get promotions(): OwnerSpecialOffer[] { return (this.ownerRestaurant?.offers ?? []).filter((offer) => offer.kind === 'Promotion'); }
   get publicFoodCategories(): Category[] { return this.restaurant.categories.filter((category) => category.active && this.categoryType(category) === 'Food' && this.restaurantProducts.some((product) => product.categoryId === category.id && product.available)); }
