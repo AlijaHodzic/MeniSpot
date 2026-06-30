@@ -467,6 +467,7 @@ export class App {
   toggleOwnerThemeMode(): void {
     this.ownerDarkMode = !this.ownerDarkMode;
     globalThis.localStorage?.setItem('menispot-owner-theme', this.ownerDarkMode ? 'dark' : 'light');
+    this.updateBrowserChromeColor();
   }
 
   showToast(message: string, type: ToastType = 'success'): void {
@@ -1512,6 +1513,7 @@ export class App {
     this.mobileNav = false;
     this.search = '';
     this.selectedCategory = 'all';
+    this.updateBrowserChromeColor();
   }
 
   private isAdminTab(value?: string): value is AdminTab {
@@ -1710,7 +1712,59 @@ export class App {
     const hasFoodProducts = products.some((product) => foodCategoryIds.has(product.categoryId) && product.available);
     this.publicMenuSection = hasDrinkProducts && (!hasFoodProducts || restaurant.type !== 'Restaurant' && restaurant.type !== 'FastFood') ? 'drink' : 'food';
     this.selectedCategory = 'all';
+    this.updateBrowserChromeColor();
     void this.qrCodeService.createDataUrl(`${globalThis.location.origin}/menu/${restaurant.slug}`).then((value) => this.ownerQrCode = value);
+  }
+
+  private updateBrowserChromeColor(): void {
+    const color = this.browserChromeColor();
+    const documentRef = globalThis.document;
+    documentRef.querySelector('meta[name="theme-color"]')?.setAttribute('content', color);
+    documentRef.body.style.backgroundColor = color;
+    documentRef.documentElement.style.backgroundColor = color;
+    documentRef.documentElement.style.colorScheme = this.isDarkChromeColor(color) ? 'dark' : 'light';
+  }
+
+  private browserChromeColor(): string {
+    if (this.view === 'public-menu') return this.publicThemeSurfaceColor(this.restaurant.theme);
+    if (this.view === 'super-admin') return '#1f2228';
+    if (this.view === 'restaurant-owner') return this.ownerDarkMode ? '#1f2228' : '#f7f8fa';
+    if (this.view === 'auth-login') return '#0f172a';
+    return '#f7f8fa';
+  }
+
+  private publicThemeSurfaceColor(theme: ThemeType): string {
+    const colors: Record<ThemeType, string> = {
+      'classic-light': '#fdf8f3',
+      'premium-gold': '#0d0b08',
+      'burgundy-dining': '#18181b',
+      'mediterranean-blue': '#eff6ff',
+      'olive-linen': '#f7f5ed',
+      'ocean-slate': '#0f172a',
+      'coffee-cream': '#faf7f2',
+      'urban-espresso': '#1c1917',
+      'soft-pastel': '#fff7fb',
+      'natural-green': '#f3f7f3',
+      'rose-latte': '#fff1f2',
+      'cocoa-mint': '#211b17',
+      'neon-night': '#09090b',
+      'royal-violet': '#17112a',
+      'warm-orange': '#fff7ed',
+      'street-red': '#fff1f2',
+      'yellow-pop': '#fefce8',
+      'burger-black': '#111827',
+      'lime-street': '#f7fee7',
+      'modern-dark': '#09090b',
+    };
+    return colors[theme] ?? '#f7f8fa';
+  }
+
+  private isDarkChromeColor(color: string): boolean {
+    const hex = color.replace('#', '');
+    const r = Number.parseInt(hex.slice(0, 2), 16);
+    const g = Number.parseInt(hex.slice(2, 4), 16);
+    const b = Number.parseInt(hex.slice(4, 6), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 < 128;
   }
 
   private emptyCategoryForm(): CategoryForm { return { id: null, name: '', description: '', type: 'Food', sortOrder: (this.ownerCategories.at(-1)?.sortOrder ?? 0) + 1, isVisible: true }; }
