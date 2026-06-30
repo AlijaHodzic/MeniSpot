@@ -298,7 +298,10 @@ export class App {
   get ownerItems(): OwnerMenuItem[] { return this.ownerCategories.flatMap((category) => category.items); }
   get drinkCategoryOptions(): AppSelectOption[] { return this.drinkCategories.map((category) => ({ value: category, label: category })); }
   get billingStatusOptions(): AppSelectOption[] { return [{ value: 'all', label: 'Svi statusi' }, ...this.subscriptionStatuses]; }
-  get themeSelectOptions(): AppSelectOption[] { return this.themes.map((theme) => ({ value: theme.id, label: theme.name })); }
+  get restaurantFormThemeOptions(): AppSelectOption[] {
+    return this.themesForGroup(this.themeGroupForEstablishmentType(this.restaurantForm.type))
+      .map((theme) => ({ value: theme.id, label: theme.name }));
+  }
   get ownerThemeGroups(): typeof themeGroupOptions {
     return themeGroupOptions.filter((group) => group.id === this.ownerThemeGroupId);
   }
@@ -307,13 +310,22 @@ export class App {
     return this.themes.filter((theme) => theme.group === group);
   }
   private get ownerThemeGroupId(): ThemeGroupId {
-    return this.ownerRestaurant?.type === 'Cafe'
+    return this.themeGroupForEstablishmentType(this.ownerRestaurant?.type);
+  }
+  private themeGroupForEstablishmentType(type?: EstablishmentType | null): ThemeGroupId {
+    return type === 'Cafe'
       ? 'cafe'
-      : this.ownerRestaurant?.type === 'FastFood'
+      : type === 'FastFood'
       ? 'fast-food'
-      : ['Bar', 'Club', 'ShishaBar'].includes(this.ownerRestaurant?.type ?? '')
+      : ['Bar', 'Club', 'ShishaBar'].includes(type ?? '')
         ? 'bar'
         : 'restaurant';
+  }
+  syncRestaurantTypeTheme(): void {
+    const themeOptions = this.restaurantFormThemeOptions;
+    if (!themeOptions.some((option) => option.value === this.restaurantForm.themeKey)) {
+      this.restaurantForm.themeKey = String(themeOptions[0]?.value ?? 'classic-light');
+    }
   }
   get ownerCategoryOptions(): AppSelectOption[] { return this.ownerCategories.map((category) => ({ value: category.id, label: category.name })); }
   get ownerCategoryFilterOptions(): AppSelectOption[] { return [{ value: 'all', label: 'Sve kategorije' }, ...this.ownerCategoryOptions]; }

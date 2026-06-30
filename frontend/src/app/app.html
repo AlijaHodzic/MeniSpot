@@ -156,13 +156,13 @@
               @if (restaurantFormSuccess) { <div class="auth-success">{{ restaurantFormSuccess }}</div> }
               <div class="form-section"><h3>Osnovni podaci</h3><div class="form-grid">
                 <label>Naziv objekta<input name="restaurantName" [(ngModel)]="restaurantForm.name" (ngModelChange)="syncRestaurantSlug()" required></label>
-                <label>Tip objekta<app-select name="restaurantType" [(ngModel)]="restaurantForm.type" [options]="establishmentTypes"></app-select></label>
+                <label>Tip objekta<app-select name="restaurantType" [(ngModel)]="restaurantForm.type" [options]="establishmentTypes" (ngModelChange)="syncRestaurantTypeTheme()"></app-select></label>
                 @if (!restaurantForm.id) {
                   <label>URL naziv<input name="restaurantSlug" [(ngModel)]="restaurantForm.slug" placeholder="restoran-ime" required></label>
                   <label>Probni period (dana)<input name="trialDays" type="number" min="1" max="365" [(ngModel)]="restaurantForm.trialDays" required></label>
                 }
                 <label>Status objekta<app-select name="restaurantStatus" [(ngModel)]="restaurantForm.status" [options]="restaurantStatuses"></app-select></label>
-                <label>Tema menija<app-select name="restaurantTheme" [(ngModel)]="restaurantForm.themeKey" [options]="themeSelectOptions"></app-select></label>
+                <label>Tema menija<app-select name="restaurantTheme" [(ngModel)]="restaurantForm.themeKey" [options]="restaurantFormThemeOptions"></app-select></label>
               </div></div>
               <div class="form-section"><h3>Kontakt i vizuelni identitet</h3><div class="form-grid">
                 <label>Adresa<input name="restaurantAddress" [(ngModel)]="restaurantForm.address"></label>
