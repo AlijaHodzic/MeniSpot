@@ -20,6 +20,19 @@ public sealed class JwtOptions
     public int ExpirationMinutes { get; set; } = 60;
 }
 
+internal static class AssetUrl
+{
+    public static string? Normalize(string? value)
+    {
+        var trimmed = value?.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed)) return null;
+        if (trimmed.StartsWith('/')) return trimmed;
+        return Uri.TryCreate(trimmed, UriKind.Absolute, out var uri) && uri.AbsolutePath.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase)
+            ? uri.PathAndQuery
+            : trimmed;
+    }
+}
+
 public sealed class AuthService(UserManager<ApplicationUser> users, ApplicationDbContext db, IOptions<JwtOptions> options) : IAuthService
 {
     public async Task<LoginResponse?> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
@@ -69,9 +82,13 @@ public sealed class AuthService(UserManager<ApplicationUser> users, ApplicationD
 
 public sealed class RestaurantService(ApplicationDbContext db, UserManager<ApplicationUser> users) : IRestaurantService
 {
-    public async Task<IReadOnlyList<RestaurantSummary>> GetAllAsync(CancellationToken ct) => await db.Restaurants.AsNoTracking()
+    public async Task<IReadOnlyList<RestaurantSummary>> GetAllAsync(CancellationToken ct)
+    {
+        var rows = await db.Restaurants.AsNoTracking()
         .Where(x => x.Subscription != null).OrderBy(x => x.Name)
-        .Select(x => new RestaurantSummary(x.Id, x.Name, x.Slug, x.Type, x.LogoUrl, x.Address, x.Status, x.Subscription!.Plan, x.Subscription.Status, x.Subscription.ExpiresOn)).ToListAsync(ct);
+        .Select(x => new { x.Id, x.Name, x.Slug, x.Type, x.LogoUrl, x.Address, x.Status, x.Subscription!.Plan, SubscriptionStatus = x.Subscription.Status, x.Subscription.ExpiresOn }).ToListAsync(ct);
+        return rows.Select(x => new RestaurantSummary(x.Id, x.Name, x.Slug, x.Type, AssetUrl.Normalize(x.LogoUrl), x.Address, x.Status, x.Plan, x.SubscriptionStatus, x.ExpiresOn)).ToList();
+    }
 
     public async Task<AdminDashboardSummary> GetDashboardAsync(CancellationToken ct)
     {
@@ -125,7 +142,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             where user.RestaurantId == id && role.Name == Roles.RestaurantOwner
             select user.Email).FirstOrDefaultAsync(ct);
         return new AdminRestaurantDetails(
-            item.Id, item.Name, item.Slug, item.Description, item.LogoUrl, item.CoverImageUrl, item.Address, item.Phone,
+            item.Id, item.Name, item.Slug, item.Description, AssetUrl.Normalize(item.LogoUrl), AssetUrl.Normalize(item.CoverImageUrl), item.Address, item.Phone,
             item.Email, item.WebsiteUrl, item.InstagramUrl, item.Currency, item.DefaultLanguage, item.Type, item.Status,
             NormalizeThemeKey(item.ThemeKey, item.Type), ownerEmail,
             new AdminSubscriptionDetails(item.SubscriptionStatus, item.Plan, item.MonthlyPrice, item.StartsOn, item.ExpiresOn, item.GracePeriodEndsOn));
@@ -160,8 +177,8 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             Type = request.Type,
             Status = request.Status,
             Description = request.Description,
-            LogoUrl = request.LogoUrl,
-            CoverImageUrl = request.CoverImageUrl,
+            LogoUrl = AssetUrl.Normalize(request.LogoUrl),
+            CoverImageUrl = AssetUrl.Normalize(request.CoverImageUrl),
             Address = request.Address,
             Phone = request.Phone,
             Email = request.Email,
@@ -196,7 +213,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             if (await db.Restaurants.AnyAsync(item => item.Id != x.Id && item.Slug == slug, ct)) throw new InvalidOperationException("Slug is already in use.");
             x.Slug = slug;
         }
-        x.Name = r.Name.Trim(); x.Description = r.Description; x.LogoUrl = r.LogoUrl; x.CoverImageUrl = r.CoverImageUrl;
+        x.Name = r.Name.Trim(); x.Description = r.Description; x.LogoUrl = AssetUrl.Normalize(r.LogoUrl); x.CoverImageUrl = AssetUrl.Normalize(r.CoverImageUrl);
         x.Address = r.Address; x.Phone = r.Phone; x.Email = r.Email; x.WebsiteUrl = r.WebsiteUrl; x.InstagramUrl = r.InstagramUrl;
         x.Currency = r.Currency.ToUpperInvariant(); x.DefaultLanguage = r.DefaultLanguage.ToLowerInvariant(); x.Type = r.Type;
         if (x.Theme is null) { x.Theme = new ThemeSettings { RestaurantId = x.Id, ThemeKey = r.ThemeKey }; }
@@ -288,14 +305,14 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
     private static readonly string[] SupportedThemes = ["modern-dark", "classic-light", "premium-gold", "natural-green"];
 
     internal static OwnerRestaurantDetails ToOwnerDetails(Restaurant restaurant, OwnerMenuAnalytics? analytics = null) => new(
-        restaurant.Id, restaurant.Name, restaurant.Slug, restaurant.Description, restaurant.LogoUrl, restaurant.CoverImageUrl,
+        restaurant.Id, restaurant.Name, restaurant.Slug, restaurant.Description, AssetUrl.Normalize(restaurant.LogoUrl), AssetUrl.Normalize(restaurant.CoverImageUrl),
         restaurant.Address, restaurant.Phone, restaurant.Email, restaurant.WebsiteUrl, restaurant.InstagramUrl,
         restaurant.Currency, restaurant.DefaultLanguage, restaurant.Type, restaurant.Status,
-        new OwnerTheme(restaurant.Theme?.ThemeKey ?? NormalizeThemeKey(null, restaurant.Type), restaurant.Theme?.PrimaryColor ?? "#111827", restaurant.Theme?.AccentColor ?? "#84cc16", restaurant.Theme?.BackgroundImageUrl, restaurant.Theme?.FontFamily ?? "Inter"),
+        new OwnerTheme(restaurant.Theme?.ThemeKey ?? NormalizeThemeKey(null, restaurant.Type), restaurant.Theme?.PrimaryColor ?? "#111827", restaurant.Theme?.AccentColor ?? "#84cc16", AssetUrl.Normalize(restaurant.Theme?.BackgroundImageUrl), restaurant.Theme?.FontFamily ?? "Inter"),
         restaurant.BusinessHours.OrderBy(x => x.DayOfWeek).Select(x => new OwnerBusinessHour(x.DayOfWeek, x.OpensAt, x.ClosesAt, x.IsClosed)).ToList(),
         restaurant.Categories.OrderBy(x => x.SortOrder).Select(x => new OwnerMenuCategory(x.Id, x.Name, x.Description, x.Type, x.SortOrder, x.IsVisible,
-            x.Items.OrderBy(i => i.SortOrder).Select(i => new OwnerMenuItem(i.Id, i.CategoryId, i.GlobalDrinkId, i.Name, i.Description, i.Price, i.ServingSize, i.ImageUrl ?? (i.GlobalDrink == null ? null : i.GlobalDrink.ImageUrl), i.Allergens, i.SortOrder, i.IsVisible, i.IsAvailable, i.IsVegetarian, i.IsSpicy, i.IsFeatured)).ToList())).ToList(),
-        restaurant.SpecialOffers.OrderByDescending(x => x.CreatedAt).Select(x => new OwnerSpecialOffer(x.Id, x.Title, x.Description, x.Price, x.OriginalPrice, x.ImageUrl, x.StartsAt, x.EndsAt, x.IsVisible, x.Kind, x.Items)).ToList(),
+            x.Items.OrderBy(i => i.SortOrder).Select(i => new OwnerMenuItem(i.Id, i.CategoryId, i.GlobalDrinkId, i.Name, i.Description, i.Price, i.ServingSize, AssetUrl.Normalize(i.ImageUrl ?? (i.GlobalDrink == null ? null : i.GlobalDrink.ImageUrl)), i.Allergens, i.SortOrder, i.IsVisible, i.IsAvailable, i.IsVegetarian, i.IsSpicy, i.IsFeatured)).ToList())).ToList(),
+        restaurant.SpecialOffers.OrderByDescending(x => x.CreatedAt).Select(x => new OwnerSpecialOffer(x.Id, x.Title, x.Description, x.Price, x.OriginalPrice, AssetUrl.Normalize(x.ImageUrl), x.StartsAt, x.EndsAt, x.IsVisible, x.Kind, x.Items)).ToList(),
         analytics ?? EmptyMenuAnalytics());
 
     private async Task<OwnerMenuAnalytics> GetMenuAnalyticsAsync(Guid restaurantId, CancellationToken ct)
@@ -473,12 +490,15 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
         if (r.SortOrder < 0) throw new InvalidOperationException("Menu item sort order cannot be negative.");
         if (!await db.MenuCategories.AnyAsync(x => x.Id == r.CategoryId && x.RestaurantId == rid, ct)) return null;
         var x = id is null ? new MenuItem { RestaurantId = rid, CategoryId = r.CategoryId, Name = r.Name } : await db.MenuItems.FirstOrDefaultAsync(x => x.Id == id && x.RestaurantId == rid, ct);
-        if (x is null) return null; x.CategoryId = r.CategoryId; x.Name = r.Name.Trim(); x.Description = r.Description; x.Price = r.Price; x.ServingSize = NormalizeServingSize(r.ServingSize); x.ImageUrl = r.ImageUrl; x.Allergens = r.Allergens; x.SortOrder = r.SortOrder; x.IsVisible = r.IsVisible; x.IsAvailable = r.IsAvailable; x.IsVegetarian = r.IsVegetarian; x.IsSpicy = r.IsSpicy; x.IsFeatured = r.IsFeatured; x.UpdatedAt = DateTimeOffset.UtcNow;
+        if (x is null) return null; x.CategoryId = r.CategoryId; x.Name = r.Name.Trim(); x.Description = r.Description; x.Price = r.Price; x.ServingSize = NormalizeServingSize(r.ServingSize); x.ImageUrl = AssetUrl.Normalize(r.ImageUrl); x.Allergens = r.Allergens; x.SortOrder = r.SortOrder; x.IsVisible = r.IsVisible; x.IsAvailable = r.IsAvailable; x.IsVegetarian = r.IsVegetarian; x.IsSpicy = r.IsSpicy; x.IsFeatured = r.IsFeatured; x.UpdatedAt = DateTimeOffset.UtcNow;
         if (id is null) db.Add(x); await db.SaveChangesAsync(ct); return x;
     }
-    public async Task<IReadOnlyList<GlobalDrinkSummary>> GetDrinkLibraryAsync(CancellationToken ct) =>
-        await db.GlobalDrinks.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Category).ThenBy(x => x.SortOrder).ThenBy(x => x.Name)
-            .Select(x => new GlobalDrinkSummary(x.Id, x.Name, x.Category, x.Description, x.ImageUrl, x.ServingOptions, x.SortOrder)).ToListAsync(ct);
+    public async Task<IReadOnlyList<GlobalDrinkSummary>> GetDrinkLibraryAsync(CancellationToken ct)
+    {
+        var rows = await db.GlobalDrinks.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.Category).ThenBy(x => x.SortOrder).ThenBy(x => x.Name)
+            .Select(x => new { x.Id, x.Name, x.Category, x.Description, x.ImageUrl, x.ServingOptions, x.SortOrder }).ToListAsync(ct);
+        return rows.Select(x => new GlobalDrinkSummary(x.Id, x.Name, x.Category, x.Description, AssetUrl.Normalize(x.ImageUrl), x.ServingOptions, x.SortOrder)).ToList();
+    }
 
     public async Task<IReadOnlyList<MenuItem>> AddLibraryDrinksAsync(Guid rid, AddLibraryDrinksRequest r, CancellationToken ct)
     {
@@ -536,13 +556,13 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
         if (r.Price < 0 || r.OriginalPrice < 0) throw new InvalidOperationException("Offer prices cannot be negative.");
         if (r.EndsAt < r.StartsAt) throw new InvalidOperationException("Offer end cannot be before its start.");
         var x = id is null ? new SpecialOffer { RestaurantId = rid, Title = r.Title } : await db.SpecialOffers.FirstOrDefaultAsync(x => x.Id == id && x.RestaurantId == rid, ct);
-        if (x is null) return null; x.Title = r.Title.Trim(); x.Description = r.Description; x.Price = r.Price; x.OriginalPrice = r.OriginalPrice; x.ImageUrl = r.ImageUrl; x.StartsAt = r.StartsAt; x.EndsAt = r.EndsAt; x.IsVisible = r.IsVisible; x.Kind = r.Kind; x.Items = r.Items; x.UpdatedAt = DateTimeOffset.UtcNow;
+        if (x is null) return null; x.Title = r.Title.Trim(); x.Description = r.Description; x.Price = r.Price; x.OriginalPrice = r.OriginalPrice; x.ImageUrl = AssetUrl.Normalize(r.ImageUrl); x.StartsAt = r.StartsAt; x.EndsAt = r.EndsAt; x.IsVisible = r.IsVisible; x.Kind = r.Kind; x.Items = r.Items; x.UpdatedAt = DateTimeOffset.UtcNow;
         if (id is null) db.Add(x); await db.SaveChangesAsync(ct); return x;
     }
     public async Task<bool> SetThemeAsync(Guid rid, ThemeRequest r, CancellationToken ct)
     {
         var x = await db.ThemeSettings.SingleOrDefaultAsync(x => x.RestaurantId == rid, ct); if (x is null) return false;
-        x.ThemeKey = r.ThemeKey; x.PrimaryColor = r.PrimaryColor; x.AccentColor = r.AccentColor; x.BackgroundImageUrl = r.BackgroundImageUrl; x.FontFamily = r.FontFamily; x.UpdatedAt = DateTimeOffset.UtcNow; await db.SaveChangesAsync(ct); return true;
+        x.ThemeKey = r.ThemeKey; x.PrimaryColor = r.PrimaryColor; x.AccentColor = r.AccentColor; x.BackgroundImageUrl = AssetUrl.Normalize(r.BackgroundImageUrl); x.FontFamily = r.FontFamily; x.UpdatedAt = DateTimeOffset.UtcNow; await db.SaveChangesAsync(ct); return true;
     }
     public async Task<bool> SetBusinessHoursAsync(Guid rid, IReadOnlyCollection<BusinessHourRequest> r, CancellationToken ct)
     {
@@ -565,11 +585,14 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
 
 public sealed class GlobalDrinkService(ApplicationDbContext db) : IGlobalDrinkService
 {
-    public async Task<IReadOnlyList<AdminGlobalDrink>> GetAllAsync(CancellationToken ct) =>
-        await db.GlobalDrinks.AsNoTracking()
+    public async Task<IReadOnlyList<AdminGlobalDrink>> GetAllAsync(CancellationToken ct)
+    {
+        var rows = await db.GlobalDrinks.AsNoTracking()
             .OrderBy(x => x.Category).ThenBy(x => x.SortOrder).ThenBy(x => x.Name)
-            .Select(x => new AdminGlobalDrink(x.Id, x.Name, x.Slug, x.Category, x.Description, x.ImageUrl, x.ServingOptions, x.SortOrder, x.IsActive, x.UpdatedAt))
+            .Select(x => new { x.Id, x.Name, x.Slug, x.Category, x.Description, x.ImageUrl, x.ServingOptions, x.SortOrder, x.IsActive, x.UpdatedAt })
             .ToListAsync(ct);
+        return rows.Select(x => new AdminGlobalDrink(x.Id, x.Name, x.Slug, x.Category, x.Description, AssetUrl.Normalize(x.ImageUrl), x.ServingOptions, x.SortOrder, x.IsActive, x.UpdatedAt)).ToList();
+    }
 
     public async Task<AdminGlobalDrink?> SaveAsync(Guid? id, GlobalDrinkRequest r, CancellationToken ct)
     {
@@ -586,7 +609,7 @@ public sealed class GlobalDrinkService(ApplicationDbContext db) : IGlobalDrinkSe
         item.Slug = slug;
         item.Category = r.Category.Trim();
         item.Description = string.IsNullOrWhiteSpace(r.Description) ? null : r.Description.Trim();
-        item.ImageUrl = string.IsNullOrWhiteSpace(r.ImageUrl) ? null : r.ImageUrl.Trim();
+        item.ImageUrl = AssetUrl.Normalize(r.ImageUrl);
         item.ServingOptions = NormalizeServingOptions(r.ServingOptions);
         item.SortOrder = r.SortOrder;
         item.IsActive = r.IsActive;
@@ -606,7 +629,7 @@ public sealed class GlobalDrinkService(ApplicationDbContext db) : IGlobalDrinkSe
     }
 
     private static AdminGlobalDrink ToAdmin(GlobalDrink x) =>
-        new(x.Id, x.Name, x.Slug, x.Category, x.Description, x.ImageUrl, x.ServingOptions, x.SortOrder, x.IsActive, x.UpdatedAt);
+        new(x.Id, x.Name, x.Slug, x.Category, x.Description, AssetUrl.Normalize(x.ImageUrl), x.ServingOptions, x.SortOrder, x.IsActive, x.UpdatedAt);
 
     private static string NormalizeSlug(string? value) =>
         Regex.Replace((value ?? string.Empty).Trim().ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');

@@ -57,7 +57,7 @@ internal static class ImageUploadHelper
             await image.SaveAsWebpAsync(fullPath, new WebpEncoder { Quality = 78 }, ct);
 
             var path = $"/{Path.Combine(relativeDirectory, fileName).Replace('\\', '/')}";
-            return controller.Ok(new { Url = $"{controller.Request.Scheme}://{controller.Request.Host}{path}" });
+            return controller.Ok(new { Url = path });
         }
         catch (UnknownImageFormatException)
         {
