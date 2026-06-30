@@ -248,7 +248,7 @@
 }
 
 @if (view === 'restaurant-owner') {
-  <div class="app-shell owner-shell" [style.--brand]="restaurant.themeColor">
+  <div class="app-shell owner-shell" [class.owner-dark]="ownerDarkMode" [style.--brand]="restaurant.themeColor">
     @if (mobileNav) { <button class="mobile-nav-backdrop" type="button" aria-label="Zatvori meni" (click)="mobileNav = false"></button> }
     <aside class="sidebar" [class.sidebar-open]="mobileNav">
       <button class="mobile-sidebar-close" type="button" aria-label="Zatvori meni" (click)="mobileNav = false"><svg lucideX [size]="20"></svg></button>
@@ -257,7 +257,7 @@
       <div class="mt-auto border-t border-slate-200 p-3">@if (auth.isImpersonating()) { <button class="nav-item impersonation-return" (click)="returnToAdmin()"><svg lucideShield [size]="17"></svg> Nazad u admin</button> }<button class="nav-item" (click)="enter('public-menu', restaurant.id)"><svg lucideEye [size]="17"></svg> Pregled menija</button><button class="nav-item" (click)="openChangePassword()"><svg lucideLock [size]="17"></svg> Promijeni lozinku</button><button class="nav-item" (click)="logout()"><svg lucideLogOut [size]="17"></svg> Odjava</button></div>
     </aside>
     <section class="main-panel">
-      <header class="topbar"><button class="icon-button mobile-menu-trigger" (click)="toggleSidebar()"><svg lucideMenu [size]="21"></svg></button><div><h1 class="font-display text-xl font-bold">{{ restaurant.name }}</h1></div><div class="ml-auto flex items-center gap-3">@if (auth.isImpersonating()) { <button class="secondary-button impersonation-return hidden sm:flex" (click)="returnToAdmin()"><svg lucideShield [size]="16"></svg> Nazad u admin</button> }<span class="menu-status" [class.menu-status-paused]="restaurant.status === 'paused'"><span></span>{{ restaurant.status === 'active' ? 'Meni aktivan' : 'Meni pauziran' }}</span><button class="secondary-button hidden sm:flex" (click)="enter('public-menu', restaurant.id)"><svg lucideEye [size]="16"></svg> Pregled</button></div></header>
+      <header class="topbar"><button class="icon-button mobile-menu-trigger" (click)="toggleSidebar()"><svg lucideMenu [size]="21"></svg></button><div><h1 class="font-display text-xl font-bold">{{ restaurant.name }}</h1></div><div class="ml-auto flex items-center gap-3">@if (auth.isImpersonating()) { <button class="secondary-button impersonation-return hidden sm:flex" (click)="returnToAdmin()"><svg lucideShield [size]="16"></svg> Nazad u admin</button> }<button class="icon-button owner-theme-toggle" type="button" [attr.aria-label]="ownerDarkMode ? 'Svijetla tema panela' : 'Tamna tema panela'" (click)="toggleOwnerThemeMode()">@if (ownerDarkMode) { <svg lucideSun [size]="17"></svg> } @else { <svg lucideMoon [size]="17"></svg> }</button><span class="menu-status" [class.menu-status-paused]="restaurant.status === 'paused'"><span></span>{{ restaurant.status === 'active' ? 'Meni aktivan' : 'Meni pauziran' }}</span><button class="secondary-button hidden sm:flex" (click)="enter('public-menu', restaurant.id)"><svg lucideEye [size]="16"></svg> Pregled</button></div></header>
       <main class="page-content">
         @if (ownerTab === 'dashboard') {
           <div class="page-heading"><div><p class="eyebrow">Danas</p><h2>Pregled restorana</h2><p>Prati meni i brzo pristupi najvažnijim opcijama.</p></div></div>

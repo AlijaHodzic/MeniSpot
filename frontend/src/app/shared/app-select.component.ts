@@ -132,6 +132,23 @@ export interface AppSelectOption<T = string | number | null> {
       --select-option-active: #334155;
       --select-option-active-text: #d9f99d;
     }
+    :host-context(.owner-dark) {
+      --select-bg: #1f242c;
+      --select-hover: #242932;
+      --select-border: #3a414d;
+      --select-panel-border: #3a414d;
+      --select-panel-bg: #1f242c;
+      --select-text: #f8fafc;
+      --select-placeholder: #aab4c3;
+      --select-arrow: #aab4c3;
+      --select-accent: var(--brand,#84cc16);
+      --select-ring: color-mix(in srgb,var(--brand,#84cc16) 20%,transparent);
+      --select-option: #f8fafc;
+      --select-option-hover: #2d333d;
+      --select-option-hover-text: color-mix(in srgb,var(--brand,#84cc16) 70%,white);
+      --select-option-active: color-mix(in srgb,var(--brand,#84cc16) 18%,#334155);
+      --select-option-active-text: color-mix(in srgb,var(--brand,#84cc16) 72%,white);
+    }
   `],
 })
 export class AppSelectComponent implements ControlValueAccessor, Validator {

@@ -8,9 +8,9 @@ import { concatMap, filter, finalize, forkJoin, Observable } from 'rxjs';
 import {
   LucideArrowLeft, LucideAward, LucideCalendar, LucideChefHat, LucideClock, LucideEdit2,
   LucideDownload, LucideEye, LucideEyeOff, LucideFlame, LucideGlobe, LucideLeaf, LucideLock, LucideLogIn, LucideLogOut, LucideMail,
-  LucideMapPin, LucideMenu, LucidePercent, LucidePhone, LucidePlus,
+  LucideMapPin, LucideMenu, LucideMoon, LucidePercent, LucidePhone, LucidePlus,
   LucidePower, LucideQrCode, LucideSearch, LucideShield, LucideSparkles,
-  LucideStore, LucideTrash2, LucideTrendingUp, LucideUtensilsCrossed, LucideX,
+  LucideStore, LucideSun, LucideTrash2, LucideTrendingUp, LucideUtensilsCrossed, LucideX,
 } from '@lucide/angular';
 import { AdminTab, AppView, BadgeType, Category, OwnerTab, Product, Restaurant, ThemeType } from './models';
 import { AuthService } from './core/auth/auth.service';
@@ -103,7 +103,7 @@ const drinkCategories = [
     LucideLeaf, LucideLock, LucideLogIn, LucideLogOut, LucideMail, LucideMapPin, LucideMenu, LucidePercent,
     LucidePhone, LucidePlus, LucidePower, LucideQrCode, LucideSearch,
     LucideShield, LucideSparkles, LucideStore, LucideTrash2, LucideTrendingUp,
-    LucideUtensilsCrossed, LucideX, LucideEyeOff, AppSelectComponent,
+    LucideUtensilsCrossed, LucideX, LucideEyeOff, LucideMoon, LucideSun, AppSelectComponent,
   ],
   templateUrl: './app.html',
   styleUrl: './app.css',
@@ -175,6 +175,7 @@ export class App {
   search = '';
   mobileNav = false;
   sidebarCollapsed = false;
+  ownerDarkMode = globalThis.localStorage?.getItem('menispot-owner-theme') === 'dark';
   showHours = false;
   showProductModal = false;
   showDrinkLibraryModal = false;
@@ -420,6 +421,11 @@ export class App {
     }
 
     this.sidebarCollapsed = !this.sidebarCollapsed;
+  }
+
+  toggleOwnerThemeMode(): void {
+    this.ownerDarkMode = !this.ownerDarkMode;
+    globalThis.localStorage?.setItem('menispot-owner-theme', this.ownerDarkMode ? 'dark' : 'light');
   }
 
   showToast(message: string, type: ToastType = 'success'): void {
