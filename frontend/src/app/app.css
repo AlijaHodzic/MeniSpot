@@ -613,6 +613,7 @@
   .admin-restaurant-table .owner-login-button span,
   .admin-restaurant-table .admin-row-actions .secondary-button:not(.owner-login-button),
   .admin-restaurant-table .admin-row-actions .icon-button { display: none; }
+  .admin-restaurant-table .admin-row-actions .admin-delete-button { display: inline-grid; }
   .form-grid { grid-template-columns: 1fr; }
   .form-grid .sm\:col-span-2 { grid-column: auto; }
   .billing-table article { grid-template-columns: minmax(0,1fr) auto; }

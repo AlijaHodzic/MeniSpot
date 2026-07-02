@@ -291,6 +291,20 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         return true;
     }
 
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
+    {
+        var restaurant = await db.Restaurants.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (restaurant is null) return false;
+
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        var restaurantUsers = await db.Users.Where(x => x.RestaurantId == id).ToListAsync(ct);
+        db.Users.RemoveRange(restaurantUsers);
+        db.Restaurants.Remove(restaurant);
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        return true;
+    }
+
     private static string DefaultThemeKey(EstablishmentType type) => type switch
     {
         EstablishmentType.Cafe => "natural-green",

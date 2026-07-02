@@ -1052,6 +1052,28 @@ export class App {
       });
   }
 
+  deleteAdminRestaurant(item: AdminRestaurantSummary): void {
+    this.askConfirm({
+      title: 'Obrisati restoran?',
+      message: `Restoran "${item.name}" će biti trajno obrisan zajedno sa vlasničkim pristupom, menijem, ponudama, plaćanjima i statistikama.`,
+      confirmText: 'Obriši restoran',
+      tone: 'danger',
+      onConfirm: () => this.adminRestaurantsService.delete(item.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: () => {
+          this.adminRestaurants = this.adminRestaurants.filter((restaurant) => restaurant.id !== item.id);
+          this.adminDashboard = null;
+          this.adminRestaurantsLoaded = false;
+          this.loadAdminRestaurants(true);
+          this.showToast('Restoran je obrisan.');
+        },
+        error: () => {
+          this.adminRestaurantsError = 'Restoran nije obrisan. Pokušaj ponovo.';
+          this.showToast('Restoran nije obrisan.', 'error');
+        },
+      }),
+    });
+  }
+
   impersonateRestaurant(item: AdminRestaurantSummary): void {
     if (this.restaurantImpersonating.has(item.id)) return;
     this.restaurantImpersonating.add(item.id);

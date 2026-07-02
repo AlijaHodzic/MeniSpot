@@ -53,6 +53,10 @@ export class AdminRestaurantsService {
     return this.http.put<void>(`${this.endpoint}/${id}/owner-access`, request);
   }
 
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.endpoint}/${id}`);
+  }
+
   impersonate(id: string): Observable<AuthSession> {
     return this.http.post<AuthSession>(`${this.endpoint}/${id}/impersonate`, {});
   }

@@ -86,6 +86,7 @@ public interface IRestaurantService
     Task<bool> SetStatusAsync(Guid id, RestaurantStatus status, CancellationToken cancellationToken);
     Task<bool> SetSubscriptionAsync(Guid id, SetSubscriptionRequest request, CancellationToken cancellationToken);
     Task<bool> UpdateOwnerAccessAsync(Guid id, UpdateOwnerAccessRequest request, CancellationToken cancellationToken);
+    Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
 }
 
 public interface IMenuManagementService
