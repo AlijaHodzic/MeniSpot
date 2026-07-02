@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Net;
 using System.Net.Http.Json;
 using DigitalMenu.Application;
 using DigitalMenu.Domain;
@@ -114,11 +115,29 @@ public sealed class LeadsController(IHttpClientFactory httpClientFactory, IConfi
         if (!email.Contains('@') || !email.Contains('.')) return BadRequest();
         if (string.IsNullOrWhiteSpace(type)) return BadRequest();
 
-        var endpoint = configuration["LeadNotifications:FormspreeEndpoint"];
-        if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var endpointUri))
+        if (IsResendConfigured())
         {
-            return Problem("Lead notification endpoint is not configured.", statusCode: StatusCodes.Status503ServiceUnavailable);
+            return await SendWithResendAsync(businessName, email, request.Phone?.Trim(), type, request.Message?.Trim(), ct)
+                ? Ok()
+                : await SendWithFormspreeAsync(businessName, email, request.Phone?.Trim(), type, request.Message?.Trim(), ct)
+                    ? Ok()
+                    : Problem("Lead notification failed.", statusCode: StatusCodes.Status502BadGateway);
         }
+
+        return await SendWithFormspreeAsync(businessName, email, request.Phone?.Trim(), type, request.Message?.Trim(), ct)
+            ? Ok()
+            : Problem("Lead notification endpoint is not configured.", statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+
+    private bool IsResendConfigured() =>
+        !string.IsNullOrWhiteSpace(configuration["LeadNotifications:ResendApiKey"]) &&
+        !string.IsNullOrWhiteSpace(configuration["LeadNotifications:From"]) &&
+        !string.IsNullOrWhiteSpace(configuration["LeadNotifications:AdminTo"]);
+
+    private async Task<bool> SendWithFormspreeAsync(string businessName, string email, string? phone, string type, string? message, CancellationToken ct)
+    {
+        var endpoint = configuration["LeadNotifications:FormspreeEndpoint"];
+        if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var endpointUri)) return false;
 
         var payload = new Dictionary<string, string?>
         {
@@ -127,9 +146,9 @@ public sealed class LeadsController(IHttpClientFactory httpClientFactory, IConfi
             ["Email"] = email,
             ["_replyto"] = email,
             ["email"] = email,
-            ["Telefon"] = request.Phone?.Trim(),
+            ["Telefon"] = phone,
             ["Tip objekta"] = type,
-            ["Poruka"] = request.Message?.Trim()
+            ["Poruka"] = message
         };
 
         using var formspreeRequest = new HttpRequestMessage(HttpMethod.Post, endpointUri)
@@ -147,7 +166,110 @@ public sealed class LeadsController(IHttpClientFactory httpClientFactory, IConfi
         }
 
         using var response = await httpClientFactory.CreateClient().SendAsync(formspreeRequest, ct);
-        return response.IsSuccessStatusCode ? Ok() : Problem("Lead notification failed.", statusCode: StatusCodes.Status502BadGateway);
+        return response.IsSuccessStatusCode;
+    }
+
+    private async Task<bool> SendWithResendAsync(string businessName, string email, string? phone, string type, string? message, CancellationToken ct)
+    {
+        var from = configuration["LeadNotifications:From"]!;
+        var adminTo = configuration["LeadNotifications:AdminTo"]!;
+        var replyTo = configuration["LeadNotifications:ReplyTo"];
+
+        var adminSubject = $"Novi MeniSpot upit - {businessName}";
+        var adminHtml = BuildAdminLeadEmail(businessName, email, phone, type, message);
+        var userSubject = "Primili smo tvoj MeniSpot upit";
+        var userHtml = BuildLeadConfirmationEmail(businessName);
+
+        var adminSent = await SendResendEmailAsync(from, adminTo, adminSubject, adminHtml, LeadTextSummary(businessName, email, phone, type, message), email, ct);
+        if (!adminSent) return false;
+
+        await SendResendEmailAsync(from, email, userSubject, userHtml, $"Hvala na upitu za {businessName}. Javit ćemo se uskoro.", replyTo ?? adminTo, ct);
+        return true;
+    }
+
+    private async Task<bool> SendResendEmailAsync(string from, string to, string subject, string html, string text, string? replyTo, CancellationToken ct)
+    {
+        var apiKey = configuration["LeadNotifications:ResendApiKey"];
+        if (string.IsNullOrWhiteSpace(apiKey)) return false;
+
+        var payload = new Dictionary<string, object?>
+        {
+            ["from"] = from,
+            ["to"] = new[] { to },
+            ["subject"] = subject,
+            ["html"] = html,
+            ["text"] = text
+        };
+        if (!string.IsNullOrWhiteSpace(replyTo)) payload["reply_to"] = replyTo;
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails")
+        {
+            Content = JsonContent.Create(payload)
+        };
+        request.Headers.Authorization = new("Bearer", apiKey);
+        request.Headers.Accept.ParseAdd("application/json");
+
+        using var response = await httpClientFactory.CreateClient().SendAsync(request, ct);
+        return response.IsSuccessStatusCode;
+    }
+
+    private static string LeadTextSummary(string businessName, string email, string? phone, string type, string? message) =>
+        $"""
+        Novi MeniSpot upit
+
+        Objekat: {businessName}
+        Tip objekta: {type}
+        Email: {email}
+        Telefon: {phone}
+
+        Poruka:
+        {message}
+        """;
+
+    private static string BuildAdminLeadEmail(string businessName, string email, string? phone, string type, string? message)
+    {
+        var safeName = WebUtility.HtmlEncode(businessName);
+        var safeEmail = WebUtility.HtmlEncode(email);
+        var safePhone = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(phone) ? "Nije uneseno" : phone);
+        var safeType = WebUtility.HtmlEncode(type);
+        var safeMessage = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(message) ? "Nema dodatne poruke." : message).Replace("\n", "<br>");
+        return $"""
+        <div style="font-family:Arial,sans-serif;background:#f6f8fb;padding:28px;color:#172033">
+          <div style="max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #e5eaf2;border-radius:18px;overflow:hidden">
+            <div style="background:#111827;color:#fff;padding:24px 28px">
+              <p style="margin:0 0 8px;color:#a3e635;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Novi upit</p>
+              <h1 style="margin:0;font-size:26px">MeniSpot lead</h1>
+            </div>
+            <div style="padding:26px 28px">
+              <table style="width:100%;border-collapse:collapse;font-size:15px">
+                <tr><td style="padding:10px 0;color:#64748b">Objekat</td><td style="padding:10px 0;font-weight:700">{safeName}</td></tr>
+                <tr><td style="padding:10px 0;color:#64748b">Tip</td><td style="padding:10px 0">{safeType}</td></tr>
+                <tr><td style="padding:10px 0;color:#64748b">Email</td><td style="padding:10px 0"><a href="mailto:{safeEmail}">{safeEmail}</a></td></tr>
+                <tr><td style="padding:10px 0;color:#64748b">Telefon</td><td style="padding:10px 0">{safePhone}</td></tr>
+              </table>
+              <div style="margin-top:22px;padding:18px;border-radius:14px;background:#f8fafc;border:1px solid #e5eaf2">
+                <p style="margin:0 0 8px;color:#64748b;font-size:13px;font-weight:700">Poruka</p>
+                <p style="margin:0;line-height:1.6">{safeMessage}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        """;
+    }
+
+    private static string BuildLeadConfirmationEmail(string businessName)
+    {
+        var safeName = WebUtility.HtmlEncode(businessName);
+        return $"""
+        <div style="font-family:Arial,sans-serif;background:#f6f8fb;padding:28px;color:#172033">
+          <div style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e5eaf2;border-radius:18px;padding:30px">
+            <p style="margin:0 0 10px;color:#65a30d;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">MeniSpot</p>
+            <h1 style="margin:0 0 14px;font-size:26px">Primili smo tvoj upit</h1>
+            <p style="margin:0 0 16px;line-height:1.7">Hvala na interesovanju za <strong>{safeName}</strong>. Primili smo podatke i javit ćemo se uskoro s prijedlogom i sljedećim koracima.</p>
+            <p style="margin:0;color:#64748b;line-height:1.7">Ako želiš dodati još neku informaciju, samo odgovori na ovaj email.</p>
+          </div>
+        </div>
+        """;
     }
 
     private bool IsAllowedFrontendRequest()

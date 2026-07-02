@@ -77,6 +77,10 @@ SeedAdmin__Password
 AllowedOrigins__0
 AllowedOrigins__1
 LeadNotifications__FormspreeEndpoint
+LeadNotifications__ResendApiKey
+LeadNotifications__From
+LeadNotifications__ReplyTo
+LeadNotifications__AdminTo
 ```
 
 Example allowed origins for the live domain:
@@ -85,9 +89,15 @@ Example allowed origins for the live domain:
 AllowedOrigins__0=https://menispot.com
 AllowedOrigins__1=https://www.menispot.com
 LeadNotifications__FormspreeEndpoint=https://formspree.io/f/<your-form-id>
+LeadNotifications__ResendApiKey=re_xxxxxxxxx
+LeadNotifications__From=MeniSpot <info@menispot.com>
+LeadNotifications__ReplyTo=info@menispot.com
+LeadNotifications__AdminTo=admin@example.com
 ```
 
-The public lead form is submitted through the API, which then forwards valid leads to Formspree. In Formspree, also enable domain restriction for `menispot.com` and `www.menispot.com`, and mark spam submissions as spam so the Formspree filter learns from them.
+The public lead form is submitted through the API. If Resend is configured, the API sends a branded admin notification and an automatic confirmation email to the lead. If Resend is not configured, it falls back to Formspree. In Formspree, also enable domain restriction for `menispot.com` and `www.menispot.com`, and mark spam submissions as spam so the Formspree filter learns from them.
+
+For Resend setup, verify `menispot.com` in Resend, add the DNS records Resend gives you in Cloudflare, create an API key, and paste it into `LeadNotifications__ResendApiKey`.
 
 Protect the environment file:
 
