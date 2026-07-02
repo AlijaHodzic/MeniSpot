@@ -171,7 +171,7 @@ public sealed class LeadsController(IHttpClientFactory httpClientFactory, IConfi
 }
 
 [Route("api/admin/restaurants"), Authorize(Roles = Roles.SuperAdmin)]
-public sealed class AdminRestaurantsController(IRestaurantService restaurants, IAuthService auth) : ApiController
+public sealed class AdminRestaurantsController(IRestaurantService restaurants, IAuthService auth, IWebHostEnvironment environment) : ApiController
 {
     [HttpGet] public async Task<ActionResult> All(CancellationToken ct) => Ok(await restaurants.GetAllAsync(ct));
     [HttpGet("dashboard")] public async Task<ActionResult> Dashboard(CancellationToken ct) => Ok(await restaurants.GetDashboardAsync(ct));
@@ -182,6 +182,12 @@ public sealed class AdminRestaurantsController(IRestaurantService restaurants, I
     [HttpPut("{id:guid}/subscription")] public async Task<ActionResult> Subscription(Guid id, SetSubscriptionRequest request, CancellationToken ct) => await restaurants.SetSubscriptionAsync(id, request, ct) ? NoContent() : NotFound();
     [HttpPut("{id:guid}/owner-access")] public async Task<ActionResult> OwnerAccess(Guid id, UpdateOwnerAccessRequest request, CancellationToken ct) => await restaurants.UpdateOwnerAccessAsync(id, request, ct) ? NoContent() : NotFound();
     [HttpPost("{id:guid}/impersonate")] public async Task<ActionResult<LoginResponse>> Impersonate(Guid id, CancellationToken ct) => await auth.ImpersonateRestaurantOwnerAsync(id, ct) is { } result ? Ok(result) : NotFound();
+    [HttpPost("{id:guid}/images"), RequestSizeLimit(6_000_000)]
+    public async Task<ActionResult> UploadImage(Guid id, IFormFile file, CancellationToken ct)
+    {
+        if (await restaurants.GetAdminDetailsAsync(id, ct) is null) return NotFound();
+        return await ImageUploadHelper.SaveOptimizedWebpAsync(this, environment, file, Path.Combine("uploads", id.ToString("N")), ct);
+    }
     [HttpDelete("{id:guid}")] public async Task<ActionResult> Delete(Guid id, CancellationToken ct) => await restaurants.DeleteAsync(id, ct) ? NoContent() : NotFound();
 }
 

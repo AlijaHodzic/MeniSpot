@@ -53,6 +53,12 @@ export class AdminRestaurantsService {
     return this.http.put<void>(`${this.endpoint}/${id}/owner-access`, request);
   }
 
+  uploadImage(id: string, file: File): Observable<{ url: string }> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<{ url: string }>(`${this.endpoint}/${id}/images`, form);
+  }
+
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.endpoint}/${id}`);
   }

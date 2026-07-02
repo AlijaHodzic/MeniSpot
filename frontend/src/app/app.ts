@@ -233,6 +233,7 @@ export class App {
   showRestaurantModal = false;
   restaurantModalLoading = false;
   restaurantSaving = false;
+  restaurantImageUploading: 'logo' | 'cover' | null = null;
   restaurantFormError = '';
   restaurantFormSuccess = '';
   restaurantStatusUpdating = new Set<string>();
@@ -955,7 +956,7 @@ export class App {
   }
 
   closeRestaurantModal(): void {
-    if (this.restaurantSaving) return;
+    if (this.restaurantSaving || this.restaurantImageUploading) return;
     this.showRestaurantModal = false;
     this.restaurantFormError = '';
     this.restaurantFormSuccess = '';
@@ -1031,6 +1032,45 @@ export class App {
         this.showToast('Promjene nisu sačuvane.', 'error');
       },
     });
+  }
+
+  selectAdminRestaurantImage(event: Event, target: 'logo' | 'cover'): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!this.restaurantForm.id) {
+      this.restaurantFormError = 'Prvo kreiraj restoran, pa dodaj logo ili naslovnu fotografiju.';
+      input.value = '';
+      return;
+    }
+    const validationError = this.validateImageFile(file);
+    if (validationError) {
+      this.restaurantFormError = validationError;
+      input.value = '';
+      return;
+    }
+
+    this.restaurantImageUploading = target;
+    this.restaurantFormError = '';
+    this.adminRestaurantsService.uploadImage(this.restaurantForm.id, file)
+      .pipe(finalize(() => { this.restaurantImageUploading = null; input.value = ''; }), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: ({ url }) => {
+          if (target === 'logo') this.restaurantForm.logoUrl = url;
+          else this.restaurantForm.coverImageUrl = url;
+          this.restaurantFormSuccess = 'Fotografija je učitana. Sačuvaj promjene da ostane vezana za restoran.';
+          this.showToast('Fotografija je učitana.');
+        },
+        error: (error: HttpErrorResponse) => {
+          this.restaurantFormError = error.error?.title ?? 'Fotografija nije učitana. Maksimalna veličina je 5 MB.';
+          this.showToast('Fotografija nije učitana.', 'error');
+        },
+      });
+  }
+
+  clearAdminRestaurantImage(target: 'logo' | 'cover'): void {
+    if (target === 'logo') this.restaurantForm.logoUrl = '';
+    else this.restaurantForm.coverImageUrl = '';
   }
 
   toggleAdminRestaurant(item: AdminRestaurantSummary): void {
