@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Net.Http.Json;
 using DigitalMenu.Application;
 using DigitalMenu.Domain;
 using Microsoft.AspNetCore.Authorization;
@@ -85,6 +86,87 @@ public sealed class AuthController(IAuthService auth) : ApiController
 
         var result = await auth.ChangePasswordAsync(userId, request, ct);
         return result.Succeeded ? NoContent() : BadRequest(new { errors = result.Errors });
+    }
+}
+
+public sealed record LeadRequest(
+    string BusinessName,
+    string Email,
+    string? Phone,
+    string Type,
+    string? Message,
+    string? Website);
+
+[Route("api/leads")]
+public sealed class LeadsController(IHttpClientFactory httpClientFactory, IConfiguration configuration) : ApiController
+{
+    [HttpPost, AllowAnonymous]
+    public async Task<ActionResult> Submit(LeadRequest request, CancellationToken ct)
+    {
+        if (!IsAllowedFrontendRequest()) return BadRequest();
+
+        if (!string.IsNullOrWhiteSpace(request.Website)) return Ok();
+
+        var businessName = request.BusinessName.Trim();
+        var email = request.Email.Trim();
+        var type = request.Type.Trim();
+        if (businessName.Length < 2) return BadRequest();
+        if (!email.Contains('@') || !email.Contains('.')) return BadRequest();
+        if (string.IsNullOrWhiteSpace(type)) return BadRequest();
+
+        var endpoint = configuration["LeadNotifications:FormspreeEndpoint"];
+        if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var endpointUri))
+        {
+            return Problem("Lead notification endpoint is not configured.", statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+
+        var payload = new Dictionary<string, string?>
+        {
+            ["_subject"] = "Novi MeniSpot upit",
+            ["Naziv objekta"] = businessName,
+            ["Email"] = email,
+            ["_replyto"] = email,
+            ["email"] = email,
+            ["Telefon"] = request.Phone?.Trim(),
+            ["Tip objekta"] = type,
+            ["Poruka"] = request.Message?.Trim()
+        };
+
+        using var formspreeRequest = new HttpRequestMessage(HttpMethod.Post, endpointUri)
+        {
+            Content = JsonContent.Create(payload)
+        };
+        formspreeRequest.Headers.Accept.ParseAdd("application/json");
+        if (Request.Headers.Origin.FirstOrDefault() is { Length: > 0 } origin)
+        {
+            formspreeRequest.Headers.TryAddWithoutValidation("Origin", origin);
+        }
+        if (Request.Headers.Referer.FirstOrDefault() is { Length: > 0 } referer)
+        {
+            formspreeRequest.Headers.TryAddWithoutValidation("Referer", referer);
+        }
+
+        using var response = await httpClientFactory.CreateClient().SendAsync(formspreeRequest, ct);
+        return response.IsSuccessStatusCode ? Ok() : Problem("Lead notification failed.", statusCode: StatusCodes.Status502BadGateway);
+    }
+
+    private bool IsAllowedFrontendRequest()
+    {
+        var allowedOrigins = configuration.GetSection("AllowedOrigins").Get<string[]>() ?? [];
+        if (allowedOrigins.Length == 0) return true;
+
+        var requestOrigin = Request.Headers.Origin.FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(requestOrigin)) return MatchesAllowedOrigin(requestOrigin, allowedOrigins);
+
+        var referer = Request.Headers.Referer.FirstOrDefault();
+        return !string.IsNullOrWhiteSpace(referer) && MatchesAllowedOrigin(referer, allowedOrigins);
+    }
+
+    private static bool MatchesAllowedOrigin(string value, string[] allowedOrigins)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var requestUri)) return false;
+        var requestOrigin = requestUri.GetLeftPart(UriPartial.Authority);
+        return allowedOrigins.Any(origin => string.Equals(origin.TrimEnd('/'), requestOrigin, StringComparison.OrdinalIgnoreCase));
     }
 }
 

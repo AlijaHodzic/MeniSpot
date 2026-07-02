@@ -31,6 +31,7 @@ import { AdminDrinksService } from './core/drinks/admin-drinks.service';
 import { GlobalDrinkSummary, MenuCategoryType, OwnerMenuCategory, OwnerMenuItem, OwnerRestaurant, OwnerSpecialOffer, SpecialOfferKind, SpecialOfferRequest } from './core/owner/owner.models';
 import { OwnerService } from './core/owner/owner.service';
 import { AppSelectComponent, AppSelectOption } from './shared/app-select.component';
+import { API_URL } from './core/api.config';
 
 interface RestaurantForm {
   id: string | null;
@@ -216,7 +217,7 @@ export class App {
   passwordSaving = false;
   passwordError = '';
   passwordSuccess = '';
-  leadForm = { businessName: '', email: '', phone: '', type: '', message: '' };
+  leadForm = { businessName: '', email: '', phone: '', type: '', message: '', website: '' };
   leadLoading = false;
   leadSuccess = '';
   leadError = '';
@@ -527,28 +528,33 @@ export class App {
       return;
     }
 
+    if (this.leadForm.website.trim()) {
+      this.leadSuccess = 'Upit je poslan. Javit ćemo vam se uskoro na email.';
+      this.leadForm = { businessName: '', email: '', phone: '', type: '', message: '', website: '' };
+      return;
+    }
+
     this.leadLoading = true;
     this.leadError = '';
     this.leadSuccess = '';
-    const payload = new FormData();
-    payload.append('_subject', 'Novi MeniSpot upit');
-    payload.append('Naziv objekta', businessName);
-    payload.append('Email', email);
-    payload.append('_replyto', email);
-    payload.append('email', email);
-    payload.append('Telefon', this.leadForm.phone.trim());
-    payload.append('Tip objekta', type);
-    payload.append('Poruka', this.leadForm.message.trim());
+    const payload = {
+      businessName,
+      email,
+      phone: this.leadForm.phone.trim(),
+      type,
+      message: this.leadForm.message.trim(),
+      website: this.leadForm.website.trim(),
+    };
 
-    void fetch('https://formspree.io/f/xojojzoe', {
+    void fetch(`${API_URL}/leads`, {
       method: 'POST',
-      body: payload,
-      headers: { Accept: 'application/json' },
+      body: JSON.stringify(payload),
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     })
       .then((response) => {
-        if (!response.ok) throw new Error('Formspree request failed.');
+        if (!response.ok) throw new Error('Lead request failed.');
         this.leadSuccess = 'Upit je poslan. Javit ćemo vam se uskoro na email.';
-        this.leadForm = { businessName: '', email: '', phone: '', type: '', message: '' };
+        this.leadForm = { businessName: '', email: '', phone: '', type: '', message: '', website: '' };
       })
       .catch(() => {
         this.leadError = 'Upit trenutno nije moguće poslati. Pokušajte ponovo malo kasnije.';

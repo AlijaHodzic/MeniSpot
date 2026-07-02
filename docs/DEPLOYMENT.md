@@ -76,6 +76,7 @@ Jwt__Key
 SeedAdmin__Password
 AllowedOrigins__0
 AllowedOrigins__1
+LeadNotifications__FormspreeEndpoint
 ```
 
 Example allowed origins for the live domain:
@@ -83,7 +84,10 @@ Example allowed origins for the live domain:
 ```text
 AllowedOrigins__0=https://menispot.com
 AllowedOrigins__1=https://www.menispot.com
+LeadNotifications__FormspreeEndpoint=https://formspree.io/f/<your-form-id>
 ```
+
+The public lead form is submitted through the API, which then forwards valid leads to Formspree. In Formspree, also enable domain restriction for `menispot.com` and `www.menispot.com`, and mark spam submissions as spam so the Formspree filter learns from them.
 
 Protect the environment file:
 

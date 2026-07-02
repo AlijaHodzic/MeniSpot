@@ -32,6 +32,7 @@
 .lead-card app-select { display: block; width: 100%; margin-top: 7px; }
 .lead-card textarea { resize: vertical; }
 .lead-card input:focus, .lead-card select:focus, .lead-card textarea:focus { border-color: var(--menispot-green); box-shadow: 0 0 0 4px rgba(132,204,22,.12); }
+.lead-honeypot { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
 .lead-span { grid-column: 1 / -1; }
 
 .stat-icon { display: grid; width: 48px; height: 48px; margin-bottom: 22px; place-items: center; border-radius: 14px; }

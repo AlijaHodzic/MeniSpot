@@ -24,6 +24,7 @@
         <span class="eyebrow">Zainteresovani ste?</span>
         <h2>Pošaljite upit za digitalni meni</h2>
         <p>Ostavite email i osnovne podatke o objektu. Javit ćemo vam se sa prijedlogom i sljedećim koracima.</p>
+        <label class="lead-honeypot" aria-hidden="true">Web stranica<input name="website" tabindex="-1" autocomplete="off" [(ngModel)]="leadForm.website"></label>
         <label>Naziv objekta <small>obavezno</small><input name="businessName" [(ngModel)]="leadForm.businessName" placeholder="Npr. Restoran Una" required minlength="2"></label>
         <label>Email adresa <small>obavezno</small><input name="leadEmail" type="email" autocomplete="email" [(ngModel)]="leadForm.email" placeholder="ime@primjer.ba" required></label>
         <label>Telefon<input name="leadPhone" type="tel" autocomplete="tel" [(ngModel)]="leadForm.phone" placeholder="+387 ..."></label>
