@@ -81,6 +81,7 @@ LeadNotifications__ResendApiKey
 LeadNotifications__From
 LeadNotifications__ReplyTo
 LeadNotifications__AdminTo
+LeadNotifications__PublicBaseUrl
 ```
 
 Example allowed origins for the live domain:
@@ -93,6 +94,7 @@ LeadNotifications__ResendApiKey=re_xxxxxxxxx
 LeadNotifications__From=MeniSpot <info@menispot.com>
 LeadNotifications__ReplyTo=info@menispot.com
 LeadNotifications__AdminTo=admin@example.com
+LeadNotifications__PublicBaseUrl=https://menispot.com
 ```
 
 The public lead form is submitted through the API. If Resend is configured, the API sends a branded admin notification and an automatic confirmation email to the lead. If Resend is not configured, it falls back to Formspree. In Formspree, also enable domain restriction for `menispot.com` and `www.menispot.com`, and mark spam submissions as spam so the Formspree filter learns from them.

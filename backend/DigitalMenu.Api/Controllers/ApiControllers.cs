@@ -174,16 +174,17 @@ public sealed class LeadsController(IHttpClientFactory httpClientFactory, IConfi
         var from = configuration["LeadNotifications:From"]!;
         var adminTo = configuration["LeadNotifications:AdminTo"]!;
         var replyTo = configuration["LeadNotifications:ReplyTo"];
+        var publicBaseUrl = (configuration["LeadNotifications:PublicBaseUrl"] ?? "https://menispot.com").TrimEnd('/');
 
-        var adminSubject = $"Novi MeniSpot upit - {businessName}";
-        var adminHtml = BuildAdminLeadEmail(businessName, email, phone, type, message);
-        var userSubject = "Primili smo tvoj MeniSpot upit";
-        var userHtml = BuildLeadConfirmationEmail(businessName);
+        var adminSubject = $"Novi upit za digitalni meni - {businessName}";
+        var adminHtml = BuildAdminLeadEmail(businessName, email, phone, type, message, publicBaseUrl);
+        var userSubject = "MeniSpot je primio tvoj upit";
+        var userHtml = BuildLeadConfirmationEmail(businessName, publicBaseUrl);
 
         var adminSent = await SendResendEmailAsync(from, adminTo, adminSubject, adminHtml, LeadTextSummary(businessName, email, phone, type, message), email, ct);
         if (!adminSent) return false;
 
-        await SendResendEmailAsync(from, email, userSubject, userHtml, $"Hvala na upitu za {businessName}. Javit ćemo se uskoro.", replyTo ?? adminTo, ct);
+        await SendResendEmailAsync(from, email, userSubject, userHtml, $"Hvala na upitu za {businessName}. Javit cemo se uskoro.", replyTo ?? adminTo, ct);
         return true;
     }
 
@@ -226,47 +227,72 @@ public sealed class LeadsController(IHttpClientFactory httpClientFactory, IConfi
         {message}
         """;
 
-    private static string BuildAdminLeadEmail(string businessName, string email, string? phone, string type, string? message)
+    private static string BuildAdminLeadEmail(string businessName, string email, string? phone, string type, string? message, string publicBaseUrl)
     {
         var safeName = WebUtility.HtmlEncode(businessName);
         var safeEmail = WebUtility.HtmlEncode(email);
         var safePhone = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(phone) ? "Nije uneseno" : phone);
         var safeType = WebUtility.HtmlEncode(type);
         var safeMessage = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(message) ? "Nema dodatne poruke." : message).Replace("\n", "<br>");
+        var mailto = $"mailto:{safeEmail}?subject={Uri.EscapeDataString($"MeniSpot upit - {businessName}")}";
         return $"""
-        <div style="font-family:Arial,sans-serif;background:#f6f8fb;padding:28px;color:#172033">
-          <div style="max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #e5eaf2;border-radius:18px;overflow:hidden">
-            <div style="background:#111827;color:#fff;padding:24px 28px">
-              <p style="margin:0 0 8px;color:#a3e635;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Novi upit</p>
-              <h1 style="margin:0;font-size:26px">MeniSpot lead</h1>
+        <div style="margin:0;background:#f3f6fa;padding:32px 18px;color:#111827;font-family:Arial,Helvetica,sans-serif">
+          <div style="max-width:660px;margin:0 auto">
+            <div style="padding:0 4px 18px">
+              <img src="{publicBaseUrl}/menispot-mark.png" alt="MeniSpot" width="38" height="38" style="vertical-align:middle;border-radius:10px;margin-right:10px">
+              <span style="font-size:20px;font-weight:800;vertical-align:middle">Meni<span style="color:#84cc16">Spot</span></span>
             </div>
-            <div style="padding:26px 28px">
-              <table style="width:100%;border-collapse:collapse;font-size:15px">
-                <tr><td style="padding:10px 0;color:#64748b">Objekat</td><td style="padding:10px 0;font-weight:700">{safeName}</td></tr>
-                <tr><td style="padding:10px 0;color:#64748b">Tip</td><td style="padding:10px 0">{safeType}</td></tr>
-                <tr><td style="padding:10px 0;color:#64748b">Email</td><td style="padding:10px 0"><a href="mailto:{safeEmail}">{safeEmail}</a></td></tr>
-                <tr><td style="padding:10px 0;color:#64748b">Telefon</td><td style="padding:10px 0">{safePhone}</td></tr>
-              </table>
-              <div style="margin-top:22px;padding:18px;border-radius:14px;background:#f8fafc;border:1px solid #e5eaf2">
-                <p style="margin:0 0 8px;color:#64748b;font-size:13px;font-weight:700">Poruka</p>
-                <p style="margin:0;line-height:1.6">{safeMessage}</p>
+            <div style="background:#ffffff;border:1px solid #dfe7f1;border-radius:20px;overflow:hidden;box-shadow:0 18px 48px rgba(15,23,42,.08)">
+              <div style="background:#111827;padding:28px 30px;color:#ffffff">
+                <p style="margin:0 0 10px;color:#a3e635;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase">Novi upit sa stranice</p>
+                <h1 style="margin:0;font-size:28px;line-height:1.2">Novi upit za digitalni meni</h1>
+                <p style="margin:12px 0 0;color:#cbd5e1;font-size:15px">Objekat: <strong style="color:#ffffff">{safeName}</strong></p>
+              </div>
+              <div style="padding:28px 30px">
+                <table style="width:100%;border-collapse:collapse;font-size:15px">
+                  <tr><td style="padding:12px 0;color:#64748b;border-bottom:1px solid #eef2f7">Tip objekta</td><td style="padding:12px 0;border-bottom:1px solid #eef2f7;font-weight:700">{safeType}</td></tr>
+                  <tr><td style="padding:12px 0;color:#64748b;border-bottom:1px solid #eef2f7">Email</td><td style="padding:12px 0;border-bottom:1px solid #eef2f7"><a style="color:#2563eb" href="{mailto}">{safeEmail}</a></td></tr>
+                  <tr><td style="padding:12px 0;color:#64748b">Telefon</td><td style="padding:12px 0">{safePhone}</td></tr>
+                </table>
+                <div style="margin-top:22px;padding:18px;border-radius:14px;background:#f8fafc;border:1px solid #e5eaf2">
+                  <p style="margin:0 0 8px;color:#64748b;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.05em">Poruka</p>
+                  <p style="margin:0;line-height:1.65;color:#172033">{safeMessage}</p>
+                </div>
+                <a href="{mailto}" style="display:inline-block;margin-top:24px;background:#84cc16;color:#17230a;text-decoration:none;font-weight:800;border-radius:12px;padding:13px 18px">Odgovori na upit</a>
               </div>
             </div>
+            <p style="max-width:660px;margin:14px auto 0;color:#94a3b8;font-size:12px;line-height:1.5">Ovaj email je poslan automatski nakon upita na menispot.com.</p>
           </div>
         </div>
         """;
     }
 
-    private static string BuildLeadConfirmationEmail(string businessName)
+    private static string BuildLeadConfirmationEmail(string businessName, string publicBaseUrl)
     {
         var safeName = WebUtility.HtmlEncode(businessName);
         return $"""
-        <div style="font-family:Arial,sans-serif;background:#f6f8fb;padding:28px;color:#172033">
-          <div style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e5eaf2;border-radius:18px;padding:30px">
-            <p style="margin:0 0 10px;color:#65a30d;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">MeniSpot</p>
-            <h1 style="margin:0 0 14px;font-size:26px">Primili smo tvoj upit</h1>
-            <p style="margin:0 0 16px;line-height:1.7">Hvala na interesovanju za <strong>{safeName}</strong>. Primili smo podatke i javit ćemo se uskoro s prijedlogom i sljedećim koracima.</p>
-            <p style="margin:0;color:#64748b;line-height:1.7">Ako želiš dodati još neku informaciju, samo odgovori na ovaj email.</p>
+        <div style="margin:0;background:#f3f6fa;padding:32px 18px;color:#111827;font-family:Arial,Helvetica,sans-serif">
+          <div style="max-width:620px;margin:0 auto">
+            <div style="padding:0 4px 18px">
+              <img src="{publicBaseUrl}/menispot-mark.png" alt="MeniSpot" width="38" height="38" style="vertical-align:middle;border-radius:10px;margin-right:10px">
+              <span style="font-size:20px;font-weight:800;vertical-align:middle">Meni<span style="color:#84cc16">Spot</span></span>
+            </div>
+            <div style="background:#ffffff;border:1px solid #dfe7f1;border-radius:20px;overflow:hidden;box-shadow:0 18px 48px rgba(15,23,42,.08)">
+              <div style="background:#111827;padding:30px;color:#ffffff">
+                <p style="margin:0 0 10px;color:#a3e635;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase">Upit zaprimljen</p>
+                <h1 style="margin:0;font-size:28px;line-height:1.2">Hvala, primili smo tvoju poruku.</h1>
+                <p style="margin:14px 0 0;color:#cbd5e1;font-size:15px;line-height:1.6">Tvoj upit za <strong style="color:#ffffff">{safeName}</strong> je uspjesno poslan MeniSpot timu.</p>
+              </div>
+              <div style="padding:28px 30px">
+                <p style="margin:0 0 16px;line-height:1.7">Pregledat cemo podatke i javiti se uskoro s prijedlogom, cijenom i sljedecim koracima.</p>
+                <div style="margin:22px 0;padding:18px;border-radius:14px;background:#f8fafc;border:1px solid #e5eaf2">
+                  <p style="margin:0 0 6px;color:#64748b;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.05em">Sta dalje?</p>
+                  <p style="margin:0;line-height:1.65;color:#172033">Ako zelis dodati jos neku informaciju, fotografije ili poseban zahtjev, samo odgovori direktno na ovaj email.</p>
+                </div>
+                <a href="{publicBaseUrl}" style="display:inline-block;background:#84cc16;color:#17230a;text-decoration:none;font-weight:800;border-radius:12px;padding:13px 18px">Posjeti MeniSpot</a>
+              </div>
+            </div>
+            <p style="margin:14px 4px 0;color:#94a3b8;font-size:12px;line-height:1.5">Ovo je automatska potvrda nakon slanja upita na menispot.com.</p>
           </div>
         </div>
         """;
