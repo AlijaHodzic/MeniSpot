@@ -29,6 +29,7 @@ export interface AdminRestaurantDetails {
   instagramUrl: string | null;
   currency: string;
   defaultLanguage: string;
+  enabledLanguages: string;
   type: EstablishmentType;
   status: RestaurantStatus;
   themeKey: string;
@@ -77,6 +78,7 @@ export interface CreateRestaurantRequest {
   instagramUrl: string | null;
   currency: string;
   defaultLanguage: string;
+  enabledLanguages: string;
   plan: string;
   monthlyPrice: number;
   themeKey: string;
@@ -95,6 +97,7 @@ export interface UpdateRestaurantRequest {
   instagramUrl: string | null;
   currency: string;
   defaultLanguage: string;
+  enabledLanguages: string;
   type: EstablishmentType;
   themeKey: string;
 }

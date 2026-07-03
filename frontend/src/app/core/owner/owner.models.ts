@@ -97,6 +97,7 @@ export interface OwnerRestaurant {
   instagramUrl: string | null;
   currency: string;
   defaultLanguage: string;
+  enabledLanguages: string;
   type: EstablishmentType;
   status: RestaurantStatus;
   plan: string;

@@ -138,7 +138,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         var item = await db.Restaurants.AsNoTracking().Where(x => x.Id == id && x.Subscription != null).Select(x => new
         {
             x.Id, x.Name, x.Slug, x.Description, x.LogoUrl, x.CoverImageUrl, x.Address, x.Phone, x.Email,
-            x.WebsiteUrl, x.InstagramUrl, x.Currency, x.DefaultLanguage, x.Type, x.Status,
+            x.WebsiteUrl, x.InstagramUrl, x.Currency, x.DefaultLanguage, x.EnabledLanguages, x.Type, x.Status,
             ThemeKey = x.Theme != null ? x.Theme.ThemeKey : null,
             SubscriptionStatus = x.Subscription!.Status, x.Subscription.Plan, x.Subscription.MonthlyPrice, x.Subscription.StartsOn,
             x.Subscription.ExpiresOn, x.Subscription.GracePeriodEndsOn
@@ -151,7 +151,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             select user.Email).FirstOrDefaultAsync(ct);
         return new AdminRestaurantDetails(
             item.Id, item.Name, item.Slug, item.Description, AssetUrl.Normalize(item.LogoUrl), AssetUrl.Normalize(item.CoverImageUrl), item.Address, item.Phone,
-            item.Email, item.WebsiteUrl, item.InstagramUrl, item.Currency, item.DefaultLanguage, item.Type, item.Status,
+            item.Email, item.WebsiteUrl, item.InstagramUrl, item.Currency, item.DefaultLanguage, NormalizeEnabledLanguages(item.EnabledLanguages, item.DefaultLanguage), item.Type, item.Status,
             NormalizeThemeKey(item.ThemeKey, item.Type), ownerEmail,
             new AdminSubscriptionDetails(item.SubscriptionStatus, item.Plan, item.MonthlyPrice, item.StartsOn, item.ExpiresOn, item.GracePeriodEndsOn));
     }
@@ -193,7 +193,8 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             WebsiteUrl = request.WebsiteUrl,
             InstagramUrl = request.InstagramUrl,
             Currency = request.Currency.Trim().ToUpperInvariant(),
-            DefaultLanguage = request.DefaultLanguage.Trim().ToLowerInvariant()
+            DefaultLanguage = NormalizeDefaultLanguage(request.DefaultLanguage),
+            EnabledLanguages = NormalizeEnabledLanguages(request.EnabledLanguages, request.DefaultLanguage)
         };
         var themeColors = ThemeColors(request.ThemeKey);
         var plan = NormalizePlan(request.Plan);
@@ -233,7 +234,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         }
         x.Name = r.Name.Trim(); x.Description = r.Description; x.LogoUrl = AssetUrl.Normalize(r.LogoUrl); x.CoverImageUrl = AssetUrl.Normalize(r.CoverImageUrl);
         x.Address = r.Address; x.Phone = r.Phone; x.Email = r.Email; x.WebsiteUrl = r.WebsiteUrl; x.InstagramUrl = r.InstagramUrl;
-        x.Currency = r.Currency.ToUpperInvariant(); x.DefaultLanguage = r.DefaultLanguage.ToLowerInvariant(); x.Type = r.Type;
+        x.Currency = r.Currency.ToUpperInvariant(); x.DefaultLanguage = NormalizeDefaultLanguage(r.DefaultLanguage); x.EnabledLanguages = NormalizeEnabledLanguages(r.EnabledLanguages, r.DefaultLanguage); x.Type = r.Type;
         var themeColors = ThemeColors(r.ThemeKey);
         if (x.Theme is null) { x.Theme = new ThemeSettings { RestaurantId = x.Id, ThemeKey = r.ThemeKey, PrimaryColor = themeColors.Primary, AccentColor = themeColors.Accent }; }
         else { x.Theme.ThemeKey = r.ThemeKey; x.Theme.PrimaryColor = themeColors.Primary; x.Theme.AccentColor = themeColors.Accent; }
@@ -353,6 +354,29 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             _ => 29m
         };
 
+    private static readonly string[] SupportedLanguages = ["bs", "en", "de"];
+
+    private static string NormalizeDefaultLanguage(string? value)
+    {
+        var language = (value ?? "bs").Trim().ToLowerInvariant();
+        return SupportedLanguages.Contains(language) ? language : "bs";
+    }
+
+    private static string NormalizeEnabledLanguages(string? value, string? defaultLanguage)
+    {
+        var selected = (value ?? "bs,en")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => x.ToLowerInvariant())
+            .Where(SupportedLanguages.Contains)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        selected.Add("bs");
+        selected.Add("en");
+        selected.Add(NormalizeDefaultLanguage(defaultLanguage));
+
+        return string.Join(",", SupportedLanguages.Where(selected.Contains));
+    }
+
     private static readonly string[] SupportedThemes =
     [
         "classic-light", "premium-gold", "burgundy-dining", "mediterranean-blue", "olive-linen", "ocean-slate",
@@ -390,7 +414,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
     internal static OwnerRestaurantDetails ToOwnerDetails(Restaurant restaurant, OwnerMenuAnalytics? analytics = null) => new(
         restaurant.Id, restaurant.Name, restaurant.Slug, restaurant.Description, AssetUrl.Normalize(restaurant.LogoUrl), AssetUrl.Normalize(restaurant.CoverImageUrl),
         restaurant.Address, restaurant.Phone, restaurant.Email, restaurant.WebsiteUrl, restaurant.InstagramUrl,
-        restaurant.Currency, restaurant.DefaultLanguage, restaurant.Type, restaurant.Status,
+        restaurant.Currency, restaurant.DefaultLanguage, NormalizeEnabledLanguages(restaurant.EnabledLanguages, restaurant.DefaultLanguage), restaurant.Type, restaurant.Status,
         NormalizePlan(restaurant.Subscription?.Plan),
         new OwnerTheme(restaurant.Theme?.ThemeKey ?? NormalizeThemeKey(null, restaurant.Type), restaurant.Theme?.PrimaryColor ?? "#111827", restaurant.Theme?.AccentColor ?? "#84cc16", AssetUrl.Normalize(restaurant.Theme?.BackgroundImageUrl), restaurant.Theme?.FontFamily ?? "Inter"),
         restaurant.BusinessHours.OrderBy(x => x.DayOfWeek).Select(x => new OwnerBusinessHour(x.DayOfWeek, x.OpensAt, x.ClosesAt, x.IsClosed)).ToList(),

@@ -52,6 +52,7 @@ interface RestaurantForm {
   instagramUrl: string;
   currency: string;
   defaultLanguage: string;
+  enabledLanguages: string;
   themeKey: string;
   plan: string;
   monthlyPrice: number;
@@ -317,10 +318,20 @@ export class App {
   ownerSupportSuccess = '';
   supportForm: SupportForm = this.emptySupportForm();
   menuLanguage: MenuLanguage = 'bs';
-  readonly menuLanguageOptions: AppSelectOption[] = [
+  private readonly allMenuLanguageOptions: AppSelectOption[] = [
     { value: 'bs', label: 'BS' },
     { value: 'en', label: 'EN' },
     { value: 'de', label: 'DE' },
+  ];
+  readonly adminLanguageOptions: { value: MenuLanguage; label: string; hint: string; locked?: boolean }[] = [
+    { value: 'bs', label: 'Bosanski', hint: 'Glavni jezik menija', locked: true },
+    { value: 'en', label: 'Engleski', hint: 'Standardni drugi jezik', locked: true },
+    { value: 'de', label: 'Njemački', hint: 'Dodatni jezik za naplatu' },
+  ];
+  readonly defaultLanguageOptions: AppSelectOption[] = [
+    { value: 'bs', label: 'Bosanski' },
+    { value: 'en', label: 'Engleski' },
+    { value: 'de', label: 'Njemački' },
   ];
   imagePreviews: Partial<Record<UploadTarget, string>> = {};
   private pendingUploads: Partial<Record<UploadTarget, File>> = {};
@@ -355,6 +366,10 @@ export class App {
   get billingStatusOptions(): AppSelectOption[] { return [{ value: 'all', label: 'Svi statusi' }, ...this.subscriptionStatuses]; }
   get supportStatusFilterOptions(): AppSelectOption[] { return [{ value: 'all', label: 'Svi zahtjevi' }, ...this.supportStatusOptions]; }
   get canUseOwnerSupport(): boolean { return this.normalizePlan(this.ownerRestaurant?.plan ?? 'Start') !== 'Start'; }
+  get menuLanguageOptions(): AppSelectOption[] {
+    const enabled = this.parseEnabledLanguages(this.ownerRestaurant?.enabledLanguages ?? 'bs,en');
+    return this.allMenuLanguageOptions.filter((option) => enabled.includes(option.value as MenuLanguage));
+  }
   get restaurantFormThemeOptions(): AppSelectOption[] {
     return this.themesForGroup(this.themeGroupForEstablishmentType(this.restaurantForm.type))
       .map((theme) => ({ value: theme.id, label: theme.name }));
@@ -1126,7 +1141,7 @@ export class App {
             logoUrl: this.nullIfEmpty(form.logoUrl), coverImageUrl: this.nullIfEmpty(form.coverImageUrl),
             address: this.nullIfEmpty(form.address), phone: this.nullIfEmpty(form.phone), email: this.nullIfEmpty(form.email),
             websiteUrl: this.nullIfEmpty(form.websiteUrl), instagramUrl: this.nullIfEmpty(form.instagramUrl),
-            currency: form.currency.trim() || 'BAM', defaultLanguage: form.defaultLanguage.trim() || 'bs', type: form.type,
+            currency: form.currency.trim() || 'BAM', defaultLanguage: form.defaultLanguage.trim() || 'bs', enabledLanguages: form.enabledLanguages, type: form.type,
             themeKey: form.themeKey,
           }),
           this.adminRestaurantsService.updateOwnerAccess(form.id, {
@@ -1149,7 +1164,7 @@ export class App {
           coverImageUrl: this.nullIfEmpty(form.coverImageUrl), address: this.nullIfEmpty(form.address),
           phone: this.nullIfEmpty(form.phone), email: this.nullIfEmpty(form.email),
           websiteUrl: this.nullIfEmpty(form.websiteUrl), instagramUrl: this.nullIfEmpty(form.instagramUrl),
-          currency: form.currency.trim() || 'BAM', defaultLanguage: form.defaultLanguage.trim() || 'bs',
+          currency: form.currency.trim() || 'BAM', defaultLanguage: form.defaultLanguage.trim() || 'bs', enabledLanguages: form.enabledLanguages,
           plan: this.normalizePlan(form.plan), monthlyPrice: form.monthlyPrice,
           themeKey: form.themeKey,
         });
@@ -1617,7 +1632,7 @@ export class App {
         name: this.restaurant.name, description: this.ownerRestaurant!.description, logoUrl: (logoUrl ?? this.restaurant.logo) || null,
         coverImageUrl: (coverImageUrl ?? this.restaurant.cover) || null, address: this.restaurant.address || null, phone: this.restaurant.phone || null,
         email: this.ownerRestaurant!.email, websiteUrl: this.restaurant.website || null, instagramUrl: this.restaurant.instagram || null,
-        currency: this.ownerRestaurant!.currency, defaultLanguage: this.ownerRestaurant!.defaultLanguage, type: this.ownerRestaurant!.type,
+        currency: this.ownerRestaurant!.currency, defaultLanguage: this.ownerRestaurant!.defaultLanguage, enabledLanguages: this.ownerRestaurant!.enabledLanguages, type: this.ownerRestaurant!.type,
         themeKey: this.restaurant.theme,
       })),
       finalize(() => this.ownerSaving = false),
@@ -1724,8 +1739,34 @@ export class App {
     this.selectedCategory = 'all';
   }
   setMenuLanguage(language: MenuLanguage): void {
+    if (!this.menuLanguageOptions.some((option) => option.value === language)) {
+      this.menuLanguage = 'bs';
+      return;
+    }
     this.menuLanguage = language;
     if (this.ownerRestaurant) this.applyOwnerRestaurant(this.ownerRestaurant);
+  }
+
+  parseEnabledLanguages(value: string | null | undefined): MenuLanguage[] {
+    const allowed: MenuLanguage[] = ['bs', 'en', 'de'];
+    const selected = new Set((value ?? 'bs,en').split(',').map((item) => item.trim().toLowerCase()).filter(Boolean));
+    selected.add('bs');
+    selected.add('en');
+    return allowed.filter((language) => selected.has(language));
+  }
+
+  isRestaurantLanguageEnabled(language: MenuLanguage): boolean {
+    return this.parseEnabledLanguages(this.restaurantForm.enabledLanguages).includes(language);
+  }
+
+  toggleRestaurantLanguage(language: MenuLanguage, enabled: boolean): void {
+    if (language === 'bs' || language === 'en') return;
+    const selected = new Set(this.parseEnabledLanguages(this.restaurantForm.enabledLanguages));
+    if (enabled) selected.add(language);
+    else selected.delete(language);
+    selected.add('bs');
+    selected.add('en');
+    this.restaurantForm.enabledLanguages = (['bs', 'en', 'de'] as MenuLanguage[]).filter((item) => selected.has(item)).join(',');
   }
   localizedCategoryName(category: Category): string {
     const source = this.ownerRestaurant?.categories.find((item) => item.id === category.id);
@@ -1929,7 +1970,7 @@ export class App {
     return {
       id: null, name: '', slug: '', type: 'Restaurant', status: 'Active', ownerEmail: '', ownerPassword: '', trialDays: 30,
       description: '', logoUrl: '', coverImageUrl: '', address: '', phone: '', email: '', websiteUrl: '', instagramUrl: '',
-      currency: 'BAM', defaultLanguage: 'bs', themeKey: 'classic-light', plan: 'Start', monthlyPrice: 29, subscriptionStatus: 'Trial',
+      currency: 'BAM', defaultLanguage: 'bs', enabledLanguages: 'bs,en', themeKey: 'classic-light', plan: 'Start', monthlyPrice: 29, subscriptionStatus: 'Trial',
       startsOn: this.dateInputValue(today), expiresOn: this.dateInputValue(expires), gracePeriodEndsOn: '',
     };
   }
@@ -1940,7 +1981,7 @@ export class App {
       ownerEmail: item.ownerEmail ?? '', ownerPassword: '', trialDays: 30,
       description: item.description ?? '', logoUrl: item.logoUrl ?? '', coverImageUrl: item.coverImageUrl ?? '',
       address: item.address ?? '', phone: item.phone ?? '', email: item.email ?? '', websiteUrl: item.websiteUrl ?? '',
-      instagramUrl: item.instagramUrl ?? '', currency: item.currency, defaultLanguage: item.defaultLanguage, themeKey: item.themeKey,
+      instagramUrl: item.instagramUrl ?? '', currency: item.currency, defaultLanguage: item.defaultLanguage, enabledLanguages: item.enabledLanguages ?? 'bs,en', themeKey: item.themeKey,
       plan: this.normalizePlan(item.subscription.plan), monthlyPrice: item.subscription.monthlyPrice, subscriptionStatus: item.subscription.status, startsOn: item.subscription.startsOn,
       expiresOn: item.subscription.expiresOn, gracePeriodEndsOn: item.subscription.gracePeriodEndsOn ?? '',
     };
@@ -2095,6 +2136,9 @@ export class App {
 
   private applyOwnerRestaurant(restaurant: OwnerRestaurant): void {
     this.ownerRestaurant = { ...restaurant, businessHours: this.completeBusinessHours(restaurant.businessHours) };
+    if (!this.parseEnabledLanguages(restaurant.enabledLanguages).includes(this.menuLanguage)) {
+      this.menuLanguage = 'bs';
+    }
     const products: Product[] = restaurant.categories.flatMap((category) => category.items.map((item) => ({
       id: item.id, categoryId: item.categoryId, name: this.localizedValue(item.name, item.nameEn, item.nameDe), description: this.localizedValue(item.description ?? '', item.descriptionEn, item.descriptionDe), price: item.price,
       servingSize: item.servingSize,

@@ -547,6 +547,14 @@
 .plan-feature-box b { color: #0f172a; font-size: 13px; }
 .plan-feature-box span { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
 .plan-feature-box em { border-radius: 999px; background: #ecfccb; padding: 5px 8px; color: #3f6212; font-size: 11px; font-style: normal; font-weight: 800; }
+.language-access-box { display: grid; gap: 12px; border: 1px solid #dbe5ef; border-radius: 14px; background: #f8fafc; padding: 14px; }
+.language-access-box b { color: #0f172a; font-size: 13px; }
+.language-access-box p { margin-top: 3px; color: #64748b; font-size: 12px; font-weight: 650; }
+.language-access-list { display: grid; gap: 8px; }
+.language-access-list label { display: grid; grid-template-columns: auto 1fr; gap: 2px 9px; align-items: center; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; padding: 10px; cursor: pointer; }
+.language-access-list input { grid-row: 1 / span 2; width: 16px; height: 16px; accent-color: #84cc16; }
+.language-access-list span { color: #0f172a; font-size: 13px; font-weight: 850; }
+.language-access-list small { color: #64748b; font-size: 11px; font-weight: 700; }
 .check-label { display: flex; align-items: center; gap: 8px; align-self: center; font-size: 13px; font-weight: 600; }
 .check-label input { width: 16px; height: 16px; }
 .hours-editor { display: grid; gap: 8px; }

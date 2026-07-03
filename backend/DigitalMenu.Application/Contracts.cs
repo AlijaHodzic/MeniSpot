@@ -31,10 +31,11 @@ public sealed record CreateRestaurantRequest(
     string? InstagramUrl,
     string Currency,
     string DefaultLanguage,
+    string? EnabledLanguages,
     string? Plan,
     decimal? MonthlyPrice,
     string ThemeKey);
-public sealed record UpdateRestaurantRequest(string Name, string? Slug, string? Description, string? LogoUrl, string? CoverImageUrl, string? Address, string? Phone, string? Email, string? WebsiteUrl, string? InstagramUrl, string Currency, string DefaultLanguage, EstablishmentType Type, string ThemeKey);
+public sealed record UpdateRestaurantRequest(string Name, string? Slug, string? Description, string? LogoUrl, string? CoverImageUrl, string? Address, string? Phone, string? Email, string? WebsiteUrl, string? InstagramUrl, string Currency, string DefaultLanguage, string? EnabledLanguages, EstablishmentType Type, string ThemeKey);
 public sealed record UpdateOwnerAccessRequest(string Email, string? NewPassword);
 public sealed record SetSubscriptionRequest(SubscriptionStatus Status, string Plan, decimal MonthlyPrice, DateOnly StartsOn, DateOnly ExpiresOn, DateOnly? GracePeriodEndsOn);
 public sealed record ThemeRequest(string ThemeKey, string PrimaryColor, string AccentColor, string? BackgroundImageUrl, string FontFamily);
@@ -49,7 +50,7 @@ public sealed record SpecialOfferRequest(string Title, string? Description, stri
 public sealed record BusinessHourRequest(DayOfWeek DayOfWeek, TimeOnly? OpensAt, TimeOnly? ClosesAt, bool IsClosed);
 public sealed record RestaurantSummary(Guid Id, string Name, string Slug, EstablishmentType Type, string? LogoUrl, string? Address, RestaurantStatus Status, string Plan, SubscriptionStatus SubscriptionStatus, DateOnly ExpiresOn);
 public sealed record AdminSubscriptionDetails(SubscriptionStatus Status, string Plan, decimal MonthlyPrice, DateOnly StartsOn, DateOnly ExpiresOn, DateOnly? GracePeriodEndsOn);
-public sealed record AdminRestaurantDetails(Guid Id, string Name, string Slug, string? Description, string? LogoUrl, string? CoverImageUrl, string? Address, string? Phone, string? Email, string? WebsiteUrl, string? InstagramUrl, string Currency, string DefaultLanguage, EstablishmentType Type, RestaurantStatus Status, string ThemeKey, string? OwnerEmail, AdminSubscriptionDetails Subscription);
+public sealed record AdminRestaurantDetails(Guid Id, string Name, string Slug, string? Description, string? LogoUrl, string? CoverImageUrl, string? Address, string? Phone, string? Email, string? WebsiteUrl, string? InstagramUrl, string Currency, string DefaultLanguage, string EnabledLanguages, EstablishmentType Type, RestaurantStatus Status, string ThemeKey, string? OwnerEmail, AdminSubscriptionDetails Subscription);
 public sealed record AdminGrowthPoint(string Month, int Restaurants);
 public sealed record AdminStatusCount(string Status, int Count);
 public sealed record AdminRecentRestaurant(Guid Id, string Name, RestaurantStatus Status, string Plan, DateTimeOffset UpdatedAt);
@@ -71,7 +72,7 @@ public sealed record OwnerTheme(string ThemeKey, string PrimaryColor, string Acc
 public sealed record OwnerMenuViewPoint(DateOnly Date, string Label, int Views);
 public sealed record OwnerTopMenuItem(Guid ItemId, string Name, int Views);
 public sealed record OwnerMenuAnalytics(int TotalViews, int Last7DaysViews, int Last30DaysViews, IReadOnlyList<OwnerMenuViewPoint> WeeklyViews, IReadOnlyList<OwnerTopMenuItem> TopItems);
-public sealed record OwnerRestaurantDetails(Guid Id, string Name, string Slug, string? Description, string? LogoUrl, string? CoverImageUrl, string? Address, string? Phone, string? Email, string? WebsiteUrl, string? InstagramUrl, string Currency, string DefaultLanguage, EstablishmentType Type, RestaurantStatus Status, string Plan, OwnerTheme Theme, IReadOnlyList<OwnerBusinessHour> BusinessHours, IReadOnlyList<OwnerMenuCategory> Categories, IReadOnlyList<OwnerSpecialOffer> Offers, OwnerMenuAnalytics Analytics);
+public sealed record OwnerRestaurantDetails(Guid Id, string Name, string Slug, string? Description, string? LogoUrl, string? CoverImageUrl, string? Address, string? Phone, string? Email, string? WebsiteUrl, string? InstagramUrl, string Currency, string DefaultLanguage, string EnabledLanguages, EstablishmentType Type, RestaurantStatus Status, string Plan, OwnerTheme Theme, IReadOnlyList<OwnerBusinessHour> BusinessHours, IReadOnlyList<OwnerMenuCategory> Categories, IReadOnlyList<OwnerSpecialOffer> Offers, OwnerMenuAnalytics Analytics);
 public sealed record PublicMenu(OwnerRestaurantDetails Restaurant);
 
 public interface IAuthService

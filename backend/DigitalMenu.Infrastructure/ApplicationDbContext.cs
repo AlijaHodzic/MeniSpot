@@ -39,6 +39,8 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.Name).HasMaxLength(160);
             e.Property(x => x.Slug).HasMaxLength(100);
             e.Property(x => x.Currency).HasMaxLength(3);
+            e.Property(x => x.DefaultLanguage).HasMaxLength(5);
+            e.Property(x => x.EnabledLanguages).HasMaxLength(32).HasDefaultValue("bs,en");
             e.HasOne(x => x.Subscription).WithOne(x => x.Restaurant).HasForeignKey<Subscription>(x => x.RestaurantId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Theme).WithOne(x => x.Restaurant).HasForeignKey<ThemeSettings>(x => x.RestaurantId).OnDelete(DeleteBehavior.Cascade);
         });

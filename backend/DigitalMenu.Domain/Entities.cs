@@ -32,6 +32,7 @@ public sealed class Restaurant : Entity
     public string? InstagramUrl { get; set; }
     public string Currency { get; set; } = "BAM";
     public string DefaultLanguage { get; set; } = "bs";
+    public string EnabledLanguages { get; set; } = "bs,en";
     public EstablishmentType Type { get; set; }
     public RestaurantStatus Status { get; set; } = RestaurantStatus.Draft;
     public Subscription? Subscription { get; set; }
