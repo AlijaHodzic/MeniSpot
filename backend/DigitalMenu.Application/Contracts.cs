@@ -38,14 +38,14 @@ public sealed record UpdateRestaurantRequest(string Name, string? Slug, string? 
 public sealed record UpdateOwnerAccessRequest(string Email, string? NewPassword);
 public sealed record SetSubscriptionRequest(SubscriptionStatus Status, string Plan, decimal MonthlyPrice, DateOnly StartsOn, DateOnly ExpiresOn, DateOnly? GracePeriodEndsOn);
 public sealed record ThemeRequest(string ThemeKey, string PrimaryColor, string AccentColor, string? BackgroundImageUrl, string FontFamily);
-public sealed record CategoryRequest(string Name, string? Description, MenuCategoryType Type, int SortOrder, bool IsVisible);
-public sealed record MenuItemRequest(Guid CategoryId, string Name, string? Description, decimal Price, string? ServingSize, string? ImageUrl, string? Allergens, int SortOrder, bool IsVisible, bool IsAvailable, bool IsVegetarian, bool IsSpicy, bool IsFeatured);
+public sealed record CategoryRequest(string Name, string? Description, string? NameEn, string? DescriptionEn, string? NameDe, string? DescriptionDe, MenuCategoryType Type, int SortOrder, bool IsVisible);
+public sealed record MenuItemRequest(Guid CategoryId, string Name, string? Description, string? NameEn, string? DescriptionEn, string? NameDe, string? DescriptionDe, decimal Price, string? ServingSize, string? ImageUrl, string? Allergens, int SortOrder, bool IsVisible, bool IsAvailable, bool IsVegetarian, bool IsSpicy, bool IsFeatured);
 public sealed record GlobalDrinkSummary(Guid Id, string Name, string Category, string? Description, string? ImageUrl, string? ServingOptions, int SortOrder);
 public sealed record AdminGlobalDrink(Guid Id, string Name, string Slug, string Category, string? Description, string? ImageUrl, string? ServingOptions, int SortOrder, bool IsActive, DateTimeOffset UpdatedAt);
 public sealed record GlobalDrinkRequest(string Name, string? Slug, string Category, string? Description, string? ImageUrl, string? ServingOptions, int SortOrder, bool IsActive);
 public sealed record LibraryDrinkSelection(Guid DrinkId, string? ServingSize, decimal Price, bool IsVisible, bool IsAvailable);
 public sealed record AddLibraryDrinksRequest(Guid? CategoryId, IReadOnlyList<LibraryDrinkSelection> Drinks);
-public sealed record SpecialOfferRequest(string Title, string? Description, decimal? Price, decimal? OriginalPrice, string? ImageUrl, DateTimeOffset? StartsAt, DateTimeOffset? EndsAt, bool IsVisible, SpecialOfferKind Kind, string? Items);
+public sealed record SpecialOfferRequest(string Title, string? Description, string? TitleEn, string? DescriptionEn, string? ItemsEn, string? TitleDe, string? DescriptionDe, string? ItemsDe, decimal? Price, decimal? OriginalPrice, string? ImageUrl, DateTimeOffset? StartsAt, DateTimeOffset? EndsAt, bool IsVisible, SpecialOfferKind Kind, string? Items);
 public sealed record BusinessHourRequest(DayOfWeek DayOfWeek, TimeOnly? OpensAt, TimeOnly? ClosesAt, bool IsClosed);
 public sealed record RestaurantSummary(Guid Id, string Name, string Slug, EstablishmentType Type, string? LogoUrl, string? Address, RestaurantStatus Status, string Plan, SubscriptionStatus SubscriptionStatus, DateOnly ExpiresOn);
 public sealed record AdminSubscriptionDetails(SubscriptionStatus Status, string Plan, decimal MonthlyPrice, DateOnly StartsOn, DateOnly ExpiresOn, DateOnly? GracePeriodEndsOn);
@@ -54,7 +54,7 @@ public sealed record AdminGrowthPoint(string Month, int Restaurants);
 public sealed record AdminStatusCount(string Status, int Count);
 public sealed record AdminRecentRestaurant(Guid Id, string Name, RestaurantStatus Status, string Plan, DateTimeOffset UpdatedAt);
 public sealed record AdminThemeUsage(string ThemeKey, int Count);
-public sealed record AdminDashboardSummary(int TotalRestaurants, int ActiveRestaurants, int ActiveLicenses, int TrialLicenses, int ExpiringSoon, IReadOnlyList<AdminGrowthPoint> Growth, IReadOnlyList<AdminStatusCount> SubscriptionBreakdown, IReadOnlyList<AdminRecentRestaurant> RecentRestaurants, IReadOnlyList<AdminThemeUsage> ThemeUsage);
+public sealed record AdminDashboardSummary(int TotalRestaurants, int ActiveRestaurants, int ActiveLicenses, int TrialLicenses, int ExpiringSoon, int NewSupportRequests, int NewLeads, int RestaurantsMissingProducts, int RestaurantsMissingImages, IReadOnlyList<AdminGrowthPoint> Growth, IReadOnlyList<AdminStatusCount> SubscriptionBreakdown, IReadOnlyList<AdminRecentRestaurant> RecentRestaurants, IReadOnlyList<AdminThemeUsage> ThemeUsage);
 public sealed record BillingAccountSummary(Guid RestaurantId, string RestaurantName, string Slug, string Plan, decimal MonthlyPrice, string Currency, SubscriptionStatus Status, DateOnly ExpiresOn, DateOnly? GracePeriodEndsOn, DateOnly? LastPaidOn, decimal? LastPaymentAmount);
 public sealed record BillingMoneyTotal(string Currency, decimal Amount);
 public sealed record BillingOverview(IReadOnlyList<BillingMoneyTotal> MonthlyRecurringRevenue, IReadOnlyList<BillingMoneyTotal> PaidThisMonth, int OverdueCount, int ExpiringSoon, IReadOnlyList<BillingAccountSummary> Accounts);
@@ -63,13 +63,14 @@ public sealed record PaymentHistoryItem(Guid Id, decimal Amount, string Currency
 public sealed record SupportTicketSummary(Guid Id, Guid RestaurantId, string RestaurantName, string RestaurantSlug, string RestaurantPlan, string Title, SupportTicketType Type, SupportTicketPriority Priority, SupportTicketStatus Status, string Message, string? AttachmentUrl, string? AdminNote, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, DateTimeOffset? ResolvedAt);
 public sealed record CreateSupportTicketRequest(string Title, SupportTicketType Type, SupportTicketPriority Priority, string Message, string? AttachmentUrl);
 public sealed record UpdateSupportTicketRequest(SupportTicketStatus Status, string? AdminNote);
-public sealed record OwnerMenuItem(Guid Id, Guid CategoryId, Guid? GlobalDrinkId, string Name, string? Description, decimal Price, string? ServingSize, string? ImageUrl, string? Allergens, int SortOrder, bool IsVisible, bool IsAvailable, bool IsVegetarian, bool IsSpicy, bool IsFeatured);
-public sealed record OwnerMenuCategory(Guid Id, string Name, string? Description, MenuCategoryType Type, int SortOrder, bool IsVisible, IReadOnlyList<OwnerMenuItem> Items);
-public sealed record OwnerSpecialOffer(Guid Id, string Title, string? Description, decimal? Price, decimal? OriginalPrice, string? ImageUrl, DateTimeOffset? StartsAt, DateTimeOffset? EndsAt, bool IsVisible, SpecialOfferKind Kind, string? Items);
+public sealed record OwnerMenuItem(Guid Id, Guid CategoryId, Guid? GlobalDrinkId, string Name, string? Description, string? NameEn, string? DescriptionEn, string? NameDe, string? DescriptionDe, decimal Price, string? ServingSize, string? ImageUrl, string? Allergens, int SortOrder, bool IsVisible, bool IsAvailable, bool IsVegetarian, bool IsSpicy, bool IsFeatured);
+public sealed record OwnerMenuCategory(Guid Id, string Name, string? Description, string? NameEn, string? DescriptionEn, string? NameDe, string? DescriptionDe, MenuCategoryType Type, int SortOrder, bool IsVisible, IReadOnlyList<OwnerMenuItem> Items);
+public sealed record OwnerSpecialOffer(Guid Id, string Title, string? Description, string? TitleEn, string? DescriptionEn, string? ItemsEn, string? TitleDe, string? DescriptionDe, string? ItemsDe, decimal? Price, decimal? OriginalPrice, string? ImageUrl, DateTimeOffset? StartsAt, DateTimeOffset? EndsAt, bool IsVisible, SpecialOfferKind Kind, string? Items);
 public sealed record OwnerBusinessHour(DayOfWeek DayOfWeek, TimeOnly? OpensAt, TimeOnly? ClosesAt, bool IsClosed);
 public sealed record OwnerTheme(string ThemeKey, string PrimaryColor, string AccentColor, string? BackgroundImageUrl, string FontFamily);
 public sealed record OwnerMenuViewPoint(DateOnly Date, string Label, int Views);
-public sealed record OwnerMenuAnalytics(int TotalViews, int Last7DaysViews, IReadOnlyList<OwnerMenuViewPoint> WeeklyViews);
+public sealed record OwnerTopMenuItem(Guid ItemId, string Name, int Views);
+public sealed record OwnerMenuAnalytics(int TotalViews, int Last7DaysViews, int Last30DaysViews, IReadOnlyList<OwnerMenuViewPoint> WeeklyViews, IReadOnlyList<OwnerTopMenuItem> TopItems);
 public sealed record OwnerRestaurantDetails(Guid Id, string Name, string Slug, string? Description, string? LogoUrl, string? CoverImageUrl, string? Address, string? Phone, string? Email, string? WebsiteUrl, string? InstagramUrl, string Currency, string DefaultLanguage, EstablishmentType Type, RestaurantStatus Status, string Plan, OwnerTheme Theme, IReadOnlyList<OwnerBusinessHour> BusinessHours, IReadOnlyList<OwnerMenuCategory> Categories, IReadOnlyList<OwnerSpecialOffer> Offers, OwnerMenuAnalytics Analytics);
 public sealed record PublicMenu(OwnerRestaurantDetails Restaurant);
 
@@ -133,4 +134,9 @@ public interface ISupportTicketService
     Task<IReadOnlyList<SupportTicketSummary>> GetOwnerAsync(Guid restaurantId, CancellationToken cancellationToken);
     Task<SupportTicketSummary?> CreateAsync(Guid restaurantId, CreateSupportTicketRequest request, CancellationToken cancellationToken);
     Task<SupportTicketSummary?> UpdateAsync(Guid id, UpdateSupportTicketRequest request, CancellationToken cancellationToken);
+}
+
+public interface ILeadService
+{
+    Task CreateAsync(string businessName, string email, string? phone, string type, string? message, CancellationToken cancellationToken);
 }

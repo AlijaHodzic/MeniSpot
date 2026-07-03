@@ -49,6 +49,10 @@ export interface AdminDashboardSummary {
   activeLicenses: number;
   trialLicenses: number;
   expiringSoon: number;
+  newSupportRequests: number;
+  newLeads: number;
+  restaurantsMissingProducts: number;
+  restaurantsMissingImages: number;
   growth: { month: string; restaurants: number }[];
   subscriptionBreakdown: { status: string; count: number }[];
   recentRestaurants: { id: string; name: string; status: RestaurantStatus; plan: string; updatedAt: string }[];

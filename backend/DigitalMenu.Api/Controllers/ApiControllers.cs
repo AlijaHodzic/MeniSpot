@@ -99,7 +99,7 @@ public sealed record LeadRequest(
     string? Website);
 
 [Route("api/leads")]
-public sealed class LeadsController(IHttpClientFactory httpClientFactory, IConfiguration configuration) : ApiController
+public sealed class LeadsController(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILeadService leads) : ApiController
 {
     [HttpPost, AllowAnonymous]
     public async Task<ActionResult> Submit(LeadRequest request, CancellationToken ct)
@@ -114,17 +114,21 @@ public sealed class LeadsController(IHttpClientFactory httpClientFactory, IConfi
         if (businessName.Length < 2) return BadRequest();
         if (!email.Contains('@') || !email.Contains('.')) return BadRequest();
         if (string.IsNullOrWhiteSpace(type)) return BadRequest();
+        var phone = request.Phone?.Trim();
+        var message = request.Message?.Trim();
+
+        await leads.CreateAsync(businessName, email, phone, type, message, ct);
 
         if (IsResendConfigured())
         {
-            return await SendWithResendAsync(businessName, email, request.Phone?.Trim(), type, request.Message?.Trim(), ct)
+            return await SendWithResendAsync(businessName, email, phone, type, message, ct)
                 ? Ok()
-                : await SendWithFormspreeAsync(businessName, email, request.Phone?.Trim(), type, request.Message?.Trim(), ct)
+                : await SendWithFormspreeAsync(businessName, email, phone, type, message, ct)
                     ? Ok()
                     : Problem("Lead notification failed.", statusCode: StatusCodes.Status502BadGateway);
         }
 
-        return await SendWithFormspreeAsync(businessName, email, request.Phone?.Trim(), type, request.Message?.Trim(), ct)
+        return await SendWithFormspreeAsync(businessName, email, phone, type, message, ct)
             ? Ok()
             : Problem("Lead notification endpoint is not configured.", statusCode: StatusCodes.Status503ServiceUnavailable);
     }

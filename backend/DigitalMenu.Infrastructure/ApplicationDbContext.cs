@@ -24,7 +24,9 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<BusinessHour> BusinessHours => Set<BusinessHour>();
     public DbSet<SubscriptionPayment> SubscriptionPayments => Set<SubscriptionPayment>();
     public DbSet<MenuView> MenuViews => Set<MenuView>();
+    public DbSet<MenuItemView> MenuItemViews => Set<MenuItemView>();
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
+    public DbSet<Lead> Leads => Set<Lead>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -44,6 +46,8 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         {
             e.HasIndex(x => new { x.RestaurantId, x.SortOrder });
             e.Property(x => x.Name).HasMaxLength(120);
+            e.Property(x => x.NameEn).HasMaxLength(120);
+            e.Property(x => x.NameDe).HasMaxLength(120);
             e.Property(x => x.Type).HasDefaultValue(MenuCategoryType.Food);
             e.HasOne(x => x.Restaurant).WithMany(x => x.Categories).HasForeignKey(x => x.RestaurantId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -51,6 +55,8 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         {
             e.HasIndex(x => new { x.RestaurantId, x.CategoryId, x.SortOrder });
             e.Property(x => x.Name).HasMaxLength(160);
+            e.Property(x => x.NameEn).HasMaxLength(160);
+            e.Property(x => x.NameDe).HasMaxLength(160);
             e.Property(x => x.ServingSize).HasMaxLength(40);
             e.Property(x => x.Price).HasPrecision(12, 2);
             e.HasOne(x => x.Category).WithMany(x => x.Items).HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Cascade);
@@ -68,7 +74,11 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         builder.Entity<SpecialOffer>(e =>
         {
             e.Property(x => x.Title).HasMaxLength(160);
+            e.Property(x => x.TitleEn).HasMaxLength(160);
+            e.Property(x => x.TitleDe).HasMaxLength(160);
             e.Property(x => x.Items).HasMaxLength(2000);
+            e.Property(x => x.ItemsEn).HasMaxLength(2000);
+            e.Property(x => x.ItemsDe).HasMaxLength(2000);
             e.Property(x => x.Price).HasPrecision(12, 2);
             e.Property(x => x.OriginalPrice).HasPrecision(12, 2);
             e.HasOne(x => x.Restaurant).WithMany(x => x.SpecialOffers).HasForeignKey(x => x.RestaurantId).OnDelete(DeleteBehavior.Cascade);
@@ -93,6 +103,14 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.Source).HasMaxLength(40);
             e.HasOne(x => x.Restaurant).WithMany(x => x.MenuViews).HasForeignKey(x => x.RestaurantId).OnDelete(DeleteBehavior.Cascade);
         });
+        builder.Entity<MenuItemView>(e =>
+        {
+            e.HasIndex(x => new { x.RestaurantId, x.ViewedOn });
+            e.HasIndex(x => new { x.MenuItemId, x.ViewedOn });
+            e.Property(x => x.Source).HasMaxLength(40);
+            e.HasOne(x => x.Restaurant).WithMany(x => x.MenuItemViews).HasForeignKey(x => x.RestaurantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.MenuItem).WithMany(x => x.Views).HasForeignKey(x => x.MenuItemId).OnDelete(DeleteBehavior.Cascade);
+        });
         builder.Entity<SupportTicket>(e =>
         {
             e.HasIndex(x => new { x.RestaurantId, x.Status, x.CreatedAt });
@@ -101,6 +119,15 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.AttachmentUrl).HasMaxLength(500);
             e.Property(x => x.AdminNote).HasMaxLength(1500);
             e.HasOne(x => x.Restaurant).WithMany(x => x.SupportTickets).HasForeignKey(x => x.RestaurantId).OnDelete(DeleteBehavior.Cascade);
+        });
+        builder.Entity<Lead>(e =>
+        {
+            e.HasIndex(x => new { x.Status, x.CreatedAt });
+            e.Property(x => x.BusinessName).HasMaxLength(180);
+            e.Property(x => x.Email).HasMaxLength(180);
+            e.Property(x => x.Phone).HasMaxLength(80);
+            e.Property(x => x.Type).HasMaxLength(80);
+            e.Property(x => x.Message).HasMaxLength(3000);
         });
         builder.Entity<Subscription>().Property(x => x.MonthlyPrice).HasPrecision(12, 2);
         builder.Entity<ApplicationUser>().HasIndex(x => x.RestaurantId);

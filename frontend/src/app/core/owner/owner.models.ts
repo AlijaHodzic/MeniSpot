@@ -12,6 +12,10 @@ export interface OwnerMenuItem {
   globalDrinkId: string | null;
   name: string;
   description: string | null;
+  nameEn: string | null;
+  descriptionEn: string | null;
+  nameDe: string | null;
+  descriptionDe: string | null;
   price: number;
   servingSize: string | null;
   imageUrl: string | null;
@@ -28,6 +32,10 @@ export interface OwnerMenuCategory {
   id: string;
   name: string;
   description: string | null;
+  nameEn: string | null;
+  descriptionEn: string | null;
+  nameDe: string | null;
+  descriptionDe: string | null;
   type: MenuCategoryType;
   sortOrder: number;
   isVisible: boolean;
@@ -38,6 +46,12 @@ export interface OwnerSpecialOffer {
   id: string;
   title: string;
   description: string | null;
+  titleEn: string | null;
+  descriptionEn: string | null;
+  itemsEn: string | null;
+  titleDe: string | null;
+  descriptionDe: string | null;
+  itemsDe: string | null;
   price: number | null;
   originalPrice: number | null;
   imageUrl: string | null;
@@ -64,7 +78,9 @@ export interface OwnerMenuViewPoint {
 export interface OwnerMenuAnalytics {
   totalViews: number;
   last7DaysViews: number;
+  last30DaysViews: number;
   weeklyViews: OwnerMenuViewPoint[];
+  topItems: { itemId: string; name: string; views: number }[];
 }
 
 export interface OwnerRestaurant {
@@ -91,7 +107,7 @@ export interface OwnerRestaurant {
   analytics: OwnerMenuAnalytics;
 }
 
-export interface CategoryRequest { name: string; description: string | null; type: MenuCategoryType; sortOrder: number; isVisible: boolean }
+export interface CategoryRequest { name: string; description: string | null; nameEn: string | null; descriptionEn: string | null; nameDe: string | null; descriptionDe: string | null; type: MenuCategoryType; sortOrder: number; isVisible: boolean }
 export interface MenuItemRequest extends Omit<OwnerMenuItem, 'id' | 'globalDrinkId'> {}
 export interface SpecialOfferRequest extends Omit<OwnerSpecialOffer, 'id'> {}
 export interface GlobalDrinkSummary { id: string; name: string; category: string; description: string | null; imageUrl: string | null; servingOptions: string | null; sortOrder: number }

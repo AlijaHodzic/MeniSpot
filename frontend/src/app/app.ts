@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { concatMap, filter, finalize, forkJoin, Observable } from 'rxjs';
+import { concatMap, filter, finalize, forkJoin, Observable, of } from 'rxjs';
 import {
   LucideArrowLeft, LucideAward, LucideCalendar, LucideChefHat, LucideClock, LucideEdit2,
   LucideDownload, LucideEye, LucideEyeOff, LucideFlame, LucideGlobe, LucideLeaf, LucideLock, LucideLogIn, LucideLogOut, LucideMail,
@@ -12,7 +12,7 @@ import {
   LucidePower, LucideQrCode, LucideSearch, LucideShield, LucideSparkles,
   LucideStore, LucideSun, LucideTrash2, LucideTrendingUp, LucideUtensilsCrossed, LucideX,
 } from '@lucide/angular';
-import { AdminTab, AppView, BadgeType, Category, OwnerTab, Product, Restaurant, ThemeType } from './models';
+import { AdminTab, AppView, BadgeType, Category, DailyMenu, Offer, OwnerTab, Product, Restaurant, ThemeType } from './models';
 import { AuthService } from './core/auth/auth.service';
 import {
   AdminRestaurantDetails,
@@ -61,9 +61,9 @@ interface RestaurantForm {
   gracePeriodEndsOn: string;
 }
 
-interface CategoryForm { id: string | null; name: string; description: string; type: MenuCategoryType; sortOrder: number; isVisible: boolean }
-interface ProductForm { id: string | null; categoryId: string; globalDrinkId: string | null; name: string; description: string; price: number; servingSize: string; imageUrl: string; allergens: string; sortOrder: number; isVisible: boolean; isAvailable: boolean; isVegetarian: boolean; isSpicy: boolean; isFeatured: boolean }
-interface OfferForm { id: string | null; kind: SpecialOfferKind; title: string; description: string; price: number; originalPrice: number; imageUrl: string; startsAt: string; endsAt: string; isVisible: boolean; items: string }
+interface CategoryForm { id: string | null; name: string; description: string; nameEn: string; descriptionEn: string; nameDe: string; descriptionDe: string; type: MenuCategoryType; sortOrder: number; isVisible: boolean }
+interface ProductForm { id: string | null; categoryId: string; globalDrinkId: string | null; name: string; description: string; nameEn: string; descriptionEn: string; nameDe: string; descriptionDe: string; price: number; servingSize: string; imageUrl: string; allergens: string; sortOrder: number; isVisible: boolean; isAvailable: boolean; isVegetarian: boolean; isSpicy: boolean; isFeatured: boolean }
+interface OfferForm { id: string | null; kind: SpecialOfferKind; title: string; description: string; titleEn: string; descriptionEn: string; itemsEn: string; titleDe: string; descriptionDe: string; itemsDe: string; price: number; originalPrice: number; imageUrl: string; startsAt: string; endsAt: string; isVisible: boolean; items: string }
 interface AdminDrinkForm { id: string | null; name: string; slug: string; category: string; description: string; imageUrl: string; servingOptions: string; isByGlass: boolean; sortOrder: number; isActive: boolean }
 interface DrinkLibraryVariant { key: string; drink: GlobalDrinkSummary; servingSize: string | null }
 interface PasswordForm { currentPassword: string; newPassword: string; confirmPassword: string }
@@ -72,6 +72,8 @@ type ToastType = 'success' | 'error' | 'info';
 interface ToastMessage { id: number; type: ToastType; message: string }
 interface ConfirmDialog { title: string; message: string; confirmText: string; tone?: 'danger' | 'warning'; onConfirm: () => void }
 interface SupportForm { title: string; type: SupportTicketType; priority: SupportTicketPriority; message: string; attachmentUrl: string }
+type MenuLanguage = 'bs' | 'en' | 'de';
+type UploadTarget = 'product' | 'offer' | 'logo' | 'cover';
 
 type ThemeGroupId = 'restaurant' | 'cafe' | 'bar' | 'fast-food';
 interface ThemeOption { id: ThemeType; group: ThemeGroupId; name: string; description: string; colors: string[] }
@@ -314,6 +316,14 @@ export class App {
   ownerSupportUploading = false;
   ownerSupportSuccess = '';
   supportForm: SupportForm = this.emptySupportForm();
+  menuLanguage: MenuLanguage = 'bs';
+  readonly menuLanguageOptions: AppSelectOption[] = [
+    { value: 'bs', label: 'BS' },
+    { value: 'en', label: 'EN' },
+    { value: 'de', label: 'DE' },
+  ];
+  imagePreviews: Partial<Record<UploadTarget, string>> = {};
+  private pendingUploads: Partial<Record<UploadTarget, File>> = {};
   drinkLibrary: GlobalDrinkSummary[] = [];
   drinkLibraryLoading = false;
   drinkLibraryError = '';
@@ -388,6 +398,19 @@ export class App {
   get ownerWeeklyViews(): { label: string; views: number }[] { return this.ownerRestaurant?.analytics.weeklyViews ?? []; }
   get ownerTotalViews(): number { return this.ownerRestaurant?.analytics.totalViews ?? 0; }
   get ownerLast7DaysViews(): number { return this.ownerRestaurant?.analytics.last7DaysViews ?? 0; }
+  get ownerLast30DaysViews(): number { return this.ownerRestaurant?.analytics.last30DaysViews ?? 0; }
+  get ownerTopItems(): { itemId: string; name: string; views: number }[] { return this.ownerRestaurant?.analytics.topItems ?? []; }
+  get canUsePremiumAnalytics(): boolean { return this.normalizePlan(this.ownerRestaurant?.plan ?? 'Start') === 'Premium'; }
+  get adminTodoItems(): { label: string; value: number; hint: string; tab: AdminTab }[] {
+    const dashboard = this.adminDashboard;
+    return [
+      { label: 'Novi support zahtjevi', value: dashboard?.newSupportRequests ?? 0, hint: 'Zahtjevi vlasnika koji cekaju odgovor', tab: 'support' },
+      { label: 'Novi leadovi', value: dashboard?.newLeads ?? 0, hint: 'Upiti s landing stranice za kontakt', tab: 'dashboard' },
+      { label: 'Licence uskoro isticu', value: dashboard?.expiringSoon ?? 0, hint: 'Provjeri naplatu u narednih 14 dana', tab: 'billing' },
+      { label: 'Bez proizvoda', value: dashboard?.restaurantsMissingProducts ?? 0, hint: 'Objekti kojima meni nije popunjen', tab: 'restaurants' },
+      { label: 'Bez logo/cover slike', value: dashboard?.restaurantsMissingImages ?? 0, hint: 'Objekti kojima fali vizuelni identitet', tab: 'restaurants' },
+    ];
+  }
   get ownerViewsMaximum(): number {
     const peak = Math.max(0, ...this.ownerWeeklyViews.map((point) => point.views));
     return Math.max(10, Math.ceil(peak / 10) * 10);
@@ -916,8 +939,8 @@ export class App {
   }
 
   clearAdminDrinkImage(): void { this.adminDrinkForm.imageUrl = ''; }
-  clearProductImage(): void { this.productForm.imageUrl = ''; }
-  clearOfferImage(): void { this.offerForm.imageUrl = ''; }
+  clearProductImage(): void { this.clearPendingImage('product'); this.productForm.imageUrl = ''; }
+  clearOfferImage(): void { this.clearPendingImage('offer'); this.offerForm.imageUrl = ''; }
 
   private adminDrinkRequest(item: AdminGlobalDrink, changes: Partial<Pick<AdminGlobalDrink, 'category' | 'servingOptions' | 'sortOrder' | 'isActive'>>) {
     return {
@@ -956,7 +979,7 @@ export class App {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
-    const validationError = this.validateImageFile(file);
+    const validationError = this.validateImageFile(file!);
     if (validationError) {
       this.adminDrinkFormError = validationError;
       input.value = '';
@@ -1299,7 +1322,7 @@ export class App {
 
   openCategory(category?: OwnerMenuCategory): void {
     this.categoryForm = category
-      ? { id: category.id, name: category.name, description: category.description ?? '', type: category.type, sortOrder: category.sortOrder, isVisible: category.isVisible }
+      ? { id: category.id, name: category.name, description: category.description ?? '', nameEn: category.nameEn ?? '', descriptionEn: category.descriptionEn ?? '', nameDe: category.nameDe ?? '', descriptionDe: category.descriptionDe ?? '', type: category.type, sortOrder: category.sortOrder, isVisible: category.isVisible }
       : this.emptyCategoryForm();
     this.showCategoryModal = true;
   }
@@ -1309,6 +1332,8 @@ export class App {
     this.ownerSaving = true;
     this.ownerService.saveCategory(this.categoryForm.id, {
       name: this.categoryForm.name.trim(), description: this.nullIfEmpty(this.categoryForm.description),
+      nameEn: this.nullIfEmpty(this.categoryForm.nameEn), descriptionEn: this.nullIfEmpty(this.categoryForm.descriptionEn),
+      nameDe: this.nullIfEmpty(this.categoryForm.nameDe), descriptionDe: this.nullIfEmpty(this.categoryForm.descriptionDe),
       type: this.categoryForm.type, sortOrder: this.categoryForm.sortOrder, isVisible: this.categoryForm.isVisible,
     }).pipe(finalize(() => this.ownerSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
@@ -1324,7 +1349,7 @@ export class App {
   }
 
   toggleCategory(category: OwnerMenuCategory): void {
-    this.ownerService.saveCategory(category.id, { name: category.name, description: category.description, type: category.type, sortOrder: category.sortOrder, isVisible: !category.isVisible })
+    this.ownerService.saveCategory(category.id, { name: category.name, description: category.description, nameEn: category.nameEn, descriptionEn: category.descriptionEn, nameDe: category.nameDe, descriptionDe: category.descriptionDe, type: category.type, sortOrder: category.sortOrder, isVisible: !category.isVisible })
       .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: () => {
           this.loadOwnerRestaurant(true);
@@ -1359,6 +1384,7 @@ export class App {
   openProduct(product?: OwnerMenuItem): void {
     this.productForm = product ? {
       id: product.id, categoryId: product.categoryId, globalDrinkId: product.globalDrinkId, name: product.name, description: product.description ?? '', price: product.price, servingSize: product.servingSize ?? '',
+      nameEn: product.nameEn ?? '', descriptionEn: product.descriptionEn ?? '', nameDe: product.nameDe ?? '', descriptionDe: product.descriptionDe ?? '',
       imageUrl: product.globalDrinkId ? '' : product.imageUrl ?? '', allergens: product.allergens ?? '', sortOrder: product.sortOrder, isVisible: product.isVisible,
       isAvailable: product.isAvailable, isVegetarian: product.isVegetarian, isSpicy: product.isSpicy, isFeatured: product.isFeatured,
     } : this.emptyProductForm();
@@ -1368,12 +1394,14 @@ export class App {
   saveProduct(): void {
     if (!this.productForm.name.trim() || !this.productForm.categoryId) { this.ownerError = 'Naziv i kategorija proizvoda su obavezni.'; return; }
     this.ownerSaving = true;
-    this.ownerService.saveItem(this.productForm.id, {
+    this.uploadPendingImage('product').pipe(concatMap((url) => this.ownerService.saveItem(this.productForm.id, {
       categoryId: this.productForm.categoryId, name: this.productForm.name.trim(), description: this.nullIfEmpty(this.productForm.description),
-      price: this.productForm.price, servingSize: this.nullIfEmpty(this.productForm.servingSize), imageUrl: this.nullIfEmpty(this.productForm.imageUrl), allergens: this.nullIfEmpty(this.productForm.allergens),
+      nameEn: this.nullIfEmpty(this.productForm.nameEn), descriptionEn: this.nullIfEmpty(this.productForm.descriptionEn),
+      nameDe: this.nullIfEmpty(this.productForm.nameDe), descriptionDe: this.nullIfEmpty(this.productForm.descriptionDe),
+      price: this.productForm.price, servingSize: this.nullIfEmpty(this.productForm.servingSize), imageUrl: this.nullIfEmpty(url ?? this.productForm.imageUrl), allergens: this.nullIfEmpty(this.productForm.allergens),
       sortOrder: this.productForm.sortOrder, isVisible: this.productForm.isVisible, isAvailable: this.productForm.isAvailable,
       isVegetarian: this.productForm.isVegetarian, isSpicy: this.productForm.isSpicy, isFeatured: this.productForm.isFeatured,
-    }).pipe(finalize(() => this.ownerSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
+    })), finalize(() => this.ownerSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.showProductModal = false;
         this.loadOwnerRestaurant(true);
@@ -1440,7 +1468,9 @@ export class App {
     const source = this.ownerRestaurant?.categories.flatMap((category) => category.items).find((item) => item.id === product.id);
     if (!source) { product.available = !product.available; return; }
     this.ownerService.saveItem(source.id, {
-      categoryId: source.categoryId, name: source.name, description: source.description, price: source.price,
+      categoryId: source.categoryId, name: source.name, description: source.description,
+      nameEn: source.nameEn, descriptionEn: source.descriptionEn, nameDe: source.nameDe, descriptionDe: source.descriptionDe,
+      price: source.price,
       servingSize: source.servingSize, imageUrl: source.globalDrinkId ? null : source.imageUrl, allergens: source.allergens, sortOrder: source.sortOrder,
       isVisible: source.isVisible, isAvailable: !source.isAvailable, isVegetarian: source.isVegetarian, isSpicy: source.isSpicy, isFeatured: source.isFeatured,
     })
@@ -1478,6 +1508,8 @@ export class App {
   openOffer(kind: SpecialOfferKind, offer?: OwnerSpecialOffer): void {
     this.offerForm = offer ? {
       id: offer.id, kind: offer.kind, title: offer.title, description: offer.description ?? '', price: offer.price ?? 0,
+      titleEn: offer.titleEn ?? '', descriptionEn: offer.descriptionEn ?? '', itemsEn: offer.itemsEn ?? '',
+      titleDe: offer.titleDe ?? '', descriptionDe: offer.descriptionDe ?? '', itemsDe: offer.itemsDe ?? '',
       originalPrice: offer.originalPrice ?? 0, imageUrl: offer.imageUrl ?? '', startsAt: this.dateTimeInputValue(offer.startsAt),
       endsAt: this.dateTimeInputValue(offer.endsAt), isVisible: offer.isVisible, items: offer.items ?? '',
     } : this.emptyOfferForm(kind);
@@ -1487,12 +1519,15 @@ export class App {
   saveOffer(): void {
     if (!this.offerForm.title.trim()) { this.ownerError = 'Naziv ponude je obavezan.'; return; }
     this.ownerSaving = true;
-    this.ownerService.saveOffer(this.offerForm.id, {
-      title: this.offerForm.title.trim(), description: this.nullIfEmpty(this.offerForm.description), price: this.offerForm.price || null,
-      originalPrice: this.offerForm.originalPrice || null, imageUrl: this.nullIfEmpty(this.offerForm.imageUrl),
+    this.uploadPendingImage('offer').pipe(concatMap((url) => this.ownerService.saveOffer(this.offerForm.id, {
+      title: this.offerForm.title.trim(), description: this.nullIfEmpty(this.offerForm.description),
+      titleEn: this.nullIfEmpty(this.offerForm.titleEn), descriptionEn: this.nullIfEmpty(this.offerForm.descriptionEn), itemsEn: this.nullIfEmpty(this.offerForm.itemsEn),
+      titleDe: this.nullIfEmpty(this.offerForm.titleDe), descriptionDe: this.nullIfEmpty(this.offerForm.descriptionDe), itemsDe: this.nullIfEmpty(this.offerForm.itemsDe),
+      price: this.offerForm.price || null,
+      originalPrice: this.offerForm.originalPrice || null, imageUrl: this.nullIfEmpty(url ?? this.offerForm.imageUrl),
       startsAt: this.isoDateTime(this.offerForm.startsAt), endsAt: this.isoDateTime(this.offerForm.endsAt), isVisible: this.offerForm.isVisible,
       kind: this.offerForm.kind, items: this.nullIfEmpty(this.offerForm.items),
-    }).pipe(finalize(() => this.ownerSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
+    })), finalize(() => this.ownerSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.showOfferModal = false;
         this.loadOwnerRestaurant(true);
@@ -1557,13 +1592,17 @@ export class App {
   saveOwnerSettings(): void {
     if (!this.ownerRestaurant) return;
     this.ownerSaving = true;
-    this.ownerService.updateRestaurant({
-      name: this.restaurant.name, description: this.ownerRestaurant.description, logoUrl: this.restaurant.logo || null,
-      coverImageUrl: this.restaurant.cover || null, address: this.restaurant.address || null, phone: this.restaurant.phone || null,
-      email: this.ownerRestaurant.email, websiteUrl: this.restaurant.website || null, instagramUrl: this.restaurant.instagram || null,
-      currency: this.ownerRestaurant.currency, defaultLanguage: this.ownerRestaurant.defaultLanguage, type: this.ownerRestaurant.type,
-      themeKey: this.restaurant.theme,
-    }).pipe(finalize(() => this.ownerSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
+    forkJoin({ logoUrl: this.uploadPendingImage('logo'), coverImageUrl: this.uploadPendingImage('cover') }).pipe(
+      concatMap(({ logoUrl, coverImageUrl }) => this.ownerService.updateRestaurant({
+        name: this.restaurant.name, description: this.ownerRestaurant!.description, logoUrl: (logoUrl ?? this.restaurant.logo) || null,
+        coverImageUrl: (coverImageUrl ?? this.restaurant.cover) || null, address: this.restaurant.address || null, phone: this.restaurant.phone || null,
+        email: this.ownerRestaurant!.email, websiteUrl: this.restaurant.website || null, instagramUrl: this.restaurant.instagram || null,
+        currency: this.ownerRestaurant!.currency, defaultLanguage: this.ownerRestaurant!.defaultLanguage, type: this.ownerRestaurant!.type,
+        themeKey: this.restaurant.theme,
+      })),
+      finalize(() => this.ownerSaving = false),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
       next: () => {
         this.loadOwnerRestaurant(true);
         this.showToast('Postavke su sačuvane.');
@@ -1595,30 +1634,57 @@ export class App {
     const link = document.createElement('a'); link.href = this.ownerQrCode; link.download = `${this.ownerRestaurant.slug}-qr.png`; link.click();
   }
 
-  selectImage(event: Event, target: 'product' | 'offer' | 'logo' | 'cover'): void {
+  selectImage(event: Event, target: UploadTarget): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
+    this.stageImage(file, target);
+    input.value = '';
+  }
+
+  dropImage(event: DragEvent, target: UploadTarget): void {
+    event.preventDefault();
+    const file = event.dataTransfer?.files?.[0];
+    if (file) this.stageImage(file, target);
+  }
+
+  allowImageDrop(event: DragEvent): void {
+    event.preventDefault();
+  }
+
+  private stageImage(file: File, target: UploadTarget): void {
     const validationError = this.validateImageFile(file);
     if (validationError) {
       this.ownerError = validationError;
-      input.value = '';
       return;
     }
-    this.ownerSaving = true;
-    this.ownerService.uploadImage(file).pipe(finalize(() => { this.ownerSaving = false; input.value = ''; }), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: ({ url }) => {
-        if (target === 'product') this.productForm.imageUrl = url;
-        else if (target === 'offer') this.offerForm.imageUrl = url;
-        else if (target === 'logo') this.restaurant.logo = url;
-        else this.restaurant.cover = url;
-        this.showToast('Fotografija je učitana.');
-      },
-      error: (error: HttpErrorResponse) => {
-        this.ownerError = error.error?.title ?? 'Fotografija nije učitana. Maksimalna veličina je 5 MB.';
-        this.showToast('Fotografija nije učitana.', 'error');
-      },
-    });
+    const previous = this.imagePreviews[target];
+    if (previous?.startsWith('blob:')) URL.revokeObjectURL(previous);
+    const preview = URL.createObjectURL(file);
+    this.pendingUploads[target] = file;
+    this.imagePreviews[target] = preview;
+    if (target === 'product') this.productForm.imageUrl = preview;
+    else if (target === 'offer') this.offerForm.imageUrl = preview;
+    else if (target === 'logo') this.restaurant.logo = preview;
+    else this.restaurant.cover = preview;
+    this.showToast('Pregled fotografije je spreman. Sacuvaj da ostane u meniju.', 'info');
+  }
+
+  private uploadPendingImage(target: UploadTarget): Observable<string | null> {
+    const file = this.pendingUploads[target];
+    if (!file) return of(null);
+    return this.ownerService.uploadImage(file).pipe(concatMap(({ url }) => {
+      delete this.pendingUploads[target];
+      if (this.imagePreviews[target]?.startsWith('blob:')) URL.revokeObjectURL(this.imagePreviews[target]!);
+      delete this.imagePreviews[target];
+      return of(url);
+    }));
+  }
+
+  private clearPendingImage(target: UploadTarget): void {
+    if (this.imagePreviews[target]?.startsWith('blob:')) URL.revokeObjectURL(this.imagePreviews[target]!);
+    delete this.imagePreviews[target];
+    delete this.pendingUploads[target];
   }
 
   productsFor(categoryId: string): Product[] {
@@ -1630,12 +1696,46 @@ export class App {
       product.categoryId === categoryId &&
       product.available &&
       (this.selectedCategory === 'all' || product.categoryId === this.selectedCategory) &&
-      (!term || product.name.toLocaleLowerCase().includes(term) || product.description.toLocaleLowerCase().includes(term)),
+      (!term || this.localizedProductName(product).toLocaleLowerCase().includes(term) || this.localizedProductDescription(product).toLocaleLowerCase().includes(term)),
     );
   }
   selectPublicMenuSection(section: 'food' | 'drink'): void {
     this.publicMenuSection = section;
     this.selectedCategory = 'all';
+  }
+  setMenuLanguage(language: MenuLanguage): void {
+    this.menuLanguage = language;
+    if (this.ownerRestaurant) this.applyOwnerRestaurant(this.ownerRestaurant);
+  }
+  localizedCategoryName(category: Category): string {
+    const source = this.ownerRestaurant?.categories.find((item) => item.id === category.id);
+    if (!source) return category.name;
+    return this.localizedValue(source.name, source.nameEn, source.nameDe);
+  }
+  localizedProductName(product: Product): string {
+    const source = this.ownerItems.find((item) => item.id === product.id);
+    if (!source) return product.name;
+    return this.localizedValue(source.name, source.nameEn, source.nameDe);
+  }
+  localizedProductDescription(product: Product): string {
+    const source = this.ownerItems.find((item) => item.id === product.id);
+    if (!source) return product.description;
+    return this.localizedValue(source.description ?? '', source.descriptionEn, source.descriptionDe);
+  }
+  localizedOfferName(offer: DailyMenu | Offer): string {
+    const source = this.ownerRestaurant?.offers.find((item) => item.id === offer.id);
+    if (!source) return offer.name;
+    return this.localizedValue(source.title, source.titleEn, source.titleDe);
+  }
+  localizedOfferDescription(offer: Offer): string {
+    const source = this.ownerRestaurant?.offers.find((item) => item.id === offer.id);
+    if (!source) return offer.description;
+    return this.localizedValue(source.description ?? '', source.descriptionEn, source.descriptionDe);
+  }
+  localizedDailyItems(menu: DailyMenu): string[] {
+    const source = this.ownerRestaurant?.offers.find((item) => item.id === menu.id);
+    const text = this.localizedValue(source?.items ?? menu.items.join('\n'), source?.itemsEn, source?.itemsDe);
+    return text.split('\n').map((item) => item.trim()).filter(Boolean);
   }
 
   categoryName(categoryId: string): string {
@@ -1729,6 +1829,30 @@ export class App {
     link.href = dataUrl;
     link.download = `${item.slug}-qr.png`;
     link.click();
+  }
+
+  printRestaurantQr(item: AdminRestaurantSummary, size: 'A5' | 'A6'): void {
+    const qr = this.adminQrCodes[item.id];
+    if (!qr) return;
+    const win = window.open('', '_blank', 'width=720,height=900');
+    if (!win) return;
+    const logo = item.logoUrl || '/menispot-mark.png';
+    const url = this.publicMenuUrl(item);
+    win.document.write(`<!doctype html><html><head><title>${item.name} QR</title><style>
+      @page { size: ${size}; margin: 14mm; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: Inter, Arial, sans-serif; color: #111827; background: #f8fafc; }
+      .card { min-height: 100vh; display: grid; place-items: center; padding: 18mm; }
+      .inner { width: 100%; border: 1px solid #dbe3ef; border-radius: 28px; background: white; padding: 28px; text-align: center; box-shadow: 0 24px 70px rgba(15, 23, 42, .12); }
+      .logo { width: 78px; height: 78px; object-fit: cover; border-radius: 22px; margin-bottom: 18px; }
+      h1 { margin: 0 0 10px; font-size: 30px; line-height: 1.05; }
+      p { margin: 0; color: #475569; font-size: 15px; }
+      .qr { width: min(70vw, 280px); margin: 26px auto; display: block; }
+      .cta { display: inline-block; border-radius: 999px; background: #84cc16; color: #111827; padding: 12px 18px; font-weight: 800; letter-spacing: .02em; }
+      small { display: block; margin-top: 14px; color: #64748b; word-break: break-all; }
+      @media print { body { background: white; } .card { padding: 0; } .inner { box-shadow: none; } }
+    </style></head><body><main class="card"><section class="inner"><img class="logo" src="${logo}" alt=""><h1>${item.name}</h1><p>Digitalni meni je spreman za pregled.</p><img class="qr" src="${qr}" alt="QR"><span class="cta">Skeniraj meni</span><small>${url}</small></section></main><script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script></body></html>`);
+    win.document.close();
   }
 
   chartHeight(value: number, maximum: number): number {
@@ -1952,7 +2076,7 @@ export class App {
   private applyOwnerRestaurant(restaurant: OwnerRestaurant): void {
     this.ownerRestaurant = { ...restaurant, businessHours: this.completeBusinessHours(restaurant.businessHours) };
     const products: Product[] = restaurant.categories.flatMap((category) => category.items.map((item) => ({
-      id: item.id, categoryId: item.categoryId, name: item.name, description: item.description ?? '', price: item.price,
+      id: item.id, categoryId: item.categoryId, name: this.localizedValue(item.name, item.nameEn, item.nameDe), description: this.localizedValue(item.description ?? '', item.descriptionEn, item.descriptionDe), price: item.price,
       servingSize: item.servingSize,
       image: item.imageUrl || '/menispot-mark.png', available: item.isAvailable && item.isVisible,
       badges: [item.isVegetarian ? 'vegetarian' : null, item.isSpicy ? 'spicy' : null, item.isFeatured ? 'chefs-choice' : null].filter(Boolean) as BadgeType[],
@@ -1964,10 +2088,10 @@ export class App {
       website: restaurant.websiteUrl ?? '', instagram: restaurant.instagramUrl ?? '', cover: restaurant.coverImageUrl || fallbackCover,
       logo: restaurant.logoUrl || '/menispot-mark.png', status: restaurant.status === 'Active' ? 'active' : 'paused', subscription: 'basic',
       theme: restaurant.theme.themeKey as ThemeType, themeColor: restaurant.theme.accentColor,
-      categories: restaurant.categories.map((category) => ({ id: category.id, name: category.name, icon: category.type === 'Drink' ? '🥤' : '🍽', order: category.sortOrder, active: category.isVisible, type: category.type })),
+      categories: restaurant.categories.map((category) => ({ id: category.id, name: this.localizedValue(category.name, category.nameEn, category.nameDe), icon: category.type === 'Drink' ? '🥤' : '🍽', order: category.sortOrder, active: category.isVisible, type: category.type })),
       businessHours: this.completeBusinessHours(restaurant.businessHours).map((hour) => ({ day: this.dayLabel(hour.dayOfWeek), open: hour.opensAt?.slice(0, 5) ?? '', close: hour.closesAt?.slice(0, 5) ?? '', closed: hour.isClosed })),
-      dailyMenu: restaurant.offers.filter((offer) => offer.kind === 'DailyMenu' && offer.isVisible).map((offer) => ({ id: offer.id, name: offer.title, items: (offer.items ?? '').split('\n').map((item) => item.trim()).filter(Boolean), price: offer.price ?? 0, date: this.offerDateLabel(offer), active: offer.isVisible })),
-      offers: restaurant.offers.filter((offer) => offer.kind === 'Promotion' && offer.isVisible).map((offer) => ({ id: offer.id, name: offer.title, description: offer.description ?? '', originalPrice: offer.originalPrice ?? offer.price ?? 0, offerPrice: offer.price ?? 0, image: offer.imageUrl || fallbackCover, validUntil: offer.endsAt ? new Intl.DateTimeFormat('bs-BA').format(new Date(offer.endsAt)) : 'Trajna ponuda', active: offer.isVisible })),
+      dailyMenu: restaurant.offers.filter((offer) => offer.kind === 'DailyMenu' && offer.isVisible).map((offer) => ({ id: offer.id, name: this.localizedValue(offer.title, offer.titleEn, offer.titleDe), items: this.localizedValue(offer.items ?? '', offer.itemsEn, offer.itemsDe).split('\n').map((item) => item.trim()).filter(Boolean), price: offer.price ?? 0, date: this.offerDateLabel(offer), active: offer.isVisible })),
+      offers: restaurant.offers.filter((offer) => offer.kind === 'Promotion' && offer.isVisible).map((offer) => ({ id: offer.id, name: this.localizedValue(offer.title, offer.titleEn, offer.titleDe), description: this.localizedValue(offer.description ?? '', offer.descriptionEn, offer.descriptionDe), originalPrice: offer.originalPrice ?? offer.price ?? 0, offerPrice: offer.price ?? 0, image: offer.imageUrl || fallbackCover, validUntil: offer.endsAt ? new Intl.DateTimeFormat('bs-BA').format(new Date(offer.endsAt)) : 'Trajna ponuda', active: offer.isVisible })),
     };
     this.productMap[restaurant.id] = products;
     const drinkCategoryIds = new Set(restaurant.categories.filter((category) => category.type === 'Drink').map((category) => category.id));
@@ -2031,15 +2155,27 @@ export class App {
     return (r * 299 + g * 587 + b * 114) / 1000 < 128;
   }
 
-  private emptyCategoryForm(): CategoryForm { return { id: null, name: '', description: '', type: 'Food', sortOrder: (this.ownerCategories.at(-1)?.sortOrder ?? 0) + 1, isVisible: true }; }
-  private emptyProductForm(): ProductForm { return { id: null, categoryId: this.ownerCategories[0]?.id ?? '', globalDrinkId: null, name: '', description: '', price: 0, servingSize: '', imageUrl: '', allergens: '', sortOrder: this.ownerItems.length + 1, isVisible: true, isAvailable: true, isVegetarian: false, isSpicy: false, isFeatured: false }; }
-  private emptyOfferForm(kind: SpecialOfferKind): OfferForm { return { id: null, kind, title: '', description: '', price: 0, originalPrice: 0, imageUrl: '', startsAt: '', endsAt: '', isVisible: true, items: '' }; }
+  private localizedValue(base: string, english?: string | null, german?: string | null): string {
+    if (this.menuLanguage === 'en' && english?.trim()) return english.trim();
+    if (this.menuLanguage === 'de' && german?.trim()) return german.trim();
+    return base;
+  }
+
+  private emptyCategoryForm(): CategoryForm { return { id: null, name: '', description: '', nameEn: '', descriptionEn: '', nameDe: '', descriptionDe: '', type: 'Food', sortOrder: (this.ownerCategories.at(-1)?.sortOrder ?? 0) + 1, isVisible: true }; }
+  private emptyProductForm(): ProductForm { return { id: null, categoryId: this.ownerCategories[0]?.id ?? '', globalDrinkId: null, name: '', description: '', nameEn: '', descriptionEn: '', nameDe: '', descriptionDe: '', price: 0, servingSize: '', imageUrl: '', allergens: '', sortOrder: this.ownerItems.length + 1, isVisible: true, isAvailable: true, isVegetarian: false, isSpicy: false, isFeatured: false }; }
+  private emptyOfferForm(kind: SpecialOfferKind): OfferForm { return { id: null, kind, title: '', description: '', titleEn: '', descriptionEn: '', itemsEn: '', titleDe: '', descriptionDe: '', itemsDe: '', price: 0, originalPrice: 0, imageUrl: '', startsAt: '', endsAt: '', isVisible: true, items: '' }; }
   private dateTimeInputValue(value: string | null): string { return value ? new Date(value).toISOString().slice(0, 16) : ''; }
   private isoDateTime(value: string): string | null { return value ? new Date(value).toISOString() : null; }
   private offerRequestFromOffer(offer: OwnerSpecialOffer, isVisible = offer.isVisible): SpecialOfferRequest {
     return {
       title: offer.title,
       description: offer.description,
+      titleEn: offer.titleEn,
+      descriptionEn: offer.descriptionEn,
+      itemsEn: offer.itemsEn,
+      titleDe: offer.titleDe,
+      descriptionDe: offer.descriptionDe,
+      itemsDe: offer.itemsDe,
       price: offer.price,
       originalPrice: offer.originalPrice,
       imageUrl: offer.imageUrl,

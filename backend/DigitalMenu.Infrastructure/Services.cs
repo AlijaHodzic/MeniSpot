@@ -95,6 +95,8 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         var rows = await db.Restaurants.AsNoTracking().Where(x => x.Subscription != null).Select(x => new
         {
             x.Id, x.Name, x.Type, x.Status, x.CreatedAt, x.UpdatedAt,
+            x.LogoUrl, x.CoverImageUrl,
+            ProductCount = x.Categories.SelectMany(c => c.Items).Count(),
             Plan = x.Subscription!.Plan, SubscriptionStatus = x.Subscription.Status,
             x.Subscription.ExpiresOn, x.Subscription.GracePeriodEndsOn,
             ThemeKey = x.Theme != null ? x.Theme.ThemeKey : null
@@ -116,12 +118,18 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             .Select(x => new AdminRecentRestaurant(x.Id, x.Name, x.Status, NormalizePlan(x.Plan), x.UpdatedAt)).ToList();
         var themeUsage = rows.GroupBy(x => NormalizeThemeKey(x.ThemeKey, x.Type))
             .Select(x => new AdminThemeUsage(x.Key, x.Count())).OrderByDescending(x => x.Count).ToList();
+        var newSupport = await db.SupportTickets.AsNoTracking().CountAsync(x => x.Status == SupportTicketStatus.New, ct);
+        var newLeads = await db.Leads.AsNoTracking().CountAsync(x => x.Status == LeadStatus.New, ct);
         return new AdminDashboardSummary(
             rows.Count,
             rows.Count(x => x.Status == RestaurantStatus.Active),
             activeLicenses,
             rows.Count(x => x.SubscriptionStatus == SubscriptionStatus.Trial),
             rows.Count(x => x.ExpiresOn >= today && x.ExpiresOn <= today.AddDays(14)),
+            newSupport,
+            newLeads,
+            rows.Count(x => x.ProductCount == 0),
+            rows.Count(x => string.IsNullOrWhiteSpace(x.LogoUrl) || string.IsNullOrWhiteSpace(x.CoverImageUrl)),
             growth, breakdown, recent, themeUsage);
     }
 
@@ -386,35 +394,44 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         NormalizePlan(restaurant.Subscription?.Plan),
         new OwnerTheme(restaurant.Theme?.ThemeKey ?? NormalizeThemeKey(null, restaurant.Type), restaurant.Theme?.PrimaryColor ?? "#111827", restaurant.Theme?.AccentColor ?? "#84cc16", AssetUrl.Normalize(restaurant.Theme?.BackgroundImageUrl), restaurant.Theme?.FontFamily ?? "Inter"),
         restaurant.BusinessHours.OrderBy(x => x.DayOfWeek).Select(x => new OwnerBusinessHour(x.DayOfWeek, x.OpensAt, x.ClosesAt, x.IsClosed)).ToList(),
-        restaurant.Categories.OrderBy(x => x.SortOrder).Select(x => new OwnerMenuCategory(x.Id, x.Name, x.Description, x.Type, x.SortOrder, x.IsVisible,
-            x.Items.OrderBy(i => i.SortOrder).Select(i => new OwnerMenuItem(i.Id, i.CategoryId, i.GlobalDrinkId, i.Name, i.Description, i.Price, i.ServingSize, AssetUrl.Normalize(i.ImageUrl ?? (i.GlobalDrink == null ? null : i.GlobalDrink.ImageUrl)), i.Allergens, i.SortOrder, i.IsVisible, i.IsAvailable, i.IsVegetarian, i.IsSpicy, i.IsFeatured)).ToList())).ToList(),
-        restaurant.SpecialOffers.OrderByDescending(x => x.CreatedAt).Select(x => new OwnerSpecialOffer(x.Id, x.Title, x.Description, x.Price, x.OriginalPrice, AssetUrl.Normalize(x.ImageUrl), x.StartsAt, x.EndsAt, x.IsVisible, x.Kind, x.Items)).ToList(),
+        restaurant.Categories.OrderBy(x => x.SortOrder).Select(x => new OwnerMenuCategory(x.Id, x.Name, x.Description, x.NameEn, x.DescriptionEn, x.NameDe, x.DescriptionDe, x.Type, x.SortOrder, x.IsVisible,
+            x.Items.OrderBy(i => i.SortOrder).Select(i => new OwnerMenuItem(i.Id, i.CategoryId, i.GlobalDrinkId, i.Name, i.Description, i.NameEn, i.DescriptionEn, i.NameDe, i.DescriptionDe, i.Price, i.ServingSize, AssetUrl.Normalize(i.ImageUrl ?? (i.GlobalDrink == null ? null : i.GlobalDrink.ImageUrl)), i.Allergens, i.SortOrder, i.IsVisible, i.IsAvailable, i.IsVegetarian, i.IsSpicy, i.IsFeatured)).ToList())).ToList(),
+        restaurant.SpecialOffers.OrderByDescending(x => x.CreatedAt).Select(x => new OwnerSpecialOffer(x.Id, x.Title, x.Description, x.TitleEn, x.DescriptionEn, x.ItemsEn, x.TitleDe, x.DescriptionDe, x.ItemsDe, x.Price, x.OriginalPrice, AssetUrl.Normalize(x.ImageUrl), x.StartsAt, x.EndsAt, x.IsVisible, x.Kind, x.Items)).ToList(),
         analytics ?? EmptyMenuAnalytics());
 
     private async Task<OwnerMenuAnalytics> GetMenuAnalyticsAsync(Guid restaurantId, CancellationToken ct)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var start = today.AddDays(-6);
+        var monthStart = today.AddDays(-29);
         var rows = await db.MenuViews.AsNoTracking()
             .Where(x => x.RestaurantId == restaurantId && x.ViewedOn >= start && x.ViewedOn <= today)
             .GroupBy(x => x.ViewedOn)
             .Select(x => new { Date = x.Key, Views = x.Count() })
             .ToListAsync(ct);
         var total = await db.MenuViews.AsNoTracking().CountAsync(x => x.RestaurantId == restaurantId, ct);
+        var monthTotal = await db.MenuViews.AsNoTracking().CountAsync(x => x.RestaurantId == restaurantId && x.ViewedOn >= monthStart && x.ViewedOn <= today, ct);
+        var topItems = await db.MenuItemViews.AsNoTracking()
+            .Where(x => x.RestaurantId == restaurantId && x.ViewedOn >= monthStart && x.ViewedOn <= today)
+            .GroupBy(x => new { x.MenuItemId, x.MenuItem.Name })
+            .Select(x => new OwnerTopMenuItem(x.Key.MenuItemId, x.Key.Name, x.Count()))
+            .OrderByDescending(x => x.Views)
+            .Take(5)
+            .ToListAsync(ct);
         var weekly = Enumerable.Range(0, 7).Select(offset =>
         {
             var date = start.AddDays(offset);
             return new OwnerMenuViewPoint(date, DayLabel(date.DayOfWeek), rows.FirstOrDefault(x => x.Date == date)?.Views ?? 0);
         }).ToList();
-        return new OwnerMenuAnalytics(total, weekly.Sum(x => x.Views), weekly);
+        return new OwnerMenuAnalytics(total, weekly.Sum(x => x.Views), monthTotal, weekly, topItems);
     }
 
     private static OwnerMenuAnalytics EmptyMenuAnalytics() =>
-        new(0, 0, Enumerable.Range(0, 7).Select(offset =>
+        new(0, 0, 0, Enumerable.Range(0, 7).Select(offset =>
         {
             var date = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(offset - 6);
             return new OwnerMenuViewPoint(date, DayLabel(date.DayOfWeek), 0);
-        }).ToList());
+        }).ToList(), []);
 
     private static string DayLabel(DayOfWeek day) => day switch
     {
@@ -655,6 +672,23 @@ public sealed class SupportTicketService(ApplicationDbContext db) : ISupportTick
     };
 }
 
+public sealed class LeadService(ApplicationDbContext db) : ILeadService
+{
+    public async Task CreateAsync(string businessName, string email, string? phone, string type, string? message, CancellationToken ct)
+    {
+        db.Leads.Add(new Lead
+        {
+            BusinessName = businessName.Trim(),
+            Email = email.Trim(),
+            Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim(),
+            Type = type.Trim(),
+            Message = string.IsNullOrWhiteSpace(message) ? null : message.Trim(),
+            Status = LeadStatus.New
+        });
+        await db.SaveChangesAsync(ct);
+    }
+}
+
 public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManagementService
 {
     public async Task<MenuCategory?> SaveCategoryAsync(Guid rid, Guid? id, CategoryRequest r, CancellationToken ct)
@@ -662,7 +696,7 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
         if (string.IsNullOrWhiteSpace(r.Name)) throw new InvalidOperationException("Category name is required.");
         if (r.SortOrder < 0) throw new InvalidOperationException("Category sort order cannot be negative.");
         var x = id is null ? new MenuCategory { RestaurantId = rid, Name = r.Name } : await db.MenuCategories.FirstOrDefaultAsync(x => x.Id == id && x.RestaurantId == rid, ct);
-        if (x is null) return null; x.Name = r.Name.Trim(); x.Description = r.Description; x.Type = r.Type; x.SortOrder = r.SortOrder; x.IsVisible = r.IsVisible; x.UpdatedAt = DateTimeOffset.UtcNow;
+        if (x is null) return null; x.Name = r.Name.Trim(); x.Description = r.Description; x.NameEn = CleanOptional(r.NameEn); x.DescriptionEn = CleanOptional(r.DescriptionEn); x.NameDe = CleanOptional(r.NameDe); x.DescriptionDe = CleanOptional(r.DescriptionDe); x.Type = r.Type; x.SortOrder = r.SortOrder; x.IsVisible = r.IsVisible; x.UpdatedAt = DateTimeOffset.UtcNow;
         if (id is null) db.Add(x); await db.SaveChangesAsync(ct); return x;
     }
     public async Task<MenuItem?> SaveItemAsync(Guid rid, Guid? id, MenuItemRequest r, CancellationToken ct)
@@ -672,7 +706,7 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
         if (r.SortOrder < 0) throw new InvalidOperationException("Menu item sort order cannot be negative.");
         if (!await db.MenuCategories.AnyAsync(x => x.Id == r.CategoryId && x.RestaurantId == rid, ct)) return null;
         var x = id is null ? new MenuItem { RestaurantId = rid, CategoryId = r.CategoryId, Name = r.Name } : await db.MenuItems.FirstOrDefaultAsync(x => x.Id == id && x.RestaurantId == rid, ct);
-        if (x is null) return null; x.CategoryId = r.CategoryId; x.Name = r.Name.Trim(); x.Description = r.Description; x.Price = r.Price; x.ServingSize = NormalizeServingSize(r.ServingSize); x.ImageUrl = AssetUrl.Normalize(r.ImageUrl); x.Allergens = r.Allergens; x.SortOrder = r.SortOrder; x.IsVisible = r.IsVisible; x.IsAvailable = r.IsAvailable; x.IsVegetarian = r.IsVegetarian; x.IsSpicy = r.IsSpicy; x.IsFeatured = r.IsFeatured; x.UpdatedAt = DateTimeOffset.UtcNow;
+        if (x is null) return null; x.CategoryId = r.CategoryId; x.Name = r.Name.Trim(); x.Description = r.Description; x.NameEn = CleanOptional(r.NameEn); x.DescriptionEn = CleanOptional(r.DescriptionEn); x.NameDe = CleanOptional(r.NameDe); x.DescriptionDe = CleanOptional(r.DescriptionDe); x.Price = r.Price; x.ServingSize = NormalizeServingSize(r.ServingSize); x.ImageUrl = AssetUrl.Normalize(r.ImageUrl); x.Allergens = r.Allergens; x.SortOrder = r.SortOrder; x.IsVisible = r.IsVisible; x.IsAvailable = r.IsAvailable; x.IsVegetarian = r.IsVegetarian; x.IsSpicy = r.IsSpicy; x.IsFeatured = r.IsFeatured; x.UpdatedAt = DateTimeOffset.UtcNow;
         if (id is null) db.Add(x); await db.SaveChangesAsync(ct); return x;
     }
     public async Task<IReadOnlyList<GlobalDrinkSummary>> GetDrinkLibraryAsync(CancellationToken ct)
@@ -738,7 +772,7 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
         if (r.Price < 0 || r.OriginalPrice < 0) throw new InvalidOperationException("Offer prices cannot be negative.");
         if (r.EndsAt < r.StartsAt) throw new InvalidOperationException("Offer end cannot be before its start.");
         var x = id is null ? new SpecialOffer { RestaurantId = rid, Title = r.Title } : await db.SpecialOffers.FirstOrDefaultAsync(x => x.Id == id && x.RestaurantId == rid, ct);
-        if (x is null) return null; x.Title = r.Title.Trim(); x.Description = r.Description; x.Price = r.Price; x.OriginalPrice = r.OriginalPrice; x.ImageUrl = AssetUrl.Normalize(r.ImageUrl); x.StartsAt = r.StartsAt; x.EndsAt = r.EndsAt; x.IsVisible = r.IsVisible; x.Kind = r.Kind; x.Items = r.Items; x.UpdatedAt = DateTimeOffset.UtcNow;
+        if (x is null) return null; x.Title = r.Title.Trim(); x.Description = r.Description; x.TitleEn = CleanOptional(r.TitleEn); x.DescriptionEn = CleanOptional(r.DescriptionEn); x.ItemsEn = CleanOptional(r.ItemsEn); x.TitleDe = CleanOptional(r.TitleDe); x.DescriptionDe = CleanOptional(r.DescriptionDe); x.ItemsDe = CleanOptional(r.ItemsDe); x.Price = r.Price; x.OriginalPrice = r.OriginalPrice; x.ImageUrl = AssetUrl.Normalize(r.ImageUrl); x.StartsAt = r.StartsAt; x.EndsAt = r.EndsAt; x.IsVisible = r.IsVisible; x.Kind = r.Kind; x.Items = r.Items; x.UpdatedAt = DateTimeOffset.UtcNow;
         if (id is null) db.Add(x); await db.SaveChangesAsync(ct); return x;
     }
     public async Task<bool> SetThemeAsync(Guid rid, ThemeRequest r, CancellationToken ct)
@@ -758,6 +792,7 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
     public Task<bool> DeleteItemAsync(Guid rid, Guid id, CancellationToken ct) => DeleteAsync(db.MenuItems, rid, id, ct);
     public Task<bool> DeleteOfferAsync(Guid rid, Guid id, CancellationToken ct) => DeleteAsync(db.SpecialOffers, rid, id, ct);
     private static string? NormalizeServingSize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static string? CleanOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static string LibraryKey(Guid drinkId, string? servingSize) => $"{drinkId:N}:{NormalizeServingSize(servingSize)?.ToLowerInvariant() ?? string.Empty}";
     private async Task<bool> DeleteAsync<T>(DbSet<T> set, Guid rid, Guid id, CancellationToken ct) where T : Entity
     {
@@ -839,6 +874,12 @@ public sealed class PublicMenuService(ApplicationDbContext db) : IPublicMenuServ
             .FirstOrDefaultAsync(x => x.Slug == resolvedSlug && x.Status == RestaurantStatus.Active, ct);
         if (restaurant?.IsPubliclyAvailable(today) != true) return null;
         db.MenuViews.Add(new MenuView { RestaurantId = restaurant.Id, ViewedOn = today, Source = "menu" });
+        var itemViews = restaurant.Categories
+            .SelectMany(category => category.Items)
+            .Where(item => item.IsVisible && item.IsAvailable)
+            .Select(item => new MenuItemView { RestaurantId = restaurant.Id, MenuItemId = item.Id, ViewedOn = today, Source = "public-menu" })
+            .ToList();
+        if (itemViews.Count > 0) db.MenuItemViews.AddRange(itemViews);
         await db.SaveChangesAsync(ct);
         return new PublicMenu(RestaurantService.ToOwnerDetails(restaurant));
     }

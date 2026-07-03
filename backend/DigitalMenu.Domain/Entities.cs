@@ -16,6 +16,7 @@ public enum MenuCategoryType { Food, Drink }
 public enum SupportTicketType { MenuChange, Image, Theme, TechnicalProblem, Other }
 public enum SupportTicketPriority { Normal, Urgent }
 public enum SupportTicketStatus { New, InProgress, Resolved, Closed }
+public enum LeadStatus { New, Contacted, Won, Lost }
 
 public sealed class Restaurant : Entity
 {
@@ -40,6 +41,7 @@ public sealed class Restaurant : Entity
     public ICollection<BusinessHour> BusinessHours { get; set; } = [];
     public ICollection<SubscriptionPayment> Payments { get; set; } = [];
     public ICollection<MenuView> MenuViews { get; set; } = [];
+    public ICollection<MenuItemView> MenuItemViews { get; set; } = [];
     public ICollection<SupportTicket> SupportTickets { get; set; } = [];
 
     public bool IsPubliclyAvailable(DateOnly today) => Status == RestaurantStatus.Active && Subscription?.IsPubliclyAvailable(today) == true;
@@ -82,6 +84,26 @@ public sealed class MenuView : Entity
     public Restaurant Restaurant { get; set; } = null!;
 }
 
+public sealed class MenuItemView : Entity
+{
+    public Guid RestaurantId { get; set; }
+    public Guid MenuItemId { get; set; }
+    public DateOnly ViewedOn { get; set; }
+    public string? Source { get; set; }
+    public Restaurant Restaurant { get; set; } = null!;
+    public MenuItem MenuItem { get; set; } = null!;
+}
+
+public sealed class Lead : Entity
+{
+    public string BusinessName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? Phone { get; set; }
+    public string Type { get; set; } = string.Empty;
+    public string? Message { get; set; }
+    public LeadStatus Status { get; set; } = LeadStatus.New;
+}
+
 public sealed class SupportTicket : Entity
 {
     public Guid RestaurantId { get; set; }
@@ -112,6 +134,10 @@ public sealed class MenuCategory : Entity
     public Guid RestaurantId { get; set; }
     public required string Name { get; set; }
     public string? Description { get; set; }
+    public string? NameEn { get; set; }
+    public string? DescriptionEn { get; set; }
+    public string? NameDe { get; set; }
+    public string? DescriptionDe { get; set; }
     public MenuCategoryType Type { get; set; } = MenuCategoryType.Food;
     public int SortOrder { get; set; }
     public bool IsVisible { get; set; } = true;
@@ -126,6 +152,10 @@ public sealed class MenuItem : Entity
     public Guid? GlobalDrinkId { get; set; }
     public required string Name { get; set; }
     public string? Description { get; set; }
+    public string? NameEn { get; set; }
+    public string? DescriptionEn { get; set; }
+    public string? NameDe { get; set; }
+    public string? DescriptionDe { get; set; }
     public decimal Price { get; set; }
     public string? ServingSize { get; set; }
     public string? ImageUrl { get; set; }
@@ -138,6 +168,7 @@ public sealed class MenuItem : Entity
     public bool IsFeatured { get; set; }
     public MenuCategory Category { get; set; } = null!;
     public GlobalDrink? GlobalDrink { get; set; }
+    public ICollection<MenuItemView> Views { get; set; } = [];
 }
 
 public sealed class GlobalDrink : Entity
@@ -157,6 +188,12 @@ public sealed class SpecialOffer : Entity
     public Guid RestaurantId { get; set; }
     public required string Title { get; set; }
     public string? Description { get; set; }
+    public string? TitleEn { get; set; }
+    public string? DescriptionEn { get; set; }
+    public string? ItemsEn { get; set; }
+    public string? TitleDe { get; set; }
+    public string? DescriptionDe { get; set; }
+    public string? ItemsDe { get; set; }
     public decimal? Price { get; set; }
     public decimal? OriginalPrice { get; set; }
     public SpecialOfferKind Kind { get; set; }
