@@ -35,6 +35,94 @@
         <button class="auth-submit" type="submit" [disabled]="leadLoading">@if (leadLoading) { <span class="auth-spinner"></span> Slanje... } @else { Pošalji upit }</button>
       </form>
     </section>
+
+    <section class="landing-section mx-auto max-w-7xl px-5">
+      <div class="landing-section-head">
+        <span class="eyebrow">Kako radi</span>
+        <h2>Od QR koda do uredjenog menija za par minuta.</h2>
+        <p>MeniSpot pokriva javni meni za goste i vlasnicki panel za svakodnevno uredjivanje ponude.</p>
+      </div>
+      <div class="landing-steps">
+        <article><span>1</span><svg lucideQrCode [size]="22"></svg><h3>Gost skenira QR</h3><p>Meni se otvara direktno u browseru, bez instaliranja aplikacije.</p></article>
+        <article><span>2</span><svg lucideUtensilsCrossed [size]="22"></svg><h3>Vlasnik mijenja ponudu</h3><p>Cijene, slike, kategorije, dnevni meni i akcije se uredjuju iz panela.</p></article>
+        <article><span>3</span><svg lucideTrendingUp [size]="22"></svg><h3>Meni ostaje azuran</h3><p>Nema stampanja novih menija svaki put kada se promijeni cijena ili ponuda.</p></article>
+      </div>
+    </section>
+
+    <section class="landing-section landing-audience mx-auto max-w-7xl px-5">
+      <div class="landing-section-head">
+        <span class="eyebrow">Za koga je</span>
+        <h2>Jedna platforma za vise tipova objekata.</h2>
+      </div>
+      <div class="audience-grid">
+        <article><svg lucideChefHat [size]="24"></svg><h3>Restorani</h3><p>Dnevni meni, jela, ponude i elegantne teme za ozbiljniji nastup.</p></article>
+        <article><svg lucideStore [size]="24"></svg><h3>Kafici i barovi</h3><p>Pica, topli napici, kokteli, cjenovnik i brze izmjene bez cekanja dizajnera.</p></article>
+        <article><svg lucideFlame [size]="24"></svg><h3>Fast food</h3><p>Brze akcije, istaknuti proizvodi i teme koje bolje nose pizzu, burgere i grill.</p></article>
+      </div>
+    </section>
+
+    <section class="landing-section landing-demo mx-auto max-w-7xl px-5">
+      <div>
+        <span class="eyebrow">Demo iskustvo</span>
+        <h2>Pogledaj kako gost vidi meni.</h2>
+        <p>Demo prikazuje javni meni, dnevnu ponudu, posebne akcije, kategorije i pretragu proizvoda.</p>
+      </div>
+      <button class="primary-button" type="button" (click)="openDemoMenu()"><svg lucideEye [size]="17"></svg> Otvori demo meni</button>
+    </section>
+
+    <section class="landing-section mx-auto max-w-7xl px-5">
+      <div class="landing-section-head">
+        <span class="eyebrow">Teme</span>
+        <h2>Izgled menija se prilagodjava objektu.</h2>
+        <p>Restoran, kafic, bar ili fast food mogu imati drugaciji stil bez dodatnog razvoja.</p>
+      </div>
+      <div class="theme-preview-grid">
+        <article><div><i style="background:#111827"></i><i style="background:#c8a96e"></i><i style="background:#ffffff"></i></div><h3>Premium Gold</h3><p>Elegantna tamna tema za restorane.</p></article>
+        <article><div><i style="background:#fff7fb"></i><i style="background:#db2777"></i><i style="background:#ffffff"></i></div><h3>Soft Pastel</h3><p>Meksi izgled za kafice i brunch.</p></article>
+        <article><div><i style="background:#09090b"></i><i style="background:#22d3ee"></i><i style="background:#18181b"></i></div><h3>Neon Night</h3><p>Tamna varijanta za barove i klubove.</p></article>
+        <article><div><i style="background:#fff7ed"></i><i style="background:#f97316"></i><i style="background:#ffffff"></i></div><h3>Warm Orange</h3><p>Energeticna tema za fast food.</p></article>
+      </div>
+    </section>
+
+    <section class="landing-section mx-auto max-w-7xl px-5" id="cijene">
+      <div class="landing-section-head">
+        <span class="eyebrow">Cijene</span>
+        <h2>Jednostavna mjesecna pretplata po objektu.</h2>
+        <p>Probni period se moze aktivirati prije placanja. Unos postojeceg menija se po potrebi naplacuje jednokratno.</p>
+      </div>
+      <div class="pricing-grid">
+        <article>
+          <h3>Start</h3>
+          <p class="price">39 KM <span>/ mjesec</span></p>
+          <ul><li>QR digitalni meni</li><li>Proizvodi, kategorije i slike</li><li>Dnevni meni i posebne ponude</li><li>Osnovne teme</li></ul>
+        </article>
+        <article class="featured-plan">
+          <span class="plan-badge">Najbolji izbor</span>
+          <h3>Pro</h3>
+          <p class="price">59 KM <span>/ mjesec</span></p>
+          <ul><li>Sve iz Start paketa</li><li>Vise tema po tipu objekta</li><li>Biblioteka pica</li><li>Prioritetna pomoc kod izmjena</li></ul>
+        </article>
+        <article>
+          <h3>Premium</h3>
+          <p class="price">89 KM <span>/ mjesec</span></p>
+          <ul><li>Sve iz Pro paketa</li><li>Personalizacija izgleda</li><li>Pomoc oko sezonskih ponuda</li><li>Naprednija priprema sadrzaja</li></ul>
+        </article>
+      </div>
+      <p class="pricing-note">Preporuka: pocetno podesavanje i unos kompletnog menija naplatiti 49-99 KM jednokratno, ili pokloniti prvim klijentima kao promociju.</p>
+    </section>
+
+    <section class="landing-section landing-faq mx-auto max-w-7xl px-5">
+      <div class="landing-section-head">
+        <span class="eyebrow">FAQ</span>
+        <h2>Najcesca pitanja prije aktivacije.</h2>
+      </div>
+      <div class="faq-grid">
+        <article><h3>Da li gost mora instalirati aplikaciju?</h3><p>Ne. Gost skenira QR kod i meni se otvara odmah u browseru.</p></article>
+        <article><h3>Ko mijenja cijene i proizvode?</h3><p>Vlasnik dobija pristup panelu i moze sam mijenjati ponudu kad god zeli.</p></article>
+        <article><h3>Moze li meni imati slike?</h3><p>Da. Slike se uploaduju kroz panel i automatski optimizuju za web.</p></article>
+        <article><h3>Sta ako restoran zeli poseban izgled?</h3><p>Moze se odabrati tema po tipu objekta, a Premium pokriva dodatno prilagodjavanje.</p></article>
+      </div>
+    </section>
   </main>
 }
 @if (view === 'auth-login') {

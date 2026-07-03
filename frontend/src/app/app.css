@@ -34,6 +34,36 @@
 .lead-card input:focus, .lead-card select:focus, .lead-card textarea:focus { border-color: var(--menispot-green); box-shadow: 0 0 0 4px rgba(132,204,22,.12); }
 .lead-honeypot { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
 .lead-span { grid-column: 1 / -1; }
+.landing-section { padding-top: clamp(44px,7vw,86px); padding-bottom: clamp(44px,7vw,86px); }
+.landing-section-head { max-width: 720px; margin-bottom: 28px; }
+.landing-section-head h2, .landing-demo h2 { margin: 8px 0 10px; font-family: 'Outfit',sans-serif; font-size: clamp(30px,4vw,48px); font-weight: 760; line-height: 1.04; letter-spacing: -.035em; }
+.landing-section-head p, .landing-demo p { max-width: 640px; margin: 0; color: #64748b; font-size: 16px; line-height: 1.7; }
+.landing-steps, .audience-grid, .theme-preview-grid, .pricing-grid, .faq-grid { display: grid; gap: 16px; }
+.landing-steps { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.audience-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.theme-preview-grid { grid-template-columns: repeat(4,minmax(0,1fr)); }
+.pricing-grid { grid-template-columns: repeat(3,minmax(0,1fr)); align-items: stretch; }
+.faq-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.landing-steps article, .audience-grid article, .theme-preview-grid article, .pricing-grid article, .faq-grid article { border: 1px solid #dfe7f1; border-radius: 18px; background: rgba(255,255,255,.92); padding: 24px; box-shadow: 0 14px 42px rgba(15,23,42,.06); }
+.landing-steps article { position: relative; min-height: 220px; }
+.landing-steps article > span { position: absolute; top: 18px; right: 18px; color: #cbd5e1; font-family: 'Outfit',sans-serif; font-size: 42px; font-weight: 800; line-height: 1; }
+.landing-steps svg, .audience-grid svg { display: grid; width: 46px; height: 46px; margin-bottom: 20px; border-radius: 14px; background: #f7fee7; padding: 11px; color: #65a30d; }
+.landing-steps h3, .audience-grid h3, .theme-preview-grid h3, .pricing-grid h3, .faq-grid h3 { margin: 0 0 9px; font-family: 'Outfit',sans-serif; font-size: 20px; font-weight: 740; letter-spacing: -.015em; }
+.landing-steps p, .audience-grid p, .theme-preview-grid p, .pricing-grid li, .faq-grid p { margin: 0; color: #64748b; font-size: 14px; line-height: 1.65; }
+.landing-demo { display: flex; align-items: center; justify-content: space-between; gap: 24px; border: 1px solid #d9e8c5; border-radius: 26px; background: linear-gradient(135deg,#f7fee7,#ffffff 62%); padding: clamp(26px,4vw,42px); box-shadow: 0 20px 60px rgba(101,163,13,.09); }
+.landing-demo .primary-button { min-height: 50px; padding-inline: 18px; white-space: nowrap; }
+.theme-preview-grid article div { display: flex; gap: 8px; margin-bottom: 18px; }
+.theme-preview-grid i { display: block; width: 48px; height: 48px; border: 1px solid rgba(15,23,42,.1); border-radius: 14px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.42); }
+.pricing-grid article { position: relative; display: flex; min-height: 360px; flex-direction: column; }
+.featured-plan { border-color: #84cc16 !important; transform: translateY(-8px); box-shadow: 0 24px 70px rgba(101,163,13,.16) !important; }
+.plan-badge { align-self: flex-start; border-radius: 999px; background: #84cc16; padding: 7px 10px; color: #17230a; font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.price { margin: 10px 0 18px; color: #111827; font-family: 'Outfit',sans-serif; font-size: 42px; font-weight: 800; letter-spacing: -.04em; }
+.price span { color: #64748b; font-size: 15px; font-weight: 700; letter-spacing: 0; }
+.pricing-grid ul { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.pricing-grid li { position: relative; padding-left: 20px; }
+.pricing-grid li::before { position: absolute; top: .55em; left: 0; width: 7px; height: 7px; border-radius: 999px; background: #84cc16; content: ""; }
+.pricing-note { margin: 18px 0 0; border: 1px solid #dbe5ef; border-radius: 16px; background: rgba(255,255,255,.7); padding: 16px 18px; color: #475569; font-size: 14px; line-height: 1.65; }
+.landing-faq { padding-bottom: 110px; }
 
 .stat-icon { display: grid; width: 48px; height: 48px; margin-bottom: 22px; place-items: center; border-radius: 14px; }
 
@@ -521,6 +551,9 @@
 .hours-editor-row input[type="time"] { min-width: 0; border: 1px solid #dbe3eb; border-radius: 9px; padding: 8px; }
 
 @media (max-width: 1100px) {
+  .theme-preview-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .pricing-grid { grid-template-columns: 1fr; }
+  .featured-plan { transform: none; }
   .stat-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .product-admin-grid { grid-template-columns: repeat(auto-fill,minmax(190px,1fr)); }
   .restaurant-table article { grid-template-columns: 48px minmax(160px,1fr) auto auto minmax(220px,auto); }
@@ -536,6 +569,9 @@
   .landing-copy p { margin: 0 auto; }
   .landing-actions, .landing-proof { justify-content: center; }
   .lead-card { max-width: 620px; margin: 0 auto; }
+  .landing-steps, .audience-grid, .faq-grid { grid-template-columns: 1fr; }
+  .landing-demo { align-items: flex-start; flex-direction: column; }
+  .landing-demo .primary-button { width: 100%; }
   .app-shell .main-panel, .sidebar-collapsed .main-panel { padding-left: 0; }
   .sidebar-collapsed .sidebar-brand { justify-content: flex-start; padding: 0 20px; }
   .sidebar-collapsed .sidebar-brand-text, .sidebar-collapsed .nav-label { width: auto; opacity: 1; }
@@ -562,6 +598,10 @@
   .landing-header .brand-type strong { font-size: 25px; }
   .landing-hero { padding-top: 34px; }
   .landing-copy h1 { font-size: 44px; }
+  .landing-section { padding-top: 38px; padding-bottom: 38px; }
+  .theme-preview-grid { grid-template-columns: 1fr; }
+  .landing-steps article, .audience-grid article, .theme-preview-grid article, .pricing-grid article, .faq-grid article { padding: 20px; }
+  .price { font-size: 36px; }
   .landing-actions { flex-direction: column; }
   .landing-actions .primary-button, .landing-actions .secondary-button { width: 100%; }
   .landing-proof span { flex: 1 1 100%; justify-content: center; }
