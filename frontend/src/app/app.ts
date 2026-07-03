@@ -263,6 +263,7 @@ export class App {
   adminRestaurantsError = '';
   adminRestaurantSearch = '';
   showRestaurantModal = false;
+  restaurantEditorMode: 'none' | 'create' | 'edit' = 'none';
   restaurantModalLoading = false;
   restaurantSaving = false;
   restaurantImageUploading: 'logo' | 'cover' | null = null;
@@ -1088,19 +1089,33 @@ export class App {
   }
 
   openCreateRestaurant(): void {
+    void this.router.navigate(['/admin', 'restaurants', 'new']);
+  }
+
+  private prepareCreateRestaurant(): void {
+    if (this.restaurantEditorMode === 'create') return;
     this.restaurantForm = this.emptyRestaurantForm();
     this.restaurantFormError = '';
     this.restaurantFormSuccess = '';
-    this.showRestaurantModal = true;
+    this.restaurantModalLoading = false;
+    this.restaurantEditorMode = 'create';
+    this.showRestaurantModal = false;
   }
 
   openEditRestaurant(item: AdminRestaurantSummary): void {
-    this.restaurantForm = { ...this.emptyRestaurantForm(), id: item.id, name: item.name, slug: item.slug, type: item.type };
-    this.showRestaurantModal = true;
+    void this.router.navigate(['/admin', 'restaurants', item.id, 'edit']);
+  }
+
+  private prepareEditRestaurant(restaurantId: string): void {
+    if (this.restaurantEditorMode === 'edit' && this.restaurantForm.id === restaurantId && !this.restaurantModalLoading) return;
+    const summary = this.adminRestaurants.find((item) => item.id === restaurantId);
+    this.restaurantForm = { ...this.emptyRestaurantForm(), id: restaurantId, name: summary?.name ?? '', slug: summary?.slug ?? '', type: summary?.type ?? 'Restaurant' };
+    this.showRestaurantModal = false;
+    this.restaurantEditorMode = 'edit';
     this.restaurantModalLoading = true;
     this.restaurantFormError = '';
     this.restaurantFormSuccess = '';
-    this.adminRestaurantsService.get(item.id)
+    this.adminRestaurantsService.get(restaurantId)
       .pipe(finalize(() => this.restaurantModalLoading = false), takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (details) => this.restaurantForm = this.formFromDetails(details),
@@ -1110,9 +1125,11 @@ export class App {
 
   closeRestaurantModal(): void {
     if (this.restaurantSaving || this.restaurantImageUploading) return;
+    this.restaurantEditorMode = 'none';
     this.showRestaurantModal = false;
     this.restaurantFormError = '';
     this.restaurantFormSuccess = '';
+    void this.router.navigate(['/admin', 'restaurants']);
   }
 
   syncRestaurantSlug(): void {
@@ -1177,6 +1194,8 @@ export class App {
           this.showToast('Nova šifra je uspješno postavljena.');
         } else {
           this.showRestaurantModal = false;
+          this.restaurantEditorMode = 'none';
+          void this.router.navigate(['/admin', 'restaurants']);
           this.showToast(form.id ? 'Restoran je sačuvan.' : 'Restoran je kreiran.');
         }
         this.loadAdminRestaurants(true);
@@ -1934,6 +1953,14 @@ export class App {
       this.view = 'super-admin';
       this.adminTab = this.isAdminTab(segments[1]) ? segments[1] : 'dashboard';
       this.loadAdminRestaurants();
+      if (this.adminTab === 'restaurants' && segments[2] === 'new') {
+        this.prepareCreateRestaurant();
+      } else if (this.adminTab === 'restaurants' && segments[2] && segments[3] === 'edit') {
+        this.prepareEditRestaurant(segments[2]);
+      } else {
+        this.restaurantEditorMode = 'none';
+        this.showRestaurantModal = false;
+      }
       if (this.adminTab === 'billing') this.loadBilling();
       if (this.adminTab === 'drink-library') this.loadAdminDrinks();
       if (this.adminTab === 'support') this.loadAdminSupport();
