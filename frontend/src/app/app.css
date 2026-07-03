@@ -380,6 +380,13 @@
 .owner-dark input::placeholder, .owner-dark textarea::placeholder { color: #94a3b8 !important; }
 .owner-dark input[type="file"]::file-selector-button { border: 1px solid #4b5563; border-radius: 8px; background: #303640; color: #e5e7eb; }
 .owner-dark input[type="checkbox"] { accent-color: var(--brand,#84cc16); }
+.admin-shell .form-grid label, .admin-shell .field-hint, .admin-shell .form-help { color: #d8e2f0 !important; }
+.admin-shell .form-grid label { letter-spacing: .01em; }
+.admin-shell .form-grid input, .admin-shell .form-grid textarea, .admin-shell .form-grid select { border-color: #596273 !important; background: #20252e !important; color: #f8fafc !important; }
+.admin-shell .form-grid input::placeholder, .admin-shell .form-grid textarea::placeholder { color: #9aa7ba !important; opacity: 1; }
+.admin-shell .form-grid input:focus, .admin-shell .form-grid textarea:focus { border-color: #9bd12f !important; box-shadow: 0 0 0 3px rgba(132,204,22,.16) !important; }
+.admin-shell input[type="file"]::file-selector-button { border: 1px solid #465061; border-radius: 8px; background: #303744; color: #eef4ff; font-weight: 750; }
+.admin-shell input[type="checkbox"] { accent-color: #84cc16; }
 .form-span-2 { grid-column: 1 / -1; }
 .theme-option { display: flex; width: 100%; align-items: center; gap: 14px; border: 1px solid #e2e8f0; border-radius: 13px; background: white; padding: 12px; text-align: left; }
 .theme-option > div { overflow: hidden; width: 62px; height: 42px; border-radius: 9px; }
@@ -492,6 +499,10 @@
 .form-section + .form-section { border-top: 1px solid #e2e8f0; padding-top: 22px; }
 .form-section h3 { margin: 0; color: #334155; font-family: 'Outfit',sans-serif; font-size: 16px; font-weight: 700; }
 .form-help { margin: 8px 0 0; border: 1px solid #d9f99d; border-radius: 12px; background: #f7fee7; padding: 10px 12px; color: #3f6212; font-size: 12px; line-height: 1.5; }
+.admin-shell .panel-card form .modal-footer { position: static; margin-top: 6px; border-color: #3d4654; border-radius: 14px; background: #1f242c; padding: 16px; }
+.admin-shell .form-section + .form-section { border-top-color: #475162; }
+.admin-shell .form-section h3 { color: #f8fafc; }
+.admin-shell .form-help { border-color: rgba(132,204,22,.28); background: rgba(132,204,22,.08); }
 .subscription-section { margin-top: 2px; }
 .modal-loading { min-height: 330px; }
 .modal-subtitle { margin: 5px 0 0; color: #64748b; font-size: 12px; }
@@ -555,6 +566,14 @@
 .language-access-list input { grid-row: 1 / span 2; width: 16px; height: 16px; accent-color: #84cc16; }
 .language-access-list span { color: #0f172a; font-size: 13px; font-weight: 850; }
 .language-access-list small { color: #64748b; font-size: 11px; font-weight: 700; }
+.admin-shell .language-access-box, .admin-shell .plan-feature-box { border-color: #465061; background: #20252e; box-shadow: inset 0 1px 0 rgba(255,255,255,.03); }
+.admin-shell .language-access-box b, .admin-shell .plan-feature-box b { color: #f8fafc; }
+.admin-shell .language-access-box p { color: #c3cfdf; }
+.admin-shell .language-access-list label { border-color: #3f4858; background: #252b35; }
+.admin-shell .language-access-list label:hover { border-color: rgba(132,204,22,.5); background: #2a313c; }
+.admin-shell .language-access-list span { color: #f8fafc; }
+.admin-shell .language-access-list small { color: #b9c5d6; }
+.admin-shell .plan-feature-box em { background: rgba(132,204,22,.14); color: #d9f99d; }
 .check-label { display: flex; align-items: center; gap: 8px; align-self: center; font-size: 13px; font-weight: 600; }
 .check-label input { width: 16px; height: 16px; }
 .hours-editor { display: grid; gap: 8px; }
