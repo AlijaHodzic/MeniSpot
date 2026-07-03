@@ -347,6 +347,13 @@ public sealed class AdminBillingController(IBillingService billing) : ApiControl
     [HttpPost("{restaurantId:guid}/payments")] public async Task<ActionResult> Record(Guid restaurantId, RecordManualPaymentRequest request, CancellationToken ct) => await billing.RecordPaymentAsync(restaurantId, request, ct) is { } item ? Ok(item) : NotFound();
 }
 
+[Route("api/admin/support"), Authorize(Roles = Roles.SuperAdmin)]
+public sealed class AdminSupportController(ISupportTicketService support) : ApiController
+{
+    [HttpGet] public async Task<ActionResult> All(CancellationToken ct) => Ok(await support.GetAdminAsync(ct));
+    [HttpPut("{id:guid}")] public async Task<ActionResult> Update(Guid id, UpdateSupportTicketRequest request, CancellationToken ct) => await support.UpdateAsync(id, request, ct) is { } item ? Ok(item) : NotFound();
+}
+
 [Route("api/admin/drinks"), Authorize(Roles = Roles.SuperAdmin)]
 public sealed class AdminDrinksController(IGlobalDrinkService drinks, IWebHostEnvironment environment) : ApiController
 {
@@ -363,7 +370,7 @@ public sealed class AdminDrinksController(IGlobalDrinkService drinks, IWebHostEn
 }
 
 [Route("api/restaurant"), Authorize(Roles = Roles.RestaurantOwner + "," + Roles.RestaurantStaff)]
-public sealed class RestaurantController(IRestaurantService restaurants, IMenuManagementService menu, IWebHostEnvironment environment) : ApiController
+public sealed class RestaurantController(IRestaurantService restaurants, IMenuManagementService menu, ISupportTicketService support, IWebHostEnvironment environment, IConfiguration configuration, IHttpClientFactory httpClientFactory) : ApiController
 {
     [HttpGet] public async Task<ActionResult> Get(CancellationToken ct) => RestaurantId is { } rid && await restaurants.GetAsync(rid, rid, false, ct) is { } x ? Ok(x) : MissingTenant();
     [HttpPut] public async Task<ActionResult> Update(UpdateRestaurantRequest request, CancellationToken ct) => RestaurantId is { } rid && await restaurants.UpdateAsync(rid, request, rid, false, ct) ? NoContent() : MissingTenant();
@@ -385,6 +392,72 @@ public sealed class RestaurantController(IRestaurantService restaurants, IMenuMa
     {
         if (RestaurantId is not { } rid) return MissingTenant();
         return await ImageUploadHelper.SaveOptimizedWebpAsync(this, environment, file, Path.Combine("uploads", rid.ToString("N")), ct);
+    }
+    [HttpGet("support")] public async Task<ActionResult> SupportTickets(CancellationToken ct) => RestaurantId is { } rid ? Ok(await support.GetOwnerAsync(rid, ct)) : MissingTenant();
+    [HttpPost("support")]
+    public async Task<ActionResult> CreateSupportTicket(CreateSupportTicketRequest request, CancellationToken ct)
+    {
+        if (RestaurantId is not { } rid) return MissingTenant();
+        try
+        {
+            if (await support.CreateAsync(rid, request, ct) is not { } ticket) return MissingTenant();
+            await SendSupportTicketEmailAsync(ticket, ct);
+            return Ok(ticket);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+    [HttpPost("support/images"), RequestSizeLimit(6_000_000)]
+    public async Task<ActionResult> UploadSupportImage(IFormFile file, CancellationToken ct)
+    {
+        if (RestaurantId is not { } rid) return MissingTenant();
+        return await ImageUploadHelper.SaveOptimizedWebpAsync(this, environment, file, Path.Combine("uploads", rid.ToString("N"), "support"), ct);
+    }
+
+    private async Task SendSupportTicketEmailAsync(SupportTicketSummary ticket, CancellationToken ct)
+    {
+        var apiKey = configuration["LeadNotifications:ResendApiKey"];
+        var from = configuration["LeadNotifications:From"];
+        var adminTo = configuration["LeadNotifications:AdminTo"];
+        if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(from) || string.IsNullOrWhiteSpace(adminTo)) return;
+
+        var publicBaseUrl = (configuration["LeadNotifications:PublicBaseUrl"] ?? "https://menispot.com").TrimEnd('/');
+        var adminUrl = $"{publicBaseUrl}/admin/support";
+        var attachmentUrl = string.IsNullOrWhiteSpace(ticket.AttachmentUrl) ? null : $"{publicBaseUrl}{ticket.AttachmentUrl}";
+        var safeRestaurant = WebUtility.HtmlEncode(ticket.RestaurantName);
+        var safeTitle = WebUtility.HtmlEncode(ticket.Title);
+        var safeMessage = WebUtility.HtmlEncode(ticket.Message).Replace("\n", "<br>");
+        var html = $"""
+        <div style="margin:0;background:#f3f6fa;padding:32px 18px;color:#111827;font-family:Arial,Helvetica,sans-serif">
+          <div style="max-width:660px;margin:0 auto;background:#ffffff;border:1px solid #dfe7f1;border-radius:20px;overflow:hidden">
+            <div style="background:#111827;padding:28px 30px;color:#ffffff">
+              <p style="margin:0 0 10px;color:#a3e635;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase">Novi zahtjev za podrsku</p>
+              <h1 style="margin:0;font-size:26px;line-height:1.2">{safeTitle}</h1>
+              <p style="margin:12px 0 0;color:#cbd5e1">Restoran: <strong style="color:#ffffff">{safeRestaurant}</strong></p>
+            </div>
+            <div style="padding:26px 30px">
+              <p style="margin:0 0 14px;color:#64748b">Tip: <strong>{ticket.Type}</strong> · Prioritet: <strong>{ticket.Priority}</strong> · Paket: <strong>{ticket.RestaurantPlan}</strong></p>
+              <div style="border:1px solid #e5eaf2;border-radius:14px;background:#f8fafc;padding:18px;line-height:1.65">{safeMessage}</div>
+              {(attachmentUrl is null ? "" : $"""<p style="margin:18px 0 0"><a href="{attachmentUrl}" style="color:#2563eb;font-weight:700">Otvori screenshot/prilog</a></p>""")}
+              <a href="{adminUrl}" style="display:inline-block;margin-top:22px;background:#84cc16;color:#17230a;text-decoration:none;font-weight:800;border-radius:12px;padding:13px 18px">Otvori podrsku</a>
+            </div>
+          </div>
+        </div>
+        """;
+        var payload = new Dictionary<string, object?>
+        {
+            ["from"] = from,
+            ["to"] = new[] { adminTo },
+            ["subject"] = $"Novi zahtjev za podrsku - {ticket.RestaurantName}",
+            ["html"] = html,
+            ["text"] = $"Novi zahtjev za podrsku\nRestoran: {ticket.RestaurantName}\nNaslov: {ticket.Title}\nPoruka:\n{ticket.Message}"
+        };
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails") { Content = JsonContent.Create(payload) };
+        httpRequest.Headers.Authorization = new("Bearer", apiKey);
+        httpRequest.Headers.Accept.ParseAdd("application/json");
+        using var _ = await httpClientFactory.CreateClient().SendAsync(httpRequest, ct);
     }
 }
 

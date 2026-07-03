@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<IGlobalDrinkService, GlobalDrinkService>();
         services.AddScoped<IPublicMenuService, PublicMenuService>();
         services.AddScoped<IBillingService, BillingService>();
+        services.AddScoped<ISupportTicketService, SupportTicketService>();
         return services;
     }
 }

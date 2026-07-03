@@ -13,6 +13,9 @@ public enum EstablishmentType { Restaurant, Cafe, Bar, Club, FastFood, Other, Sh
 public enum PaymentMethod { BankTransfer, Cash, Card, Other }
 public enum SpecialOfferKind { Promotion, DailyMenu }
 public enum MenuCategoryType { Food, Drink }
+public enum SupportTicketType { MenuChange, Image, Theme, TechnicalProblem, Other }
+public enum SupportTicketPriority { Normal, Urgent }
+public enum SupportTicketStatus { New, InProgress, Resolved, Closed }
 
 public sealed class Restaurant : Entity
 {
@@ -37,6 +40,7 @@ public sealed class Restaurant : Entity
     public ICollection<BusinessHour> BusinessHours { get; set; } = [];
     public ICollection<SubscriptionPayment> Payments { get; set; } = [];
     public ICollection<MenuView> MenuViews { get; set; } = [];
+    public ICollection<SupportTicket> SupportTickets { get; set; } = [];
 
     public bool IsPubliclyAvailable(DateOnly today) => Status == RestaurantStatus.Active && Subscription?.IsPubliclyAvailable(today) == true;
 }
@@ -75,6 +79,20 @@ public sealed class MenuView : Entity
     public Guid RestaurantId { get; set; }
     public DateOnly ViewedOn { get; set; }
     public string? Source { get; set; }
+    public Restaurant Restaurant { get; set; } = null!;
+}
+
+public sealed class SupportTicket : Entity
+{
+    public Guid RestaurantId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public SupportTicketType Type { get; set; } = SupportTicketType.Other;
+    public SupportTicketPriority Priority { get; set; } = SupportTicketPriority.Normal;
+    public SupportTicketStatus Status { get; set; } = SupportTicketStatus.New;
+    public string Message { get; set; } = string.Empty;
+    public string? AttachmentUrl { get; set; }
+    public string? AdminNote { get; set; }
+    public DateTimeOffset? ResolvedAt { get; set; }
     public Restaurant Restaurant { get; set; } = null!;
 }
 

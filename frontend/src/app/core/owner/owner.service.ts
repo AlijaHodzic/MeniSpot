@@ -3,7 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_URL } from '../api.config';
 import { UpdateRestaurantRequest } from '../restaurants/admin-restaurants.models';
-import { AddLibraryDrinksRequest, CategoryRequest, GlobalDrinkSummary, MenuItemRequest, OwnerBusinessHour, OwnerMenuCategory, OwnerMenuItem, OwnerRestaurant, OwnerSpecialOffer, SpecialOfferRequest } from './owner.models';
+import { AddLibraryDrinksRequest, CategoryRequest, CreateSupportTicketRequest, GlobalDrinkSummary, MenuItemRequest, OwnerBusinessHour, OwnerMenuCategory, OwnerMenuItem, OwnerRestaurant, OwnerSpecialOffer, SpecialOfferRequest, SupportTicket } from './owner.models';
 
 @Injectable({ providedIn: 'root' })
 export class OwnerService {
@@ -32,5 +32,11 @@ export class OwnerService {
   uploadImage(file: File): Observable<{ url: string }> {
     const body = new FormData(); body.append('file', file);
     return this.http.post<{ url: string }>(`${this.endpoint}/images`, body);
+  }
+  getSupportTickets(): Observable<SupportTicket[]> { return this.http.get<SupportTicket[]>(`${this.endpoint}/support`); }
+  createSupportTicket(request: CreateSupportTicketRequest): Observable<SupportTicket> { return this.http.post<SupportTicket>(`${this.endpoint}/support`, request); }
+  uploadSupportImage(file: File): Observable<{ url: string }> {
+    const body = new FormData(); body.append('file', file);
+    return this.http.post<{ url: string }>(`${this.endpoint}/support/images`, body);
   }
 }

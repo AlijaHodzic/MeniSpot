@@ -383,6 +383,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         restaurant.Id, restaurant.Name, restaurant.Slug, restaurant.Description, AssetUrl.Normalize(restaurant.LogoUrl), AssetUrl.Normalize(restaurant.CoverImageUrl),
         restaurant.Address, restaurant.Phone, restaurant.Email, restaurant.WebsiteUrl, restaurant.InstagramUrl,
         restaurant.Currency, restaurant.DefaultLanguage, restaurant.Type, restaurant.Status,
+        NormalizePlan(restaurant.Subscription?.Plan),
         new OwnerTheme(restaurant.Theme?.ThemeKey ?? NormalizeThemeKey(null, restaurant.Type), restaurant.Theme?.PrimaryColor ?? "#111827", restaurant.Theme?.AccentColor ?? "#84cc16", AssetUrl.Normalize(restaurant.Theme?.BackgroundImageUrl), restaurant.Theme?.FontFamily ?? "Inter"),
         restaurant.BusinessHours.OrderBy(x => x.DayOfWeek).Select(x => new OwnerBusinessHour(x.DayOfWeek, x.OpensAt, x.ClosesAt, x.IsClosed)).ToList(),
         restaurant.Categories.OrderBy(x => x.SortOrder).Select(x => new OwnerMenuCategory(x.Id, x.Name, x.Description, x.Type, x.SortOrder, x.IsVisible,
@@ -558,6 +559,91 @@ public sealed class BillingService(ApplicationDbContext db) : IBillingService
         }
         if (changed) await db.SaveChangesAsync(ct);
     }
+
+    private static string NormalizePlan(string? value) => (value ?? string.Empty).Trim() switch
+    {
+        "Standard" => "Pro",
+        "Enterprise" => "Premium",
+        "Basic" or "" => "Start",
+        "Start" or "Pro" or "Premium" => value!.Trim(),
+        _ => "Start"
+    };
+}
+
+public sealed class SupportTicketService(ApplicationDbContext db) : ISupportTicketService
+{
+    public async Task<IReadOnlyList<SupportTicketSummary>> GetAdminAsync(CancellationToken ct)
+    {
+        var rows = await Query().OrderByDescending(x => x.CreatedAt).ToListAsync(ct);
+        return rows.Select(ToSummary).ToList();
+    }
+
+    public async Task<IReadOnlyList<SupportTicketSummary>> GetOwnerAsync(Guid restaurantId, CancellationToken ct)
+    {
+        var rows = await Query().Where(x => x.RestaurantId == restaurantId).OrderByDescending(x => x.CreatedAt).ToListAsync(ct);
+        return rows.Select(ToSummary).ToList();
+    }
+
+    public async Task<SupportTicketSummary?> CreateAsync(Guid restaurantId, CreateSupportTicketRequest request, CancellationToken ct)
+    {
+        var restaurant = await db.Restaurants.Include(x => x.Subscription).FirstOrDefaultAsync(x => x.Id == restaurantId, ct);
+        if (restaurant?.Subscription is null) return null;
+        var plan = NormalizePlan(restaurant.Subscription.Plan);
+        if (plan == "Start") throw new InvalidOperationException("Support tickets are available on Pro and Premium plans.");
+
+        var title = request.Title.Trim();
+        var message = request.Message.Trim();
+        if (title.Length < 3) throw new InvalidOperationException("Support ticket title is required.");
+        if (message.Length < 5) throw new InvalidOperationException("Support ticket message is required.");
+
+        var ticket = new SupportTicket
+        {
+            RestaurantId = restaurantId,
+            Title = title,
+            Type = request.Type,
+            Priority = request.Priority,
+            Message = message,
+            AttachmentUrl = string.IsNullOrWhiteSpace(request.AttachmentUrl) ? null : request.AttachmentUrl.Trim(),
+            Status = SupportTicketStatus.New
+        };
+        db.SupportTickets.Add(ticket);
+        await db.SaveChangesAsync(ct);
+
+        return ToSummary(await Query().SingleAsync(x => x.Id == ticket.Id, ct));
+    }
+
+    public async Task<SupportTicketSummary?> UpdateAsync(Guid id, UpdateSupportTicketRequest request, CancellationToken ct)
+    {
+        var ticket = await db.SupportTickets.Include(x => x.Restaurant).ThenInclude(x => x.Subscription).FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (ticket is null) return null;
+
+        ticket.Status = request.Status;
+        ticket.AdminNote = string.IsNullOrWhiteSpace(request.AdminNote) ? null : request.AdminNote.Trim();
+        ticket.ResolvedAt = request.Status is SupportTicketStatus.Resolved or SupportTicketStatus.Closed ? DateTimeOffset.UtcNow : null;
+        ticket.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        return ToSummary(await Query().SingleAsync(x => x.Id == ticket.Id, ct));
+    }
+
+    private IQueryable<SupportTicket> Query() => db.SupportTickets.AsNoTracking().Include(x => x.Restaurant).ThenInclude(x => x.Subscription);
+
+    private static SupportTicketSummary ToSummary(SupportTicket x) => new(
+        x.Id,
+        x.RestaurantId,
+        x.Restaurant.Name,
+        x.Restaurant.Slug,
+        NormalizePlan(x.Restaurant.Subscription?.Plan),
+        x.Title,
+        x.Type,
+        x.Priority,
+        x.Status,
+        x.Message,
+        AssetUrl.Normalize(x.AttachmentUrl),
+        x.AdminNote,
+        x.CreatedAt,
+        x.UpdatedAt,
+        x.ResolvedAt);
 
     private static string NormalizePlan(string? value) => (value ?? string.Empty).Trim() switch
     {

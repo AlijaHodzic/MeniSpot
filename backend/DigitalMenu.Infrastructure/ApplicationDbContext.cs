@@ -24,6 +24,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<BusinessHour> BusinessHours => Set<BusinessHour>();
     public DbSet<SubscriptionPayment> SubscriptionPayments => Set<SubscriptionPayment>();
     public DbSet<MenuView> MenuViews => Set<MenuView>();
+    public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -91,6 +92,15 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.HasIndex(x => new { x.RestaurantId, x.ViewedOn });
             e.Property(x => x.Source).HasMaxLength(40);
             e.HasOne(x => x.Restaurant).WithMany(x => x.MenuViews).HasForeignKey(x => x.RestaurantId).OnDelete(DeleteBehavior.Cascade);
+        });
+        builder.Entity<SupportTicket>(e =>
+        {
+            e.HasIndex(x => new { x.RestaurantId, x.Status, x.CreatedAt });
+            e.Property(x => x.Title).HasMaxLength(180);
+            e.Property(x => x.Message).HasMaxLength(3000);
+            e.Property(x => x.AttachmentUrl).HasMaxLength(500);
+            e.Property(x => x.AdminNote).HasMaxLength(1500);
+            e.HasOne(x => x.Restaurant).WithMany(x => x.SupportTickets).HasForeignKey(x => x.RestaurantId).OnDelete(DeleteBehavior.Cascade);
         });
         builder.Entity<Subscription>().Property(x => x.MonthlyPrice).HasPrecision(12, 2);
         builder.Entity<ApplicationUser>().HasIndex(x => x.RestaurantId);

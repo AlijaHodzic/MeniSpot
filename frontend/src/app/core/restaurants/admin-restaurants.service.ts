@@ -3,6 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_URL } from '../api.config';
 import { AuthSession } from '../auth/auth.models';
+import { SupportTicket, UpdateSupportTicketRequest } from '../owner/owner.models';
 import {
   AdminRestaurantDetails,
   AdminRestaurantSummary,
@@ -65,5 +66,13 @@ export class AdminRestaurantsService {
 
   impersonate(id: string): Observable<AuthSession> {
     return this.http.post<AuthSession>(`${this.endpoint}/${id}/impersonate`, {});
+  }
+
+  getSupportTickets(): Observable<SupportTicket[]> {
+    return this.http.get<SupportTicket[]>(`${API_URL}/admin/support`);
+  }
+
+  updateSupportTicket(id: string, request: UpdateSupportTicketRequest): Observable<SupportTicket> {
+    return this.http.put<SupportTicket>(`${API_URL}/admin/support/${id}`, request);
   }
 }

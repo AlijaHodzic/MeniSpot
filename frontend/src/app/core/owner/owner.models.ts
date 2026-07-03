@@ -2,6 +2,9 @@ import { EstablishmentType, RestaurantStatus } from '../restaurants/admin-restau
 
 export type SpecialOfferKind = 'Promotion' | 'DailyMenu';
 export type MenuCategoryType = 'Food' | 'Drink';
+export type SupportTicketType = 'MenuChange' | 'Image' | 'Theme' | 'TechnicalProblem' | 'Other';
+export type SupportTicketPriority = 'Normal' | 'Urgent';
+export type SupportTicketStatus = 'New' | 'InProgress' | 'Resolved' | 'Closed';
 
 export interface OwnerMenuItem {
   id: string;
@@ -80,6 +83,7 @@ export interface OwnerRestaurant {
   defaultLanguage: string;
   type: EstablishmentType;
   status: RestaurantStatus;
+  plan: string;
   theme: { themeKey: string; primaryColor: string; accentColor: string; backgroundImageUrl: string | null; fontFamily: string };
   businessHours: OwnerBusinessHour[];
   categories: OwnerMenuCategory[];
@@ -93,3 +97,34 @@ export interface SpecialOfferRequest extends Omit<OwnerSpecialOffer, 'id'> {}
 export interface GlobalDrinkSummary { id: string; name: string; category: string; description: string | null; imageUrl: string | null; servingOptions: string | null; sortOrder: number }
 export interface LibraryDrinkSelection { drinkId: string; servingSize: string | null; price: number; isVisible: boolean; isAvailable: boolean }
 export interface AddLibraryDrinksRequest { categoryId: string | null; drinks: LibraryDrinkSelection[] }
+
+export interface SupportTicket {
+  id: string;
+  restaurantId: string;
+  restaurantName: string;
+  restaurantSlug: string;
+  restaurantPlan: string;
+  title: string;
+  type: SupportTicketType;
+  priority: SupportTicketPriority;
+  status: SupportTicketStatus;
+  message: string;
+  attachmentUrl: string | null;
+  adminNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt: string | null;
+}
+
+export interface CreateSupportTicketRequest {
+  title: string;
+  type: SupportTicketType;
+  priority: SupportTicketPriority;
+  message: string;
+  attachmentUrl: string | null;
+}
+
+export interface UpdateSupportTicketRequest {
+  status: SupportTicketStatus;
+  adminNote: string | null;
+}

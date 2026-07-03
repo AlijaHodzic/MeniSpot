@@ -28,7 +28,7 @@ import { BillingAccountSummary, BillingOverview, PaymentHistoryItem, PaymentMeth
 import { BillingService } from './core/billing/billing.service';
 import { AdminGlobalDrink } from './core/drinks/admin-drinks.models';
 import { AdminDrinksService } from './core/drinks/admin-drinks.service';
-import { GlobalDrinkSummary, MenuCategoryType, OwnerMenuCategory, OwnerMenuItem, OwnerRestaurant, OwnerSpecialOffer, SpecialOfferKind, SpecialOfferRequest } from './core/owner/owner.models';
+import { GlobalDrinkSummary, MenuCategoryType, OwnerMenuCategory, OwnerMenuItem, OwnerRestaurant, OwnerSpecialOffer, SpecialOfferKind, SpecialOfferRequest, SupportTicket, SupportTicketPriority, SupportTicketStatus, SupportTicketType } from './core/owner/owner.models';
 import { OwnerService } from './core/owner/owner.service';
 import { AppSelectComponent, AppSelectOption } from './shared/app-select.component';
 import { API_URL } from './core/api.config';
@@ -71,6 +71,7 @@ interface ReadinessItem { label: string; ready: boolean; tab: OwnerTab }
 type ToastType = 'success' | 'error' | 'info';
 interface ToastMessage { id: number; type: ToastType; message: string }
 interface ConfirmDialog { title: string; message: string; confirmText: string; tone?: 'danger' | 'warning'; onConfirm: () => void }
+interface SupportForm { title: string; type: SupportTicketType; priority: SupportTicketPriority; message: string; attachmentUrl: string }
 
 type ThemeGroupId = 'restaurant' | 'cafe' | 'bar' | 'fast-food';
 interface ThemeOption { id: ThemeType; group: ThemeGroupId; name: string; description: string; colors: string[] }
@@ -170,12 +171,12 @@ export class App {
   readonly adminTabs: { id: AdminTab; label: string }[] = [
     { id: 'dashboard', label: 'Pregled' }, { id: 'restaurants', label: 'Restorani' },
     { id: 'billing', label: 'Pretplate' }, { id: 'drink-library', label: 'Biblioteka pića' },
-    { id: 'themes', label: 'Teme' }, { id: 'qr-codes', label: 'QR kodovi' },
+    { id: 'themes', label: 'Teme' }, { id: 'qr-codes', label: 'QR kodovi' }, { id: 'support', label: 'Podrska' },
   ];
   readonly ownerTabs: { id: OwnerTab; label: string }[] = [
     { id: 'dashboard', label: 'Pregled' }, { id: 'categories', label: 'Kategorije' },
     { id: 'products', label: 'Proizvodi' }, { id: 'daily-menu', label: 'Dnevni meni' },
-    { id: 'offers', label: 'Ponude' }, { id: 'settings', label: 'Postavke' }, { id: 'qr', label: 'QR kod' },
+    { id: 'offers', label: 'Ponude' }, { id: 'settings', label: 'Postavke' }, { id: 'qr', label: 'QR kod' }, { id: 'support', label: 'Podrska' },
   ];
   readonly establishmentTypes: { value: EstablishmentType; label: string }[] = [
     { value: 'Restaurant', label: 'Restoran' }, { value: 'Cafe', label: 'Kafić' },
@@ -202,6 +203,23 @@ export class App {
   readonly paymentCoverageOptions: AppSelectOption<number>[] = [
     { value: 1, label: '1 mjesec' }, { value: 3, label: '3 mjeseca' }, { value: 6, label: '6 mjeseci' },
     { value: 12, label: '12 mjeseci' }, { value: 24, label: '24 mjeseca' },
+  ];
+  readonly supportTypeOptions: AppSelectOption[] = [
+    { value: 'MenuChange', label: 'Izmjena menija' },
+    { value: 'Image', label: 'Slike i fotografije' },
+    { value: 'Theme', label: 'Izgled i tema' },
+    { value: 'TechnicalProblem', label: 'Tehnicki problem' },
+    { value: 'Other', label: 'Ostalo' },
+  ];
+  readonly supportPriorityOptions: AppSelectOption[] = [
+    { value: 'Normal', label: 'Normalno' },
+    { value: 'Urgent', label: 'Hitno' },
+  ];
+  readonly supportStatusOptions: AppSelectOption[] = [
+    { value: 'New', label: 'Novo' },
+    { value: 'InProgress', label: 'U radu' },
+    { value: 'Resolved', label: 'Rijeseno' },
+    { value: 'Closed', label: 'Zatvoreno' },
   ];
 
   view: AppView = 'login';
@@ -250,6 +268,12 @@ export class App {
   restaurantStatusUpdating = new Set<string>();
   restaurantImpersonating = new Set<string>();
   adminQrCodes: Record<string, string> = {};
+  adminSupportTickets: SupportTicket[] = [];
+  adminSupportLoading = false;
+  adminSupportLoaded = false;
+  adminSupportError = '';
+  supportStatusFilter: SupportTicketStatus | 'all' = 'all';
+  supportUpdating = new Set<string>();
   billingOverview: BillingOverview | null = null;
   billingLoading = false;
   billingLoaded = false;
@@ -282,6 +306,14 @@ export class App {
   ownerError = '';
   ownerSaving = false;
   ownerQrCode = '';
+  ownerSupportTickets: SupportTicket[] = [];
+  ownerSupportLoading = false;
+  ownerSupportLoaded = false;
+  ownerSupportError = '';
+  ownerSupportSaving = false;
+  ownerSupportUploading = false;
+  ownerSupportSuccess = '';
+  supportForm: SupportForm = this.emptySupportForm();
   drinkLibrary: GlobalDrinkSummary[] = [];
   drinkLibraryLoading = false;
   drinkLibraryError = '';
@@ -311,6 +343,8 @@ export class App {
   get ownerItems(): OwnerMenuItem[] { return this.ownerCategories.flatMap((category) => category.items); }
   get drinkCategoryOptions(): AppSelectOption[] { return this.drinkCategories.map((category) => ({ value: category, label: category })); }
   get billingStatusOptions(): AppSelectOption[] { return [{ value: 'all', label: 'Svi statusi' }, ...this.subscriptionStatuses]; }
+  get supportStatusFilterOptions(): AppSelectOption[] { return [{ value: 'all', label: 'Svi zahtjevi' }, ...this.supportStatusOptions]; }
+  get canUseOwnerSupport(): boolean { return this.normalizePlan(this.ownerRestaurant?.plan ?? 'Start') !== 'Start'; }
   get restaurantFormThemeOptions(): AppSelectOption[] {
     return this.themesForGroup(this.themeGroupForEstablishmentType(this.restaurantForm.type))
       .map((theme) => ({ value: theme.id, label: theme.name }));
@@ -421,6 +455,9 @@ export class App {
       item.slug.toLocaleLowerCase().includes(term) ||
       item.category.toLocaleLowerCase().includes(term) ||
       (item.description ?? '').toLocaleLowerCase().includes(term));
+  }
+  get filteredAdminSupportTickets(): SupportTicket[] {
+    return this.adminSupportTickets.filter((ticket) => this.supportStatusFilter === 'all' || ticket.status === this.supportStatusFilter);
   }
   get adminDrinkCategoryStats(): { name: string; count: number }[] {
     return this.drinkCategories.map((name) => ({ name, count: this.adminDrinks.filter((item) => item.category === name).length }));
@@ -702,6 +739,53 @@ export class App {
           this.adminDrinksLoaded = true;
         },
         error: () => this.adminDrinksError = 'Biblioteka pića se trenutno ne može učitati.',
+      });
+  }
+
+  loadAdminSupport(force = false): void {
+    if (this.adminSupportLoading || this.adminSupportLoaded && !force) return;
+    this.adminSupportLoading = true;
+    this.adminSupportError = '';
+    this.adminRestaurantsService.getSupportTickets()
+      .pipe(finalize(() => this.adminSupportLoading = false), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (items) => {
+          this.adminSupportTickets = items;
+          this.adminSupportLoaded = true;
+        },
+        error: () => this.adminSupportError = 'Zahtjevi za podrsku se trenutno ne mogu ucitati.',
+      });
+  }
+
+  loadOwnerSupport(force = false): void {
+    if (this.ownerSupportLoading || this.ownerSupportLoaded && !force) return;
+    this.ownerSupportLoading = true;
+    this.ownerSupportError = '';
+    this.ownerService.getSupportTickets()
+      .pipe(finalize(() => this.ownerSupportLoading = false), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (items) => {
+          this.ownerSupportTickets = items;
+          this.ownerSupportLoaded = true;
+        },
+        error: () => this.ownerSupportError = 'Historija podrske se trenutno ne moze ucitati.',
+      });
+  }
+
+  updateSupportTicket(ticket: SupportTicket, status: SupportTicketStatus, adminNote = ticket.adminNote ?? ''): void {
+    if (this.supportUpdating.has(ticket.id)) return;
+    this.supportUpdating.add(ticket.id);
+    this.adminRestaurantsService.updateSupportTicket(ticket.id, { status, adminNote: this.nullIfEmpty(adminNote) })
+      .pipe(finalize(() => this.supportUpdating.delete(ticket.id)), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updated) => {
+          this.adminSupportTickets = this.adminSupportTickets.map((item) => item.id === updated.id ? updated : item);
+          this.showToast('Zahtjev je azuriran.');
+        },
+        error: () => {
+          this.adminSupportError = 'Zahtjev nije azuriran. Pokusaj ponovo.';
+          this.showToast('Zahtjev nije azuriran.', 'error');
+        },
       });
   }
 
@@ -1154,6 +1238,65 @@ export class App {
   selectAdminTab(tab: AdminTab): void { void this.router.navigate(['/admin', tab]); }
   selectOwnerTab(tab: OwnerTab): void { void this.router.navigate(['/restaurant', this.restaurant.id, tab]); }
 
+  selectSupportAttachment(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    const validationError = this.validateImageFile(file);
+    if (validationError) {
+      this.ownerSupportError = validationError;
+      input.value = '';
+      return;
+    }
+    this.ownerSupportUploading = true;
+    this.ownerSupportError = '';
+    this.ownerService.uploadSupportImage(file)
+      .pipe(finalize(() => this.ownerSupportUploading = false), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: ({ url }) => {
+          this.supportForm.attachmentUrl = url;
+          this.showToast('Screenshot je dodan.');
+        },
+        error: () => {
+          this.ownerSupportError = 'Screenshot nije uploadovan. Pokusaj ponovo.';
+          this.showToast('Screenshot nije uploadovan.', 'error');
+        },
+      });
+  }
+
+  submitSupportTicket(): void {
+    if (!this.canUseOwnerSupport) {
+      this.ownerSupportError = 'Podrska kroz panel je dostupna u Pro i Premium paketu.';
+      return;
+    }
+    if (!this.supportForm.title.trim() || !this.supportForm.message.trim()) {
+      this.ownerSupportError = 'Naslov i opis zahtjeva su obavezni.';
+      return;
+    }
+    this.ownerSupportSaving = true;
+    this.ownerSupportError = '';
+    this.ownerSupportSuccess = '';
+    this.ownerService.createSupportTicket({
+      title: this.supportForm.title.trim(),
+      type: this.supportForm.type,
+      priority: this.supportForm.priority,
+      message: this.supportForm.message.trim(),
+      attachmentUrl: this.nullIfEmpty(this.supportForm.attachmentUrl),
+    }).pipe(finalize(() => this.ownerSupportSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (ticket) => {
+        this.ownerSupportTickets = [ticket, ...this.ownerSupportTickets];
+        this.ownerSupportLoaded = true;
+        this.supportForm = this.emptySupportForm();
+        this.ownerSupportSuccess = 'Zahtjev je poslan. Dobit ces odgovor cim bude pregledan.';
+        this.showToast('Zahtjev je poslan.');
+      },
+      error: (error: HttpErrorResponse) => {
+        this.ownerSupportError = typeof error.error === 'string' ? error.error : 'Zahtjev nije poslan. Pokusaj ponovo.';
+        this.showToast('Zahtjev nije poslan.', 'error');
+      },
+    });
+  }
+
   openCategory(category?: OwnerMenuCategory): void {
     this.categoryForm = category
       ? { id: category.id, name: category.name, description: category.description ?? '', type: category.type, sortOrder: category.sortOrder, isVisible: category.isVisible }
@@ -1536,6 +1679,18 @@ export class App {
     return this.paymentMethods.find((item) => item.value === method)?.label ?? method;
   }
 
+  supportTypeLabel(type: SupportTicketType): string {
+    return this.supportTypeOptions.find((item) => item.value === type)?.label ?? type;
+  }
+
+  supportPriorityLabel(priority: SupportTicketPriority): string {
+    return this.supportPriorityOptions.find((item) => item.value === priority)?.label ?? priority;
+  }
+
+  supportStatusLabel(status: SupportTicketStatus): string {
+    return this.supportStatusOptions.find((item) => item.value === status)?.label ?? status;
+  }
+
   formatMoney(amount: number, currency = 'BAM'): string {
     return new Intl.NumberFormat('bs-BA', { style: 'currency', currency }).format(amount);
   }
@@ -1596,10 +1751,12 @@ export class App {
       this.loadAdminRestaurants();
       if (this.adminTab === 'billing') this.loadBilling();
       if (this.adminTab === 'drink-library') this.loadAdminDrinks();
+      if (this.adminTab === 'support') this.loadAdminSupport();
     } else if (segments[0] === 'restaurant') {
       this.view = 'restaurant-owner';
       this.ownerTab = this.isOwnerTab(segments[2]) ? segments[2] : 'dashboard';
       this.loadOwnerRestaurant(true);
+      if (this.ownerTab === 'support') this.loadOwnerSupport();
     } else if (segments[0] === 'menu') {
       this.view = 'public-menu';
       this.loadPublicMenu(segments[1] ?? '');
@@ -1725,6 +1882,10 @@ export class App {
       reference: '',
       note: '',
     };
+  }
+
+  private emptySupportForm(): SupportForm {
+    return { title: '', type: 'MenuChange', priority: 'Normal', message: '', attachmentUrl: '' };
   }
 
   private emptyAdminDrinkForm(): AdminDrinkForm {

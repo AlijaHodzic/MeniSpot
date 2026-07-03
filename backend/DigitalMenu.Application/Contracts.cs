@@ -60,6 +60,9 @@ public sealed record BillingMoneyTotal(string Currency, decimal Amount);
 public sealed record BillingOverview(IReadOnlyList<BillingMoneyTotal> MonthlyRecurringRevenue, IReadOnlyList<BillingMoneyTotal> PaidThisMonth, int OverdueCount, int ExpiringSoon, IReadOnlyList<BillingAccountSummary> Accounts);
 public sealed record RecordManualPaymentRequest(decimal Amount, string Currency, DateOnly PaidOn, int CoverageMonths, PaymentMethod Method, string? Reference, string? Note);
 public sealed record PaymentHistoryItem(Guid Id, decimal Amount, string Currency, DateOnly PaidOn, DateOnly PeriodStartsOn, DateOnly PeriodEndsOn, int CoverageMonths, PaymentMethod Method, string? Reference, string? Note, DateTimeOffset CreatedAt);
+public sealed record SupportTicketSummary(Guid Id, Guid RestaurantId, string RestaurantName, string RestaurantSlug, string RestaurantPlan, string Title, SupportTicketType Type, SupportTicketPriority Priority, SupportTicketStatus Status, string Message, string? AttachmentUrl, string? AdminNote, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, DateTimeOffset? ResolvedAt);
+public sealed record CreateSupportTicketRequest(string Title, SupportTicketType Type, SupportTicketPriority Priority, string Message, string? AttachmentUrl);
+public sealed record UpdateSupportTicketRequest(SupportTicketStatus Status, string? AdminNote);
 public sealed record OwnerMenuItem(Guid Id, Guid CategoryId, Guid? GlobalDrinkId, string Name, string? Description, decimal Price, string? ServingSize, string? ImageUrl, string? Allergens, int SortOrder, bool IsVisible, bool IsAvailable, bool IsVegetarian, bool IsSpicy, bool IsFeatured);
 public sealed record OwnerMenuCategory(Guid Id, string Name, string? Description, MenuCategoryType Type, int SortOrder, bool IsVisible, IReadOnlyList<OwnerMenuItem> Items);
 public sealed record OwnerSpecialOffer(Guid Id, string Title, string? Description, decimal? Price, decimal? OriginalPrice, string? ImageUrl, DateTimeOffset? StartsAt, DateTimeOffset? EndsAt, bool IsVisible, SpecialOfferKind Kind, string? Items);
@@ -67,7 +70,7 @@ public sealed record OwnerBusinessHour(DayOfWeek DayOfWeek, TimeOnly? OpensAt, T
 public sealed record OwnerTheme(string ThemeKey, string PrimaryColor, string AccentColor, string? BackgroundImageUrl, string FontFamily);
 public sealed record OwnerMenuViewPoint(DateOnly Date, string Label, int Views);
 public sealed record OwnerMenuAnalytics(int TotalViews, int Last7DaysViews, IReadOnlyList<OwnerMenuViewPoint> WeeklyViews);
-public sealed record OwnerRestaurantDetails(Guid Id, string Name, string Slug, string? Description, string? LogoUrl, string? CoverImageUrl, string? Address, string? Phone, string? Email, string? WebsiteUrl, string? InstagramUrl, string Currency, string DefaultLanguage, EstablishmentType Type, RestaurantStatus Status, OwnerTheme Theme, IReadOnlyList<OwnerBusinessHour> BusinessHours, IReadOnlyList<OwnerMenuCategory> Categories, IReadOnlyList<OwnerSpecialOffer> Offers, OwnerMenuAnalytics Analytics);
+public sealed record OwnerRestaurantDetails(Guid Id, string Name, string Slug, string? Description, string? LogoUrl, string? CoverImageUrl, string? Address, string? Phone, string? Email, string? WebsiteUrl, string? InstagramUrl, string Currency, string DefaultLanguage, EstablishmentType Type, RestaurantStatus Status, string Plan, OwnerTheme Theme, IReadOnlyList<OwnerBusinessHour> BusinessHours, IReadOnlyList<OwnerMenuCategory> Categories, IReadOnlyList<OwnerSpecialOffer> Offers, OwnerMenuAnalytics Analytics);
 public sealed record PublicMenu(OwnerRestaurantDetails Restaurant);
 
 public interface IAuthService
@@ -122,4 +125,12 @@ public interface IBillingService
     Task<BillingOverview> GetOverviewAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<PaymentHistoryItem>?> GetHistoryAsync(Guid restaurantId, CancellationToken cancellationToken);
     Task<PaymentHistoryItem?> RecordPaymentAsync(Guid restaurantId, RecordManualPaymentRequest request, CancellationToken cancellationToken);
+}
+
+public interface ISupportTicketService
+{
+    Task<IReadOnlyList<SupportTicketSummary>> GetAdminAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<SupportTicketSummary>> GetOwnerAsync(Guid restaurantId, CancellationToken cancellationToken);
+    Task<SupportTicketSummary?> CreateAsync(Guid restaurantId, CreateSupportTicketRequest request, CancellationToken cancellationToken);
+    Task<SupportTicketSummary?> UpdateAsync(Guid id, UpdateSupportTicketRequest request, CancellationToken cancellationToken);
 }

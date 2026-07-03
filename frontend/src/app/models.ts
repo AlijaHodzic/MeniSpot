@@ -1,6 +1,6 @@
 export type AppView = 'login' | 'auth-login' | 'super-admin' | 'restaurant-owner' | 'public-menu';
-export type AdminTab = 'dashboard' | 'restaurants' | 'billing' | 'drink-library' | 'themes' | 'qr-codes';
-export type OwnerTab = 'dashboard' | 'categories' | 'products' | 'daily-menu' | 'offers' | 'settings' | 'qr';
+export type AdminTab = 'dashboard' | 'restaurants' | 'billing' | 'drink-library' | 'themes' | 'qr-codes' | 'support';
+export type OwnerTab = 'dashboard' | 'categories' | 'products' | 'daily-menu' | 'offers' | 'settings' | 'qr' | 'support';
 export type ThemeType =
   | 'classic-light'
   | 'premium-gold'

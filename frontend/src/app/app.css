@@ -552,6 +552,31 @@
 .hours-editor { display: grid; gap: 8px; }
 .hours-editor-row { display: grid; grid-template-columns: minmax(120px,1fr) 120px 115px auto 115px; align-items: center; gap: 10px; border-top: 1px solid #f1f5f9; padding: 11px 0; font-size: 13px; }
 .hours-editor-row input[type="time"] { min-width: 0; border: 1px solid #dbe3eb; border-radius: 9px; padding: 8px; }
+.support-ticket-list { display: grid; gap: 16px; }
+.support-ticket-card { display: grid; gap: 14px; }
+.support-ticket-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.support-ticket-head h3 { margin: 2px 0 6px; font-family: var(--font-display); font-size: 20px; font-weight: 800; color: #0f172a; }
+.support-ticket-head p { color: #64748b; font-size: 13px; }
+.support-message { border: 1px solid #e6edf6; border-radius: 14px; background: #f8fafc; padding: 14px; color: #334155; line-height: 1.6; white-space: pre-wrap; }
+.support-status { display: inline-flex; align-items: center; width: max-content; border-radius: 999px; background: #e2e8f0; padding: 6px 10px; color: #475569; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.support-status-new { background: #dcfce7; color: #047857; }
+.support-status-progress { background: #fef3c7; color: #92400e; }
+.support-status-done { background: #e0f2fe; color: #0369a1; }
+.support-attachment { display: inline-flex; align-items: center; gap: 7px; width: max-content; color: #2563eb; font-size: 13px; font-weight: 800; }
+.support-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.support-actions .secondary-button { min-height: 38px; }
+.support-ticket-card textarea { min-height: 72px; resize: vertical; }
+.support-upload-state { display: flex; min-height: 46px; align-items: center; gap: 8px; border: 1px solid #e2e8f0; border-radius: 12px; padding: 0 13px; color: #64748b; font-size: 13px; font-weight: 700; }
+.locked-support-card { display: grid; justify-items: center; gap: 10px; max-width: 620px; margin: 0 auto; text-align: center; }
+.locked-support-card svg { color: var(--brand, #84cc16); }
+.support-history { display: grid; gap: 10px; }
+.support-history > article { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px 12px; border: 1px solid #e6edf6; border-radius: 14px; padding: 14px; }
+.support-history h4 { font-weight: 800; color: #0f172a; }
+.support-history p { color: #64748b; font-size: 13px; }
+.support-note { grid-column: 1 / -1; border-radius: 12px; background: #f8fafc; padding: 10px 12px; }
+.owner-dark .support-ticket-head h3, .owner-dark .support-history h4 { color: #f8fafc; }
+.owner-dark .support-message, .owner-dark .support-upload-state, .owner-dark .support-history > article, .owner-dark .support-note { border-color: #3a414d; background: #20252e; color: #d6dbe5; }
+.owner-dark .support-ticket-head p, .owner-dark .support-history p, .owner-dark .support-upload-state { color: #aeb8c8; }
 
 @media (max-width: 1100px) {
   .theme-preview-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
@@ -675,7 +700,7 @@
   .drink-library-tools { grid-template-columns: 1fr; }
   .drink-library-list article { grid-template-columns: 30px 46px minmax(0,1fr); }
   .drink-library-list article > label { grid-column: 2 / -1; }
-  .drink-library-list article > .status-pill { grid-column: 2 / -1; }
+.drink-library-list article > .status-pill { grid-column: 2 / -1; }
   .menu-hero { height: 280px; }
   .hero-content { align-items: center; padding: 20px 16px; }
   .hero-content > img { width: 66px; height: 66px; border-radius: 18px; }
