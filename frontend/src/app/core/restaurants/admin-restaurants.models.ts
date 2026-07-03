@@ -73,6 +73,8 @@ export interface CreateRestaurantRequest {
   instagramUrl: string | null;
   currency: string;
   defaultLanguage: string;
+  plan: string;
+  monthlyPrice: number;
   themeKey: string;
 }
 

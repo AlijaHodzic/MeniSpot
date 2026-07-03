@@ -87,7 +87,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         var rows = await db.Restaurants.AsNoTracking()
         .Where(x => x.Subscription != null).OrderBy(x => x.Name)
         .Select(x => new { x.Id, x.Name, x.Slug, x.Type, x.LogoUrl, x.Address, x.Status, x.Subscription!.Plan, SubscriptionStatus = x.Subscription.Status, x.Subscription.ExpiresOn }).ToListAsync(ct);
-        return rows.Select(x => new RestaurantSummary(x.Id, x.Name, x.Slug, x.Type, AssetUrl.Normalize(x.LogoUrl), x.Address, x.Status, x.Plan, x.SubscriptionStatus, x.ExpiresOn)).ToList();
+        return rows.Select(x => new RestaurantSummary(x.Id, x.Name, x.Slug, x.Type, AssetUrl.Normalize(x.LogoUrl), x.Address, x.Status, NormalizePlan(x.Plan), x.SubscriptionStatus, x.ExpiresOn)).ToList();
     }
 
     public async Task<AdminDashboardSummary> GetDashboardAsync(CancellationToken ct)
@@ -113,7 +113,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         var breakdown = rows.GroupBy(x => x.SubscriptionStatus.ToString())
             .Select(x => new AdminStatusCount(x.Key, x.Count())).OrderByDescending(x => x.Count).ToList();
         var recent = rows.OrderByDescending(x => x.UpdatedAt).Take(6)
-            .Select(x => new AdminRecentRestaurant(x.Id, x.Name, x.Status, x.Plan, x.UpdatedAt)).ToList();
+            .Select(x => new AdminRecentRestaurant(x.Id, x.Name, x.Status, NormalizePlan(x.Plan), x.UpdatedAt)).ToList();
         var themeUsage = rows.GroupBy(x => NormalizeThemeKey(x.ThemeKey, x.Type))
             .Select(x => new AdminThemeUsage(x.Key, x.Count())).OrderByDescending(x => x.Count).ToList();
         return new AdminDashboardSummary(
@@ -188,7 +188,16 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             DefaultLanguage = request.DefaultLanguage.Trim().ToLowerInvariant()
         };
         var themeColors = ThemeColors(request.ThemeKey);
-        restaurant.Subscription = new Subscription { RestaurantId = restaurant.Id, StartsOn = today, ExpiresOn = today.AddDays(request.TrialDays), Status = SubscriptionStatus.Trial, MonthlyPrice = 39.90m };
+        var plan = NormalizePlan(request.Plan);
+        restaurant.Subscription = new Subscription
+        {
+            RestaurantId = restaurant.Id,
+            StartsOn = today,
+            ExpiresOn = today.AddDays(request.TrialDays),
+            Status = SubscriptionStatus.Trial,
+            Plan = plan,
+            MonthlyPrice = NormalizeMonthlyPrice(plan, request.MonthlyPrice)
+        };
         restaurant.Theme = new ThemeSettings { RestaurantId = restaurant.Id, ThemeKey = request.ThemeKey, PrimaryColor = themeColors.Primary, AccentColor = themeColors.Accent };
         db.Restaurants.Add(restaurant);
         await db.SaveChangesAsync(ct);
@@ -247,12 +256,12 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
 
     public async Task<bool> SetSubscriptionAsync(Guid id, SetSubscriptionRequest r, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(r.Plan)) throw new InvalidOperationException("Subscription plan is required.");
+        var plan = NormalizePlan(r.Plan);
         if (r.MonthlyPrice < 0) throw new InvalidOperationException("Monthly price cannot be negative.");
         if (r.ExpiresOn < r.StartsOn) throw new InvalidOperationException("Subscription expiry cannot be before its start date.");
         if (r.GracePeriodEndsOn < r.ExpiresOn) throw new InvalidOperationException("Grace period cannot end before the subscription expiry date.");
         var x = await db.Subscriptions.Include(x => x.Restaurant).SingleOrDefaultAsync(x => x.RestaurantId == id, ct); if (x is null) return false;
-        x.Status = r.Status; x.Plan = r.Plan; x.MonthlyPrice = r.MonthlyPrice; x.StartsOn = r.StartsOn; x.ExpiresOn = r.ExpiresOn; x.GracePeriodEndsOn = r.GracePeriodEndsOn; x.UpdatedAt = DateTimeOffset.UtcNow;
+        x.Status = r.Status; x.Plan = plan; x.MonthlyPrice = r.MonthlyPrice; x.StartsOn = r.StartsOn; x.ExpiresOn = r.ExpiresOn; x.GracePeriodEndsOn = r.GracePeriodEndsOn; x.UpdatedAt = DateTimeOffset.UtcNow;
         x.Restaurant.Status = r.Status switch
         {
             SubscriptionStatus.Suspended => RestaurantStatus.Suspended,
@@ -318,6 +327,23 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
 
     private static string NormalizeRestaurantSlug(string? value) =>
         Regex.Replace((value ?? string.Empty).Trim().ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');
+
+    private static string NormalizePlan(string? value) => (value ?? string.Empty).Trim() switch
+    {
+        "Standard" => "Pro",
+        "Enterprise" => "Premium",
+        "Basic" or "" => "Start",
+        "Start" or "Pro" or "Premium" => value!.Trim(),
+        _ => throw new InvalidOperationException("Unsupported subscription plan.")
+    };
+
+    private static decimal NormalizeMonthlyPrice(string plan, decimal? price) =>
+        price is > 0 ? price.Value : plan switch
+        {
+            "Pro" => 49m,
+            "Premium" => 79m,
+            _ => 29m
+        };
 
     private static readonly string[] SupportedThemes =
     [
@@ -419,13 +445,25 @@ public sealed class BillingService(ApplicationDbContext db) : IBillingService
     public async Task<BillingOverview> GetOverviewAsync(CancellationToken ct)
     {
         await SynchronizeExpiredSubscriptionsAsync(ct);
-        var accounts = await db.Restaurants.AsNoTracking().Where(x => x.Subscription != null).OrderBy(x => x.Name)
-            .Select(x => new BillingAccountSummary(
-                x.Id, x.Name, x.Slug, x.Subscription!.Plan, x.Subscription.MonthlyPrice, x.Currency,
-                x.Subscription.Status, x.Subscription.ExpiresOn, x.Subscription.GracePeriodEndsOn,
-                x.Payments.OrderByDescending(p => p.PaidOn).ThenByDescending(p => p.CreatedAt).Select(p => (DateOnly?)p.PaidOn).FirstOrDefault(),
-                x.Payments.OrderByDescending(p => p.PaidOn).ThenByDescending(p => p.CreatedAt).Select(p => (decimal?)p.Amount).FirstOrDefault()))
+        var rows = await db.Restaurants.AsNoTracking().Where(x => x.Subscription != null).OrderBy(x => x.Name)
+            .Select(x => new
+            {
+                x.Id,
+                x.Name,
+                x.Slug,
+                Plan = x.Subscription!.Plan,
+                x.Subscription.MonthlyPrice,
+                x.Currency,
+                x.Subscription.Status,
+                x.Subscription.ExpiresOn,
+                x.Subscription.GracePeriodEndsOn,
+                LastPaidOn = x.Payments.OrderByDescending(p => p.PaidOn).ThenByDescending(p => p.CreatedAt).Select(p => (DateOnly?)p.PaidOn).FirstOrDefault(),
+                LastPaymentAmount = x.Payments.OrderByDescending(p => p.PaidOn).ThenByDescending(p => p.CreatedAt).Select(p => (decimal?)p.Amount).FirstOrDefault()
+            })
             .ToListAsync(ct);
+        var accounts = rows.Select(x => new BillingAccountSummary(
+            x.Id, x.Name, x.Slug, NormalizePlan(x.Plan), x.MonthlyPrice, x.Currency,
+            x.Status, x.ExpiresOn, x.GracePeriodEndsOn, x.LastPaidOn, x.LastPaymentAmount)).ToList();
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var monthStart = new DateOnly(today.Year, today.Month, 1);
         var paidThisMonth = await db.SubscriptionPayments.AsNoTracking()
@@ -520,6 +558,15 @@ public sealed class BillingService(ApplicationDbContext db) : IBillingService
         }
         if (changed) await db.SaveChangesAsync(ct);
     }
+
+    private static string NormalizePlan(string? value) => (value ?? string.Empty).Trim() switch
+    {
+        "Standard" => "Pro",
+        "Enterprise" => "Premium",
+        "Basic" or "" => "Start",
+        "Start" or "Pro" or "Premium" => value!.Trim(),
+        _ => "Start"
+    };
 }
 
 public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManagementService

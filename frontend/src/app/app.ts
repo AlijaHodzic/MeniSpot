@@ -74,6 +74,14 @@ interface ConfirmDialog { title: string; message: string; confirmText: string; t
 
 type ThemeGroupId = 'restaurant' | 'cafe' | 'bar' | 'fast-food';
 interface ThemeOption { id: ThemeType; group: ThemeGroupId; name: string; description: string; colors: string[] }
+type SubscriptionPlan = 'Start' | 'Pro' | 'Premium';
+
+const subscriptionPlanPrices: Record<SubscriptionPlan, number> = { Start: 29, Pro: 49, Premium: 79 };
+const subscriptionPlanFeatures: Record<SubscriptionPlan, string[]> = {
+  Start: ['QR meni', 'Proizvodi i kategorije', 'Biblioteka pica', 'Dnevni meni i ponude'],
+  Pro: ['Sve iz Start paketa', 'Vise tema', 'Tamni i svijetli izgled', 'Prioritetna pomoc'],
+  Premium: ['Sve iz Pro paketa', 'Personalizacija izgleda', 'Sezonske ponude', 'Naprednija priprema sadrzaja'],
+};
 
 const themeGroupOptions: { id: ThemeGroupId; name: string; description: string }[] = [
   { id: 'restaurant', name: 'Restorani', description: 'Elegantnije i univerzalne palete za restorane.' },
@@ -187,7 +195,10 @@ export class App {
     { value: 'BankTransfer', label: 'Bankovna uplata' }, { value: 'Cash', label: 'Gotovina' },
     { value: 'Card', label: 'Kartica' }, { value: 'Other', label: 'Ostalo' },
   ];
-  readonly planOptions: AppSelectOption[] = ['Basic', 'Standard', 'Premium', 'Enterprise'].map((item) => ({ value: item, label: item }));
+  readonly planOptions: AppSelectOption[] = (Object.keys(subscriptionPlanPrices) as SubscriptionPlan[]).map((item) => ({
+    value: item,
+    label: `${item} - ${subscriptionPlanPrices[item]} KM / mjesec`,
+  }));
   readonly paymentCoverageOptions: AppSelectOption<number>[] = [
     { value: 1, label: '1 mjesec' }, { value: 3, label: '3 mjeseca' }, { value: 6, label: '6 mjeseci' },
     { value: 12, label: '12 mjeseci' }, { value: 24, label: '24 mjeseca' },
@@ -1000,7 +1011,7 @@ export class App {
             status: form.status === 'Suspended' || form.status === 'Cancelled'
               ? form.status
               : form.subscriptionStatus,
-            plan: form.plan.trim() || 'Basic', monthlyPrice: form.monthlyPrice, startsOn: form.startsOn,
+            plan: this.normalizePlan(form.plan), monthlyPrice: form.monthlyPrice, startsOn: form.startsOn,
             expiresOn: form.expiresOn, gracePeriodEndsOn: this.nullIfEmpty(form.gracePeriodEndsOn),
           })),
         )
@@ -1012,6 +1023,7 @@ export class App {
           phone: this.nullIfEmpty(form.phone), email: this.nullIfEmpty(form.email),
           websiteUrl: this.nullIfEmpty(form.websiteUrl), instagramUrl: this.nullIfEmpty(form.instagramUrl),
           currency: form.currency.trim() || 'BAM', defaultLanguage: form.defaultLanguage.trim() || 'bs',
+          plan: this.normalizePlan(form.plan), monthlyPrice: form.monthlyPrice,
           themeKey: form.themeKey,
         });
 
@@ -1538,8 +1550,13 @@ export class App {
   }
 
   syncPlanPrice(): void {
-    const prices: Record<string, number> = { Basic: 39.90, Standard: 59.90, Premium: 99.90, Enterprise: 149.90 };
-    this.restaurantForm.monthlyPrice = prices[this.restaurantForm.plan] ?? this.restaurantForm.monthlyPrice;
+    const plan = this.normalizePlan(this.restaurantForm.plan);
+    this.restaurantForm.plan = plan;
+    this.restaurantForm.monthlyPrice = subscriptionPlanPrices[plan];
+  }
+
+  get restaurantPlanFeatures(): string[] {
+    return subscriptionPlanFeatures[this.normalizePlan(this.restaurantForm.plan)];
   }
 
   themeUsageCount(themeKey: string): number {
@@ -1611,7 +1628,7 @@ export class App {
     return {
       id: null, name: '', slug: '', type: 'Restaurant', status: 'Active', ownerEmail: '', ownerPassword: '', trialDays: 30,
       description: '', logoUrl: '', coverImageUrl: '', address: '', phone: '', email: '', websiteUrl: '', instagramUrl: '',
-      currency: 'BAM', defaultLanguage: 'bs', themeKey: 'classic-light', plan: 'Basic', monthlyPrice: 39.90, subscriptionStatus: 'Trial',
+      currency: 'BAM', defaultLanguage: 'bs', themeKey: 'classic-light', plan: 'Start', monthlyPrice: 29, subscriptionStatus: 'Trial',
       startsOn: this.dateInputValue(today), expiresOn: this.dateInputValue(expires), gracePeriodEndsOn: '',
     };
   }
@@ -1623,7 +1640,7 @@ export class App {
       description: item.description ?? '', logoUrl: item.logoUrl ?? '', coverImageUrl: item.coverImageUrl ?? '',
       address: item.address ?? '', phone: item.phone ?? '', email: item.email ?? '', websiteUrl: item.websiteUrl ?? '',
       instagramUrl: item.instagramUrl ?? '', currency: item.currency, defaultLanguage: item.defaultLanguage, themeKey: item.themeKey,
-      plan: item.subscription.plan, monthlyPrice: item.subscription.monthlyPrice, subscriptionStatus: item.subscription.status, startsOn: item.subscription.startsOn,
+      plan: this.normalizePlan(item.subscription.plan), monthlyPrice: item.subscription.monthlyPrice, subscriptionStatus: item.subscription.status, startsOn: item.subscription.startsOn,
       expiresOn: item.subscription.expiresOn, gracePeriodEndsOn: item.subscription.gracePeriodEndsOn ?? '',
     };
   }
@@ -1634,6 +1651,12 @@ export class App {
 
   private nullIfEmpty(value: string): string | null {
     return value.trim() || null;
+  }
+
+  private normalizePlan(value: string): SubscriptionPlan {
+    if (value === 'Pro' || value === 'Standard') return 'Pro';
+    if (value === 'Premium' || value === 'Enterprise') return 'Premium';
+    return 'Start';
   }
 
   private servingOptionsFor(drink: GlobalDrinkSummary): (string | null)[] {

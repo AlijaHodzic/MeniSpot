@@ -44,8 +44,8 @@ public sealed class Restaurant : Entity
 public sealed class Subscription : Entity
 {
     public Guid RestaurantId { get; set; }
-    public string Plan { get; set; } = "Basic";
-    public decimal MonthlyPrice { get; set; } = 39.90m;
+    public string Plan { get; set; } = "Start";
+    public decimal MonthlyPrice { get; set; } = 29m;
     public SubscriptionStatus Status { get; set; } = SubscriptionStatus.Trial;
     public DateOnly StartsOn { get; set; }
     public DateOnly ExpiresOn { get; set; }

@@ -543,6 +543,10 @@
 .upload-preview-wrap { display: grid; gap: 10px; margin-top: 10px; }
 .upload-preview-wrap .upload-preview { margin-top: 0; }
 .upload-preview-wrap .secondary-button { width: fit-content; }
+.plan-feature-box { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; border: 1px solid #dbe5ef; border-radius: 14px; background: #f8fafc; padding: 14px; }
+.plan-feature-box b { color: #0f172a; font-size: 13px; }
+.plan-feature-box span { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+.plan-feature-box em { border-radius: 999px; background: #ecfccb; padding: 5px 8px; color: #3f6212; font-size: 11px; font-style: normal; font-weight: 800; }
 .check-label { display: flex; align-items: center; gap: 8px; align-self: center; font-size: 13px; font-weight: 600; }
 .check-label input { width: 16px; height: 16px; }
 .hours-editor { display: grid; gap: 8px; }

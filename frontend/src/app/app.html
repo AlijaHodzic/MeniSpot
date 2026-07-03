@@ -272,6 +272,7 @@
                 <div class="form-section subscription-section"><h3>Licenca i paket</h3><div class="form-grid">
                   <label>Paket<app-select name="subscriptionPlan" [(ngModel)]="restaurantForm.plan" [options]="planOptions" (ngModelChange)="syncPlanPrice()"></app-select></label>
                   <label>Mjesečna cijena<input name="subscriptionMonthlyPrice" type="number" min="0" step="0.10" [(ngModel)]="restaurantForm.monthlyPrice" required></label>
+                  <div class="plan-feature-box sm:col-span-2"><b>{{ restaurantForm.plan }} paket</b><span>@for (feature of restaurantPlanFeatures; track feature) { <em>{{ feature }}</em> }</span></div>
                   <label>Status licence<app-select name="subscriptionStatus" [(ngModel)]="restaurantForm.subscriptionStatus" [options]="subscriptionStatuses"></app-select></label>
                   <label>Početak<input name="subscriptionStart" type="date" [(ngModel)]="restaurantForm.startsOn" required></label>
                   <label>Ističe<input name="subscriptionExpiry" type="date" [(ngModel)]="restaurantForm.expiresOn" required></label>

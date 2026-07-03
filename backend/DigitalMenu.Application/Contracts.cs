@@ -31,6 +31,8 @@ public sealed record CreateRestaurantRequest(
     string? InstagramUrl,
     string Currency,
     string DefaultLanguage,
+    string? Plan,
+    decimal? MonthlyPrice,
     string ThemeKey);
 public sealed record UpdateRestaurantRequest(string Name, string? Slug, string? Description, string? LogoUrl, string? CoverImageUrl, string? Address, string? Phone, string? Email, string? WebsiteUrl, string? InstagramUrl, string Currency, string DefaultLanguage, EstablishmentType Type, string ThemeKey);
 public sealed record UpdateOwnerAccessRequest(string Email, string? NewPassword);
