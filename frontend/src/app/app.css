@@ -556,8 +556,8 @@
 .support-ticket-card { display: grid; gap: 14px; }
 .support-ticket-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .support-ticket-head h3 { margin: 2px 0 6px; font-family: var(--font-display); font-size: 20px; font-weight: 800; color: #0f172a; }
-.support-ticket-head p { color: #64748b; font-size: 13px; }
-.support-message { border: 1px solid #e6edf6; border-radius: 14px; background: #f8fafc; padding: 14px; color: #334155; line-height: 1.6; white-space: pre-wrap; }
+.support-ticket-head p { color: #475569; font-size: 13px; font-weight: 650; }
+.support-message { border: 1px solid #e6edf6; border-radius: 14px; background: #f8fafc; padding: 14px; color: #1e293b; font-weight: 650; line-height: 1.6; white-space: pre-wrap; }
 .support-status { display: inline-flex; align-items: center; width: max-content; border-radius: 999px; background: #e2e8f0; padding: 6px 10px; color: #475569; font-size: 12px; font-weight: 800; white-space: nowrap; }
 .support-status-new { background: #dcfce7; color: #047857; }
 .support-status-progress { background: #fef3c7; color: #92400e; }
@@ -566,6 +566,7 @@
 .support-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .support-actions .secondary-button { min-height: 38px; }
 .support-ticket-card textarea { min-height: 72px; resize: vertical; }
+.support-screenshot-label small { margin-left: 4px; color: #65a30d; font-weight: 800; }
 .support-upload-state { display: flex; min-height: 46px; align-items: center; gap: 8px; border: 1px solid #e2e8f0; border-radius: 12px; padding: 0 13px; color: #64748b; font-size: 13px; font-weight: 700; }
 .locked-support-card { display: grid; justify-items: center; gap: 10px; max-width: 620px; margin: 0 auto; text-align: center; }
 .locked-support-card svg { color: var(--brand, #84cc16); }
@@ -574,9 +575,9 @@
 .support-history h4 { font-weight: 800; color: #0f172a; }
 .support-history p { color: #64748b; font-size: 13px; }
 .support-note { grid-column: 1 / -1; border-radius: 12px; background: #f8fafc; padding: 10px 12px; }
-.owner-dark .support-ticket-head h3, .owner-dark .support-history h4 { color: #f8fafc; }
-.owner-dark .support-message, .owner-dark .support-upload-state, .owner-dark .support-history > article, .owner-dark .support-note { border-color: #3a414d; background: #20252e; color: #d6dbe5; }
-.owner-dark .support-ticket-head p, .owner-dark .support-history p, .owner-dark .support-upload-state { color: #aeb8c8; }
+.admin-shell .support-ticket-head h3, .owner-dark .support-ticket-head h3, .owner-dark .support-history h4 { color: #f8fafc; }
+.admin-shell .support-message, .owner-dark .support-message, .owner-dark .support-upload-state, .owner-dark .support-history > article, .owner-dark .support-note { border-color: #3a414d; background: #20252e; color: #edf2f7; }
+.admin-shell .support-ticket-head p, .owner-dark .support-ticket-head p, .owner-dark .support-history p, .owner-dark .support-upload-state { color: #c7d1e0; }
 
 @media (max-width: 1100px) {
   .theme-preview-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
