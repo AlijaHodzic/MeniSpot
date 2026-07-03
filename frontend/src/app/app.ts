@@ -812,6 +812,26 @@ export class App {
       });
   }
 
+  deleteSupportTicket(ticket: SupportTicket): void {
+    if (this.supportUpdating.has(ticket.id)) return;
+    const confirmed = window.confirm(`Obrisati zahtjev "${ticket.title}"?`);
+    if (!confirmed) return;
+
+    this.supportUpdating.add(ticket.id);
+    this.adminRestaurantsService.deleteSupportTicket(ticket.id)
+      .pipe(finalize(() => this.supportUpdating.delete(ticket.id)), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.adminSupportTickets = this.adminSupportTickets.filter((item) => item.id !== ticket.id);
+          this.showToast('Zahtjev je obrisan.');
+        },
+        error: () => {
+          this.adminSupportError = 'Zahtjev nije obrisan. Pokusaj ponovo.';
+          this.showToast('Zahtjev nije obrisan.', 'error');
+        },
+      });
+  }
+
   openAdminDrink(item?: AdminGlobalDrink): void {
     this.adminDrinkForm = item ? {
       id: item.id,

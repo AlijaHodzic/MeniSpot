@@ -134,6 +134,7 @@ public interface ISupportTicketService
     Task<IReadOnlyList<SupportTicketSummary>> GetOwnerAsync(Guid restaurantId, CancellationToken cancellationToken);
     Task<SupportTicketSummary?> CreateAsync(Guid restaurantId, CreateSupportTicketRequest request, CancellationToken cancellationToken);
     Task<SupportTicketSummary?> UpdateAsync(Guid id, UpdateSupportTicketRequest request, CancellationToken cancellationToken);
+    Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
 }
 
 public interface ILeadService

@@ -356,6 +356,7 @@ public sealed class AdminSupportController(ISupportTicketService support) : ApiC
 {
     [HttpGet] public async Task<ActionResult> All(CancellationToken ct) => Ok(await support.GetAdminAsync(ct));
     [HttpPut("{id:guid}")] public async Task<ActionResult> Update(Guid id, UpdateSupportTicketRequest request, CancellationToken ct) => await support.UpdateAsync(id, request, ct) is { } item ? Ok(item) : NotFound();
+    [HttpDelete("{id:guid}")] public async Task<ActionResult> Delete(Guid id, CancellationToken ct) => await support.DeleteAsync(id, ct) ? NoContent() : NotFound();
 }
 
 [Route("api/admin/drinks"), Authorize(Roles = Roles.SuperAdmin)]

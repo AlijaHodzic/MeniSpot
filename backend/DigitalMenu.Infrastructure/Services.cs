@@ -643,6 +643,16 @@ public sealed class SupportTicketService(ApplicationDbContext db) : ISupportTick
         return ToSummary(await Query().SingleAsync(x => x.Id == ticket.Id, ct));
     }
 
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
+    {
+        var ticket = await db.SupportTickets.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (ticket is null) return false;
+
+        db.SupportTickets.Remove(ticket);
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
     private IQueryable<SupportTicket> Query() => db.SupportTickets.AsNoTracking().Include(x => x.Restaurant).ThenInclude(x => x.Subscription);
 
     private static SupportTicketSummary ToSummary(SupportTicket x) => new(

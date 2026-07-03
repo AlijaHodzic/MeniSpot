@@ -75,4 +75,8 @@ export class AdminRestaurantsService {
   updateSupportTicket(id: string, request: UpdateSupportTicketRequest): Observable<SupportTicket> {
     return this.http.put<SupportTicket>(`${API_URL}/admin/support/${id}`, request);
   }
+
+  deleteSupportTicket(id: string): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/admin/support/${id}`);
+  }
 }
