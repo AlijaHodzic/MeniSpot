@@ -435,13 +435,14 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             .ToListAsync(ct);
         var total = await db.MenuViews.AsNoTracking().CountAsync(x => x.RestaurantId == restaurantId, ct);
         var monthTotal = await db.MenuViews.AsNoTracking().CountAsync(x => x.RestaurantId == restaurantId && x.ViewedOn >= monthStart && x.ViewedOn <= today, ct);
-        var topItems = await db.MenuItemViews.AsNoTracking()
+        var topItemRows = await db.MenuItemViews.AsNoTracking()
             .Where(x => x.RestaurantId == restaurantId && x.ViewedOn >= monthStart && x.ViewedOn <= today)
             .GroupBy(x => new { x.MenuItemId, x.MenuItem.Name })
-            .Select(x => new OwnerTopMenuItem(x.Key.MenuItemId, x.Key.Name, x.Count()))
+            .Select(x => new { x.Key.MenuItemId, x.Key.Name, Views = x.Count() })
             .OrderByDescending(x => x.Views)
             .Take(5)
             .ToListAsync(ct);
+        var topItems = topItemRows.Select(x => new OwnerTopMenuItem(x.MenuItemId, x.Name, x.Views)).ToList();
         var weekly = Enumerable.Range(0, 7).Select(offset =>
         {
             var date = start.AddDays(offset);
