@@ -62,10 +62,11 @@ public static class DatabaseInitializer
         var roles = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
         foreach (var role in new[] { Roles.SuperAdmin, Roles.RestaurantOwner, Roles.RestaurantStaff })
             if (!await roles.RoleExistsAsync(role)) await roles.CreateAsync(new IdentityRole<Guid>(role));
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        await ShowcaseSeeder.SeedDelRioAsync(db, users);
         var email = configuration["SeedAdmin:Email"];
         var password = configuration["SeedAdmin:Password"];
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password)) return;
-        var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         if (await users.FindByEmailAsync(email) is not null) return;
         var user = new ApplicationUser { UserName = email, Email = email, EmailConfirmed = true, DisplayName = "Administrator" };
         var result = await users.CreateAsync(user, password);
