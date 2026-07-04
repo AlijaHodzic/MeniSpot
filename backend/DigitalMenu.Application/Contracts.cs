@@ -64,6 +64,7 @@ public sealed record PaymentHistoryItem(Guid Id, decimal Amount, string Currency
 public sealed record SupportTicketSummary(Guid Id, Guid RestaurantId, string RestaurantName, string RestaurantSlug, string RestaurantPlan, string Title, SupportTicketType Type, SupportTicketPriority Priority, SupportTicketStatus Status, string Message, string? AttachmentUrl, string? AdminNote, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, DateTimeOffset? ResolvedAt);
 public sealed record CreateSupportTicketRequest(string Title, SupportTicketType Type, SupportTicketPriority Priority, string Message, string? AttachmentUrl);
 public sealed record UpdateSupportTicketRequest(SupportTicketStatus Status, string? AdminNote);
+public sealed record AuditLogRequest(string Action, string EntityType, Guid? EntityId, Guid? RestaurantId, string? Summary, Guid? ActorUserId, string? ActorEmail, string? ActorRole, string? IpAddress);
 public sealed record OwnerMenuItem(Guid Id, Guid CategoryId, Guid? GlobalDrinkId, string Name, string? Description, string? NameEn, string? DescriptionEn, string? NameDe, string? DescriptionDe, decimal Price, string? ServingSize, string? ImageUrl, string? Allergens, int SortOrder, bool IsVisible, bool IsAvailable, bool IsVegetarian, bool IsSpicy, bool IsFeatured);
 public sealed record OwnerMenuCategory(Guid Id, string Name, string? Description, string? NameEn, string? DescriptionEn, string? NameDe, string? DescriptionDe, MenuCategoryType Type, int SortOrder, bool IsVisible, IReadOnlyList<OwnerMenuItem> Items);
 public sealed record OwnerSpecialOffer(Guid Id, string Title, string? Description, string? TitleEn, string? DescriptionEn, string? ItemsEn, string? TitleDe, string? DescriptionDe, string? ItemsDe, decimal? Price, decimal? OriginalPrice, string? ImageUrl, DateTimeOffset? StartsAt, DateTimeOffset? EndsAt, bool IsVisible, SpecialOfferKind Kind, string? Items);
@@ -93,7 +94,12 @@ public interface IRestaurantService
     Task<bool> SetStatusAsync(Guid id, RestaurantStatus status, CancellationToken cancellationToken);
     Task<bool> SetSubscriptionAsync(Guid id, SetSubscriptionRequest request, CancellationToken cancellationToken);
     Task<bool> UpdateOwnerAccessAsync(Guid id, UpdateOwnerAccessRequest request, CancellationToken cancellationToken);
-    Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
+    Task<bool> DeleteAsync(Guid id, Guid? archivedByUserId, CancellationToken cancellationToken);
+}
+
+public interface IAuditLogService
+{
+    Task RecordAsync(AuditLogRequest request, CancellationToken cancellationToken);
 }
 
 public interface IMenuManagementService

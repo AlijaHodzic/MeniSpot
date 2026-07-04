@@ -7,7 +7,7 @@ public abstract class Entity
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
 
-public enum RestaurantStatus { Draft, Active, Suspended, Cancelled }
+public enum RestaurantStatus { Draft, Active, Suspended, Cancelled, Archived }
 public enum SubscriptionStatus { Trial, Active, Overdue, Suspended, Cancelled }
 public enum EstablishmentType { Restaurant, Cafe, Bar, Club, FastFood, Other, ShishaBar }
 public enum PaymentMethod { BankTransfer, Cash, Card, Other }
@@ -35,6 +35,8 @@ public sealed class Restaurant : Entity
     public string EnabledLanguages { get; set; } = "bs,en";
     public EstablishmentType Type { get; set; }
     public RestaurantStatus Status { get; set; } = RestaurantStatus.Draft;
+    public DateTimeOffset? ArchivedAt { get; set; }
+    public Guid? ArchivedByUserId { get; set; }
     public Subscription? Subscription { get; set; }
     public ThemeSettings? Theme { get; set; }
     public ICollection<MenuCategory> Categories { get; set; } = [];
@@ -103,6 +105,19 @@ public sealed class Lead : Entity
     public string Type { get; set; } = string.Empty;
     public string? Message { get; set; }
     public LeadStatus Status { get; set; } = LeadStatus.New;
+}
+
+public sealed class AuditLog : Entity
+{
+    public Guid? ActorUserId { get; set; }
+    public string? ActorEmail { get; set; }
+    public string? ActorRole { get; set; }
+    public string Action { get; set; } = string.Empty;
+    public string EntityType { get; set; } = string.Empty;
+    public Guid? EntityId { get; set; }
+    public Guid? RestaurantId { get; set; }
+    public string? Summary { get; set; }
+    public string? IpAddress { get; set; }
 }
 
 public sealed class SupportTicket : Entity

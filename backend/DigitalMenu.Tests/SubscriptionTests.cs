@@ -38,6 +38,7 @@ public sealed class SubscriptionTests
     [InlineData(RestaurantStatus.Draft, false)]
     [InlineData(RestaurantStatus.Suspended, false)]
     [InlineData(RestaurantStatus.Cancelled, false)]
+    [InlineData(RestaurantStatus.Archived, false)]
     public void Public_menu_requires_an_active_restaurant(RestaurantStatus status, bool expected)
     {
         var restaurant = new Restaurant { Name = "Test", Slug = "test", Status = status, Subscription = Create(SubscriptionStatus.Active) };

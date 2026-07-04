@@ -85,14 +85,14 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
     public async Task<IReadOnlyList<RestaurantSummary>> GetAllAsync(CancellationToken ct)
     {
         var rows = await db.Restaurants.AsNoTracking()
-        .Where(x => x.Subscription != null).OrderBy(x => x.Name)
+        .Where(x => x.Subscription != null && x.Status != RestaurantStatus.Archived).OrderBy(x => x.Name)
         .Select(x => new { x.Id, x.Name, x.Slug, x.Type, x.LogoUrl, x.Address, x.Status, x.Subscription!.Plan, SubscriptionStatus = x.Subscription.Status, x.Subscription.ExpiresOn }).ToListAsync(ct);
         return rows.Select(x => new RestaurantSummary(x.Id, x.Name, x.Slug, x.Type, AssetUrl.Normalize(x.LogoUrl), x.Address, x.Status, NormalizePlan(x.Plan), x.SubscriptionStatus, x.ExpiresOn)).ToList();
     }
 
     public async Task<AdminDashboardSummary> GetDashboardAsync(CancellationToken ct)
     {
-        var rows = await db.Restaurants.AsNoTracking().Where(x => x.Subscription != null).Select(x => new
+        var rows = await db.Restaurants.AsNoTracking().Where(x => x.Subscription != null && x.Status != RestaurantStatus.Archived).Select(x => new
         {
             x.Id, x.Name, x.Type, x.Status, x.CreatedAt, x.UpdatedAt,
             x.LogoUrl, x.CoverImageUrl,
@@ -135,7 +135,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
 
     public async Task<AdminRestaurantDetails?> GetAdminDetailsAsync(Guid id, CancellationToken ct)
     {
-        var item = await db.Restaurants.AsNoTracking().Where(x => x.Id == id && x.Subscription != null).Select(x => new
+        var item = await db.Restaurants.AsNoTracking().Where(x => x.Id == id && x.Subscription != null && x.Status != RestaurantStatus.Archived).Select(x => new
         {
             x.Id, x.Name, x.Slug, x.Description, x.LogoUrl, x.CoverImageUrl, x.Address, x.Phone, x.Email,
             x.WebsiteUrl, x.InstagramUrl, x.Currency, x.DefaultLanguage, x.EnabledLanguages, x.Type, x.Status,
@@ -161,7 +161,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         var restaurant = await db.Restaurants.AsNoTracking().AsSplitQuery()
         .Include(x => x.Subscription).Include(x => x.Theme).Include(x => x.BusinessHours)
         .Include(x => x.Categories).ThenInclude(x => x.Items).ThenInclude(x => x.GlobalDrink).Include(x => x.SpecialOffers)
-        .FirstOrDefaultAsync(x => x.Id == id && (admin || x.Id == tenantId), ct);
+        .FirstOrDefaultAsync(x => x.Id == id && x.Status != RestaurantStatus.Archived && (admin || x.Id == tenantId), ct);
         if (restaurant is null) return null;
         return ToOwnerDetails(restaurant, await GetMenuAnalyticsAsync(restaurant.Id, ct));
     }
@@ -222,7 +222,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
     {
         if (string.IsNullOrWhiteSpace(r.Name)) throw new InvalidOperationException("Restaurant name is required.");
         if (string.IsNullOrWhiteSpace(r.Currency) || r.Currency.Trim().Length != 3) throw new InvalidOperationException("Currency must use a three-letter code.");
-        var x = await db.Restaurants.Include(x => x.Theme).FirstOrDefaultAsync(x => x.Id == id && (admin || x.Id == tenantId), ct);
+        var x = await db.Restaurants.Include(x => x.Theme).FirstOrDefaultAsync(x => x.Id == id && x.Status != RestaurantStatus.Archived && (admin || x.Id == tenantId), ct);
         if (x is null) return false;
         if (!SupportedThemes.Contains(r.ThemeKey)) throw new InvalidOperationException("Selected theme is not supported.");
         if (admin && !string.IsNullOrWhiteSpace(r.Slug))
@@ -244,7 +244,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
 
     public async Task<bool> SetStatusAsync(Guid id, RestaurantStatus status, CancellationToken ct)
     {
-        var x = await db.Restaurants.Include(x => x.Subscription).FirstOrDefaultAsync(x => x.Id == id, ct); if (x is null) return false;
+        var x = await db.Restaurants.Include(x => x.Subscription).FirstOrDefaultAsync(x => x.Id == id && x.Status != RestaurantStatus.Archived, ct); if (x is null) return false;
         x.Status = status;
         if (x.Subscription is not null)
         {
@@ -269,7 +269,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         if (r.MonthlyPrice < 0) throw new InvalidOperationException("Monthly price cannot be negative.");
         if (r.ExpiresOn < r.StartsOn) throw new InvalidOperationException("Subscription expiry cannot be before its start date.");
         if (r.GracePeriodEndsOn < r.ExpiresOn) throw new InvalidOperationException("Grace period cannot end before the subscription expiry date.");
-        var x = await db.Subscriptions.Include(x => x.Restaurant).SingleOrDefaultAsync(x => x.RestaurantId == id, ct); if (x is null) return false;
+        var x = await db.Subscriptions.Include(x => x.Restaurant).SingleOrDefaultAsync(x => x.RestaurantId == id && x.Restaurant.Status != RestaurantStatus.Archived, ct); if (x is null) return false;
         x.Status = r.Status; x.Plan = plan; x.MonthlyPrice = r.MonthlyPrice; x.StartsOn = r.StartsOn; x.ExpiresOn = r.ExpiresOn; x.GracePeriodEndsOn = r.GracePeriodEndsOn; x.UpdatedAt = DateTimeOffset.UtcNow;
         x.Restaurant.Status = r.Status switch
         {
@@ -285,6 +285,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
     public async Task<bool> UpdateOwnerAccessAsync(Guid id, UpdateOwnerAccessRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Email)) throw new InvalidOperationException("Owner email is required.");
+        if (!await db.Restaurants.AnyAsync(x => x.Id == id && x.Status != RestaurantStatus.Archived, ct)) return false;
         var owner = await (from user in db.Users
             join userRole in db.UserRoles on user.Id equals userRole.UserId
             join role in db.Roles on userRole.RoleId equals role.Id
@@ -309,17 +310,23 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         return true;
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
+    public async Task<bool> DeleteAsync(Guid id, Guid? archivedByUserId, CancellationToken ct)
     {
-        var restaurant = await db.Restaurants.FirstOrDefaultAsync(x => x.Id == id, ct);
+        var restaurant = await db.Restaurants.Include(x => x.Subscription).FirstOrDefaultAsync(x => x.Id == id, ct);
         if (restaurant is null) return false;
+        if (restaurant.Status == RestaurantStatus.Archived) return true;
 
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        var restaurantUsers = await db.Users.Where(x => x.RestaurantId == id).ToListAsync(ct);
-        db.Users.RemoveRange(restaurantUsers);
-        db.Restaurants.Remove(restaurant);
+        var now = DateTimeOffset.UtcNow;
+        restaurant.Status = RestaurantStatus.Archived;
+        restaurant.ArchivedAt = now;
+        restaurant.ArchivedByUserId = archivedByUserId;
+        restaurant.UpdatedAt = now;
+        if (restaurant.Subscription is not null)
+        {
+            restaurant.Subscription.Status = SubscriptionStatus.Cancelled;
+            restaurant.Subscription.UpdatedAt = now;
+        }
         await db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
         return true;
     }
 
@@ -483,12 +490,41 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
     }
 }
 
+public sealed class AuditLogService(ApplicationDbContext db) : IAuditLogService
+{
+    public async Task RecordAsync(AuditLogRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Action) || string.IsNullOrWhiteSpace(request.EntityType)) return;
+
+        db.AuditLogs.Add(new AuditLog
+        {
+            ActorUserId = request.ActorUserId,
+            ActorEmail = Trim(request.ActorEmail, 180),
+            ActorRole = Trim(request.ActorRole, 80),
+            Action = Trim(request.Action, 120) ?? string.Empty,
+            EntityType = Trim(request.EntityType, 120) ?? string.Empty,
+            EntityId = request.EntityId,
+            RestaurantId = request.RestaurantId,
+            Summary = Trim(request.Summary, 2000),
+            IpAddress = Trim(request.IpAddress, 80)
+        });
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static string? Trim(string? value, int maxLength)
+    {
+        var trimmed = value?.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed)) return null;
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
+    }
+}
+
 public sealed class BillingService(ApplicationDbContext db) : IBillingService
 {
     public async Task<BillingOverview> GetOverviewAsync(CancellationToken ct)
     {
         await SynchronizeExpiredSubscriptionsAsync(ct);
-        var rows = await db.Restaurants.AsNoTracking().Where(x => x.Subscription != null).OrderBy(x => x.Name)
+        var rows = await db.Restaurants.AsNoTracking().Where(x => x.Subscription != null && x.Status != RestaurantStatus.Archived).OrderBy(x => x.Name)
             .Select(x => new
             {
                 x.Id,
@@ -524,7 +560,7 @@ public sealed class BillingService(ApplicationDbContext db) : IBillingService
 
     public async Task<IReadOnlyList<PaymentHistoryItem>?> GetHistoryAsync(Guid restaurantId, CancellationToken ct)
     {
-        if (!await db.Restaurants.AnyAsync(x => x.Id == restaurantId, ct)) return null;
+        if (!await db.Restaurants.AnyAsync(x => x.Id == restaurantId && x.Status != RestaurantStatus.Archived, ct)) return null;
         return await db.SubscriptionPayments.AsNoTracking().Where(x => x.RestaurantId == restaurantId)
             .OrderByDescending(x => x.PaidOn).ThenByDescending(x => x.CreatedAt)
             .Select(x => new PaymentHistoryItem(x.Id, x.Amount, x.Currency, x.PaidOn, x.PeriodStartsOn, x.PeriodEndsOn, x.CoverageMonths, x.Method, x.Reference, x.Note, x.CreatedAt))
@@ -536,7 +572,7 @@ public sealed class BillingService(ApplicationDbContext db) : IBillingService
         if (request.Amount <= 0) throw new InvalidOperationException("Payment amount must be greater than zero.");
         if (request.CoverageMonths is < 1 or > 24) throw new InvalidOperationException("Coverage must be between 1 and 24 months.");
         if (string.IsNullOrWhiteSpace(request.Currency) || request.Currency.Trim().Length != 3) throw new InvalidOperationException("Currency must use a three-letter code.");
-        var restaurant = await db.Restaurants.Include(x => x.Subscription).FirstOrDefaultAsync(x => x.Id == restaurantId, ct);
+        var restaurant = await db.Restaurants.Include(x => x.Subscription).FirstOrDefaultAsync(x => x.Id == restaurantId && x.Status != RestaurantStatus.Archived, ct);
         if (restaurant?.Subscription is null) return null;
         var periodStart = restaurant.Subscription.ExpiresOn >= request.PaidOn
             ? restaurant.Subscription.ExpiresOn.AddDays(1)
@@ -571,7 +607,7 @@ public sealed class BillingService(ApplicationDbContext db) : IBillingService
     private async Task SynchronizeExpiredSubscriptionsAsync(CancellationToken ct)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var restaurants = await db.Restaurants.Include(x => x.Subscription).Where(x => x.Subscription != null).ToListAsync(ct);
+        var restaurants = await db.Restaurants.Include(x => x.Subscription).Where(x => x.Subscription != null && x.Status != RestaurantStatus.Archived).ToListAsync(ct);
         var changed = false;
         foreach (var restaurant in restaurants)
         {
@@ -628,7 +664,7 @@ public sealed class SupportTicketService(ApplicationDbContext db) : ISupportTick
 
     public async Task<SupportTicketSummary?> CreateAsync(Guid restaurantId, CreateSupportTicketRequest request, CancellationToken ct)
     {
-        var restaurant = await db.Restaurants.Include(x => x.Subscription).FirstOrDefaultAsync(x => x.Id == restaurantId, ct);
+        var restaurant = await db.Restaurants.Include(x => x.Subscription).FirstOrDefaultAsync(x => x.Id == restaurantId && x.Status != RestaurantStatus.Archived, ct);
         if (restaurant?.Subscription is null) return null;
         var plan = NormalizePlan(restaurant.Subscription.Plan);
         if (plan == "Start") throw new InvalidOperationException("Support tickets are available on Pro and Premium plans.");
@@ -678,7 +714,7 @@ public sealed class SupportTicketService(ApplicationDbContext db) : ISupportTick
         return true;
     }
 
-    private IQueryable<SupportTicket> Query() => db.SupportTickets.AsNoTracking().Include(x => x.Restaurant).ThenInclude(x => x.Subscription);
+    private IQueryable<SupportTicket> Query() => db.SupportTickets.AsNoTracking().Include(x => x.Restaurant).ThenInclude(x => x.Subscription).Where(x => x.Restaurant.Status != RestaurantStatus.Archived);
 
     private static SupportTicketSummary ToSummary(SupportTicket x) => new(
         x.Id,

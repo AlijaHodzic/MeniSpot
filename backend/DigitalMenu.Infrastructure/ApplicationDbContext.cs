@@ -27,6 +27,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<MenuItemView> MenuItemViews => Set<MenuItemView>();
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
     public DbSet<Lead> Leads => Set<Lead>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -41,6 +42,8 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.Currency).HasMaxLength(3);
             e.Property(x => x.DefaultLanguage).HasMaxLength(5);
             e.Property(x => x.EnabledLanguages).HasMaxLength(32).HasDefaultValue("bs,en");
+            e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.ArchivedAt);
             e.HasOne(x => x.Subscription).WithOne(x => x.Restaurant).HasForeignKey<Subscription>(x => x.RestaurantId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Theme).WithOne(x => x.Restaurant).HasForeignKey<ThemeSettings>(x => x.RestaurantId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -130,6 +133,17 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.Phone).HasMaxLength(80);
             e.Property(x => x.Type).HasMaxLength(80);
             e.Property(x => x.Message).HasMaxLength(3000);
+        });
+        builder.Entity<AuditLog>(e =>
+        {
+            e.HasIndex(x => new { x.EntityType, x.EntityId, x.CreatedAt });
+            e.HasIndex(x => new { x.RestaurantId, x.CreatedAt });
+            e.Property(x => x.ActorEmail).HasMaxLength(180);
+            e.Property(x => x.ActorRole).HasMaxLength(80);
+            e.Property(x => x.Action).HasMaxLength(120);
+            e.Property(x => x.EntityType).HasMaxLength(120);
+            e.Property(x => x.Summary).HasMaxLength(2000);
+            e.Property(x => x.IpAddress).HasMaxLength(80);
         });
         builder.Entity<Subscription>().Property(x => x.MonthlyPrice).HasPrecision(12, 2);
         builder.Entity<ApplicationUser>().HasIndex(x => x.RestaurantId);

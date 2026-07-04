@@ -1,5 +1,5 @@
 export type EstablishmentType = 'Restaurant' | 'Cafe' | 'Bar' | 'Club' | 'FastFood' | 'Other' | 'ShishaBar';
-export type RestaurantStatus = 'Draft' | 'Active' | 'Suspended' | 'Cancelled';
+export type RestaurantStatus = 'Draft' | 'Active' | 'Suspended' | 'Cancelled' | 'Archived';
 export type SubscriptionStatus = 'Trial' | 'Active' | 'Overdue' | 'Suspended' | 'Cancelled';
 
 export interface AdminRestaurantSummary {

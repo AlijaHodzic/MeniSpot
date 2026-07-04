@@ -1848,7 +1848,7 @@ export class App {
   }
 
   restaurantStatusLabel(status: RestaurantStatus): string {
-    return ({ Draft: 'Priprema', Active: 'Aktivan', Suspended: 'Pauziran', Cancelled: 'Otkazan' })[status];
+    return ({ Draft: 'Priprema', Active: 'Aktivan', Suspended: 'Pauziran', Cancelled: 'Otkazan', Archived: 'Arhiviran' })[status];
   }
 
   subscriptionStatusLabel(status: SubscriptionStatus): string {

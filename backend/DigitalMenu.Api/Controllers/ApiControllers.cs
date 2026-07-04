@@ -5,6 +5,7 @@ using DigitalMenu.Application;
 using DigitalMenu.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Webp;
@@ -16,13 +17,21 @@ namespace DigitalMenu.Api.Controllers;
 public abstract class ApiController : ControllerBase
 {
     protected Guid? RestaurantId => Guid.TryParse(User.FindFirstValue("restaurant_id"), out var id) ? id : null;
+    protected Guid? UserId => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : null;
+    protected string? UserEmail => User.FindFirstValue(ClaimTypes.Email) ?? User.FindFirstValue("email");
+    protected string? UserRole => User.FindFirstValue(ClaimTypes.Role);
+    protected string? ClientIp => HttpContext.Connection.RemoteIpAddress?.ToString();
     protected bool IsSuperAdmin => User.IsInRole(Roles.SuperAdmin);
     protected ActionResult MissingTenant() => Forbid();
+    protected AuditLogRequest Audit(string action, string entityType, Guid? entityId = null, Guid? restaurantId = null, string? summary = null) =>
+        new(action, entityType, entityId, restaurantId, summary, UserId, UserEmail, UserRole, ClientIp);
 }
 
 internal static class ImageUploadHelper
 {
     private const long MaxUploadBytes = 5_242_880;
+    private const int MaxImageDimension = 6_000;
+    private const long MaxImagePixels = 20_000_000;
     private static readonly HashSet<string> SupportedContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "image/jpeg",
@@ -41,13 +50,21 @@ internal static class ImageUploadHelper
         if (!SupportedContentTypes.Contains(file.ContentType)) return controller.BadRequest("Only JPEG, PNG and WebP images are supported.");
 
         var webRoot = environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot");
-        var directory = Path.Combine(webRoot, relativeDirectory);
+        if (Path.IsPathRooted(relativeDirectory) || relativeDirectory.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(x => x == ".."))
+            return controller.BadRequest("Invalid upload path.");
+
+        var root = Path.GetFullPath(webRoot);
+        var directory = Path.GetFullPath(Path.Combine(root, relativeDirectory));
+        if (!directory.StartsWith(root, StringComparison.OrdinalIgnoreCase)) return controller.BadRequest("Invalid upload path.");
         Directory.CreateDirectory(directory);
 
         try
         {
             await using var input = file.OpenReadStream();
             using var image = await Image.LoadAsync(input, ct);
+            if (image.Width > MaxImageDimension || image.Height > MaxImageDimension || (long)image.Width * image.Height > MaxImagePixels)
+                return controller.BadRequest("Image dimensions are too large.");
+
             image.Mutate(x => x.AutoOrient().Resize(new ResizeOptions
             {
                 Mode = ResizeMode.Max,
@@ -75,7 +92,7 @@ internal static class ImageUploadHelper
 [Route("api/auth")]
 public sealed class AuthController(IAuthService auth) : ApiController
 {
-    [HttpPost("login"), AllowAnonymous]
+    [HttpPost("login"), AllowAnonymous, EnableRateLimiting("auth")]
     public async Task<ActionResult<LoginResponse>> Login(LoginRequest request, CancellationToken ct)
         => await auth.LoginAsync(request, ct) is { } result ? Ok(result) : Unauthorized();
 
@@ -101,7 +118,7 @@ public sealed record LeadRequest(
 [Route("api/leads")]
 public sealed class LeadsController(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILeadService leads) : ApiController
 {
-    [HttpPost, AllowAnonymous]
+    [HttpPost, AllowAnonymous, EnableRateLimiting("forms")]
     public async Task<ActionResult> Submit(LeadRequest request, CancellationToken ct)
     {
         if (!IsAllowedFrontendRequest()) return BadRequest();
@@ -323,62 +340,159 @@ public sealed class LeadsController(IHttpClientFactory httpClientFactory, IConfi
 }
 
 [Route("api/admin/restaurants"), Authorize(Roles = Roles.SuperAdmin)]
-public sealed class AdminRestaurantsController(IRestaurantService restaurants, IAuthService auth, IWebHostEnvironment environment) : ApiController
+public sealed class AdminRestaurantsController(IRestaurantService restaurants, IAuthService auth, IWebHostEnvironment environment, IAuditLogService audit) : ApiController
 {
     [HttpGet] public async Task<ActionResult> All(CancellationToken ct) => Ok(await restaurants.GetAllAsync(ct));
     [HttpGet("dashboard")] public async Task<ActionResult> Dashboard(CancellationToken ct) => Ok(await restaurants.GetDashboardAsync(ct));
     [HttpGet("{id:guid}")] public async Task<ActionResult> One(Guid id, CancellationToken ct) => await restaurants.GetAdminDetailsAsync(id, ct) is { } x ? Ok(x) : NotFound();
-    [HttpPost] public async Task<ActionResult> Create(CreateRestaurantRequest request, CancellationToken ct) { var x = await restaurants.CreateAsync(request, ct); return CreatedAtAction(nameof(One), new { id = x.Id }, await restaurants.GetAdminDetailsAsync(x.Id, ct)); }
-    [HttpPut("{id:guid}")] public async Task<ActionResult> Update(Guid id, UpdateRestaurantRequest request, CancellationToken ct) => await restaurants.UpdateAsync(id, request, null, true, ct) ? NoContent() : NotFound();
-    [HttpPut("{id:guid}/status")] public async Task<ActionResult> Status(Guid id, [FromBody] RestaurantStatus status, CancellationToken ct) => await restaurants.SetStatusAsync(id, status, ct) ? NoContent() : NotFound();
-    [HttpPut("{id:guid}/subscription")] public async Task<ActionResult> Subscription(Guid id, SetSubscriptionRequest request, CancellationToken ct) => await restaurants.SetSubscriptionAsync(id, request, ct) ? NoContent() : NotFound();
-    [HttpPut("{id:guid}/owner-access")] public async Task<ActionResult> OwnerAccess(Guid id, UpdateOwnerAccessRequest request, CancellationToken ct) => await restaurants.UpdateOwnerAccessAsync(id, request, ct) ? NoContent() : NotFound();
-    [HttpPost("{id:guid}/impersonate")] public async Task<ActionResult<LoginResponse>> Impersonate(Guid id, CancellationToken ct) => await auth.ImpersonateRestaurantOwnerAsync(id, ct) is { } result ? Ok(result) : NotFound();
-    [HttpPost("{id:guid}/images"), RequestSizeLimit(6_000_000)]
+    [HttpPost]
+    public async Task<ActionResult> Create(CreateRestaurantRequest request, CancellationToken ct)
+    {
+        var x = await restaurants.CreateAsync(request, ct);
+        await audit.RecordAsync(Audit("RestaurantCreated", "Restaurant", x.Id, x.Id, x.Name), ct);
+        return CreatedAtAction(nameof(One), new { id = x.Id }, await restaurants.GetAdminDetailsAsync(x.Id, ct));
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult> Update(Guid id, UpdateRestaurantRequest request, CancellationToken ct)
+    {
+        if (!await restaurants.UpdateAsync(id, request, null, true, ct)) return NotFound();
+        await audit.RecordAsync(Audit("RestaurantUpdated", "Restaurant", id, id, request.Name), ct);
+        return NoContent();
+    }
+
+    [HttpPut("{id:guid}/status")]
+    public async Task<ActionResult> Status(Guid id, [FromBody] RestaurantStatus status, CancellationToken ct)
+    {
+        if (!await restaurants.SetStatusAsync(id, status, ct)) return NotFound();
+        await audit.RecordAsync(Audit("RestaurantStatusChanged", "Restaurant", id, id, status.ToString()), ct);
+        return NoContent();
+    }
+
+    [HttpPut("{id:guid}/subscription")]
+    public async Task<ActionResult> Subscription(Guid id, SetSubscriptionRequest request, CancellationToken ct)
+    {
+        if (!await restaurants.SetSubscriptionAsync(id, request, ct)) return NotFound();
+        await audit.RecordAsync(Audit("SubscriptionChanged", "Subscription", id, id, $"{request.Plan} / {request.Status}"), ct);
+        return NoContent();
+    }
+
+    [HttpPut("{id:guid}/owner-access")]
+    public async Task<ActionResult> OwnerAccess(Guid id, UpdateOwnerAccessRequest request, CancellationToken ct)
+    {
+        if (!await restaurants.UpdateOwnerAccessAsync(id, request, ct)) return NotFound();
+        await audit.RecordAsync(Audit("OwnerAccessUpdated", "Restaurant", id, id, request.Email), ct);
+        return NoContent();
+    }
+
+    [HttpPost("{id:guid}/impersonate")]
+    public async Task<ActionResult<LoginResponse>> Impersonate(Guid id, CancellationToken ct)
+    {
+        if (await auth.ImpersonateRestaurantOwnerAsync(id, ct) is not { } result) return NotFound();
+        await audit.RecordAsync(Audit("RestaurantImpersonated", "Restaurant", id, id), ct);
+        return Ok(result);
+    }
+
+    [HttpPost("{id:guid}/images"), RequestSizeLimit(6_000_000), EnableRateLimiting("uploads")]
     public async Task<ActionResult> UploadImage(Guid id, IFormFile file, CancellationToken ct)
     {
         if (await restaurants.GetAdminDetailsAsync(id, ct) is null) return NotFound();
-        return await ImageUploadHelper.SaveOptimizedWebpAsync(this, environment, file, Path.Combine("uploads", id.ToString("N")), ct);
+        var result = await ImageUploadHelper.SaveOptimizedWebpAsync(this, environment, file, Path.Combine("uploads", id.ToString("N")), ct);
+        if (result is OkObjectResult) await audit.RecordAsync(Audit("RestaurantImageUploaded", "Restaurant", id, id), ct);
+        return result;
     }
-    [HttpDelete("{id:guid}")] public async Task<ActionResult> Delete(Guid id, CancellationToken ct) => await restaurants.DeleteAsync(id, ct) ? NoContent() : NotFound();
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        if (!await restaurants.DeleteAsync(id, UserId, ct)) return NotFound();
+        await audit.RecordAsync(Audit("RestaurantArchived", "Restaurant", id, id), ct);
+        return NoContent();
+    }
 }
 
 [Route("api/admin/billing"), Authorize(Roles = Roles.SuperAdmin)]
-public sealed class AdminBillingController(IBillingService billing) : ApiController
+public sealed class AdminBillingController(IBillingService billing, IAuditLogService audit) : ApiController
 {
     [HttpGet] public async Task<ActionResult> Overview(CancellationToken ct) => Ok(await billing.GetOverviewAsync(ct));
     [HttpGet("{restaurantId:guid}/payments")] public async Task<ActionResult> History(Guid restaurantId, CancellationToken ct) => await billing.GetHistoryAsync(restaurantId, ct) is { } items ? Ok(items) : NotFound();
-    [HttpPost("{restaurantId:guid}/payments")] public async Task<ActionResult> Record(Guid restaurantId, RecordManualPaymentRequest request, CancellationToken ct) => await billing.RecordPaymentAsync(restaurantId, request, ct) is { } item ? Ok(item) : NotFound();
+    [HttpPost("{restaurantId:guid}/payments")]
+    public async Task<ActionResult> Record(Guid restaurantId, RecordManualPaymentRequest request, CancellationToken ct)
+    {
+        if (await billing.RecordPaymentAsync(restaurantId, request, ct) is not { } item) return NotFound();
+        await audit.RecordAsync(Audit("PaymentRecorded", "SubscriptionPayment", item.Id, restaurantId, $"{item.Amount} {item.Currency}"), ct);
+        return Ok(item);
+    }
 }
 
 [Route("api/admin/support"), Authorize(Roles = Roles.SuperAdmin)]
-public sealed class AdminSupportController(ISupportTicketService support) : ApiController
+public sealed class AdminSupportController(ISupportTicketService support, IAuditLogService audit) : ApiController
 {
     [HttpGet] public async Task<ActionResult> All(CancellationToken ct) => Ok(await support.GetAdminAsync(ct));
-    [HttpPut("{id:guid}")] public async Task<ActionResult> Update(Guid id, UpdateSupportTicketRequest request, CancellationToken ct) => await support.UpdateAsync(id, request, ct) is { } item ? Ok(item) : NotFound();
-    [HttpDelete("{id:guid}")] public async Task<ActionResult> Delete(Guid id, CancellationToken ct) => await support.DeleteAsync(id, ct) ? NoContent() : NotFound();
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult> Update(Guid id, UpdateSupportTicketRequest request, CancellationToken ct)
+    {
+        if (await support.UpdateAsync(id, request, ct) is not { } item) return NotFound();
+        await audit.RecordAsync(Audit("SupportTicketUpdated", "SupportTicket", id, item.RestaurantId, request.Status.ToString()), ct);
+        return Ok(item);
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        if (!await support.DeleteAsync(id, ct)) return NotFound();
+        await audit.RecordAsync(Audit("SupportTicketDeleted", "SupportTicket", id), ct);
+        return NoContent();
+    }
 }
 
 [Route("api/admin/drinks"), Authorize(Roles = Roles.SuperAdmin)]
-public sealed class AdminDrinksController(IGlobalDrinkService drinks, IWebHostEnvironment environment) : ApiController
+public sealed class AdminDrinksController(IGlobalDrinkService drinks, IWebHostEnvironment environment, IAuditLogService audit) : ApiController
 {
     [HttpGet] public async Task<ActionResult> All(CancellationToken ct) => Ok(await drinks.GetAllAsync(ct));
-    [HttpPost] public async Task<ActionResult> Create(GlobalDrinkRequest request, CancellationToken ct) => Ok(await drinks.SaveAsync(null, request, ct));
-    [HttpPut("{id:guid}")] public async Task<ActionResult> Update(Guid id, GlobalDrinkRequest request, CancellationToken ct) => await drinks.SaveAsync(id, request, ct) is { } item ? Ok(item) : NotFound();
-    [HttpDelete("{id:guid}")] public async Task<ActionResult> Delete(Guid id, CancellationToken ct) => await drinks.DeleteAsync(id, ct) ? NoContent() : NotFound();
+    [HttpPost]
+    public async Task<ActionResult> Create(GlobalDrinkRequest request, CancellationToken ct)
+    {
+        var item = await drinks.SaveAsync(null, request, ct);
+        await audit.RecordAsync(Audit("GlobalDrinkCreated", "GlobalDrink", item?.Id, null, request.Name), ct);
+        return Ok(item);
+    }
 
-    [HttpPost("images"), RequestSizeLimit(6_000_000)]
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult> Update(Guid id, GlobalDrinkRequest request, CancellationToken ct)
+    {
+        if (await drinks.SaveAsync(id, request, ct) is not { } item) return NotFound();
+        await audit.RecordAsync(Audit("GlobalDrinkUpdated", "GlobalDrink", id, null, request.Name), ct);
+        return Ok(item);
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        if (!await drinks.DeleteAsync(id, ct)) return NotFound();
+        await audit.RecordAsync(Audit("GlobalDrinkDeleted", "GlobalDrink", id), ct);
+        return NoContent();
+    }
+
+    [HttpPost("images"), RequestSizeLimit(6_000_000), EnableRateLimiting("uploads")]
     public async Task<ActionResult> UploadImage(IFormFile file, CancellationToken ct)
     {
-        return await ImageUploadHelper.SaveOptimizedWebpAsync(this, environment, file, Path.Combine("uploads", "drinks"), ct);
+        var result = await ImageUploadHelper.SaveOptimizedWebpAsync(this, environment, file, Path.Combine("uploads", "drinks"), ct);
+        if (result is OkObjectResult) await audit.RecordAsync(Audit("GlobalDrinkImageUploaded", "GlobalDrink"), ct);
+        return result;
     }
 }
 
 [Route("api/restaurant"), Authorize(Roles = Roles.RestaurantOwner + "," + Roles.RestaurantStaff)]
-public sealed class RestaurantController(IRestaurantService restaurants, IMenuManagementService menu, ISupportTicketService support, IWebHostEnvironment environment, IConfiguration configuration, IHttpClientFactory httpClientFactory) : ApiController
+public sealed class RestaurantController(IRestaurantService restaurants, IMenuManagementService menu, ISupportTicketService support, IWebHostEnvironment environment, IConfiguration configuration, IHttpClientFactory httpClientFactory, IAuditLogService audit) : ApiController
 {
     [HttpGet] public async Task<ActionResult> Get(CancellationToken ct) => RestaurantId is { } rid && await restaurants.GetAsync(rid, rid, false, ct) is { } x ? Ok(x) : MissingTenant();
-    [HttpPut] public async Task<ActionResult> Update(UpdateRestaurantRequest request, CancellationToken ct) => RestaurantId is { } rid && await restaurants.UpdateAsync(rid, request, rid, false, ct) ? NoContent() : MissingTenant();
+    [HttpPut]
+    public async Task<ActionResult> Update(UpdateRestaurantRequest request, CancellationToken ct)
+    {
+        if (RestaurantId is not { } rid || !await restaurants.UpdateAsync(rid, request, rid, false, ct)) return MissingTenant();
+        await audit.RecordAsync(Audit("OwnerRestaurantUpdated", "Restaurant", rid, rid, request.Name), ct);
+        return NoContent();
+    }
     [HttpPost("categories")] public async Task<ActionResult> AddCategory(CategoryRequest request, CancellationToken ct) => RestaurantId is { } rid ? Ok(await menu.SaveCategoryAsync(rid, null, request, ct)) : MissingTenant();
     [HttpPut("categories/{id:guid}")] public async Task<ActionResult> EditCategory(Guid id, CategoryRequest request, CancellationToken ct) => RestaurantId is { } rid && await menu.SaveCategoryAsync(rid, id, request, ct) is { } x ? Ok(x) : NotFound();
     [HttpDelete("categories/{id:guid}")] public async Task<ActionResult> DeleteCategory(Guid id, CancellationToken ct) => RestaurantId is { } rid && await menu.DeleteCategoryAsync(rid, id, ct) ? NoContent() : NotFound();
@@ -392,20 +506,23 @@ public sealed class RestaurantController(IRestaurantService restaurants, IMenuMa
     [HttpDelete("offers/{id:guid}")] public async Task<ActionResult> DeleteOffer(Guid id, CancellationToken ct) => RestaurantId is { } rid && await menu.DeleteOfferAsync(rid, id, ct) ? NoContent() : NotFound();
     [HttpPut("theme")] public async Task<ActionResult> Theme(ThemeRequest request, CancellationToken ct) => RestaurantId is { } rid && await menu.SetThemeAsync(rid, request, ct) ? NoContent() : NotFound();
     [HttpPut("business-hours")] public async Task<ActionResult> Hours(IReadOnlyCollection<BusinessHourRequest> request, CancellationToken ct) => RestaurantId is { } rid && await menu.SetBusinessHoursAsync(rid, request, ct) ? NoContent() : MissingTenant();
-    [HttpPost("images"), RequestSizeLimit(6_000_000)]
+    [HttpPost("images"), RequestSizeLimit(6_000_000), EnableRateLimiting("uploads")]
     public async Task<ActionResult> UploadImage(IFormFile file, CancellationToken ct)
     {
         if (RestaurantId is not { } rid) return MissingTenant();
-        return await ImageUploadHelper.SaveOptimizedWebpAsync(this, environment, file, Path.Combine("uploads", rid.ToString("N")), ct);
+        var result = await ImageUploadHelper.SaveOptimizedWebpAsync(this, environment, file, Path.Combine("uploads", rid.ToString("N")), ct);
+        if (result is OkObjectResult) await audit.RecordAsync(Audit("OwnerImageUploaded", "Restaurant", rid, rid), ct);
+        return result;
     }
     [HttpGet("support")] public async Task<ActionResult> SupportTickets(CancellationToken ct) => RestaurantId is { } rid ? Ok(await support.GetOwnerAsync(rid, ct)) : MissingTenant();
-    [HttpPost("support")]
+    [HttpPost("support"), EnableRateLimiting("forms")]
     public async Task<ActionResult> CreateSupportTicket(CreateSupportTicketRequest request, CancellationToken ct)
     {
         if (RestaurantId is not { } rid) return MissingTenant();
         try
         {
             if (await support.CreateAsync(rid, request, ct) is not { } ticket) return MissingTenant();
+            await audit.RecordAsync(Audit("SupportTicketCreated", "SupportTicket", ticket.Id, rid, ticket.Title), ct);
             await SendSupportTicketEmailAsync(ticket, ct);
             return Ok(ticket);
         }
@@ -414,11 +531,13 @@ public sealed class RestaurantController(IRestaurantService restaurants, IMenuMa
             return BadRequest(ex.Message);
         }
     }
-    [HttpPost("support/images"), RequestSizeLimit(6_000_000)]
+    [HttpPost("support/images"), RequestSizeLimit(6_000_000), EnableRateLimiting("uploads")]
     public async Task<ActionResult> UploadSupportImage(IFormFile file, CancellationToken ct)
     {
         if (RestaurantId is not { } rid) return MissingTenant();
-        return await ImageUploadHelper.SaveOptimizedWebpAsync(this, environment, file, Path.Combine("uploads", rid.ToString("N"), "support"), ct);
+        var result = await ImageUploadHelper.SaveOptimizedWebpAsync(this, environment, file, Path.Combine("uploads", rid.ToString("N"), "support"), ct);
+        if (result is OkObjectResult) await audit.RecordAsync(Audit("SupportAttachmentUploaded", "Restaurant", rid, rid), ct);
+        return result;
     }
 
     private async Task SendSupportTicketEmailAsync(SupportTicketSummary ticket, CancellationToken ct)
