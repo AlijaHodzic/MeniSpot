@@ -63,6 +63,12 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.NameEn).HasMaxLength(160);
             e.Property(x => x.NameDe).HasMaxLength(160);
             e.Property(x => x.ServingSize).HasMaxLength(40);
+            e.Property(x => x.Ingredients).HasMaxLength(1200);
+            e.Property(x => x.Protein).HasPrecision(8, 2);
+            e.Property(x => x.Carbs).HasPrecision(8, 2);
+            e.Property(x => x.Fat).HasPrecision(8, 2);
+            e.Property(x => x.Sugar).HasPrecision(8, 2);
+            e.Property(x => x.Salt).HasPrecision(8, 2);
             e.Property(x => x.Price).HasPrecision(12, 2);
             e.HasOne(x => x.Category).WithMany(x => x.Items).HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.GlobalDrink).WithMany().HasForeignKey(x => x.GlobalDrinkId).OnDelete(DeleteBehavior.SetNull);
@@ -112,7 +118,9 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         {
             e.HasIndex(x => new { x.RestaurantId, x.ViewedOn });
             e.HasIndex(x => new { x.MenuItemId, x.ViewedOn });
+            e.HasIndex(x => new { x.RestaurantId, x.MenuItemId, x.ViewedOn, x.SessionId });
             e.Property(x => x.Source).HasMaxLength(40);
+            e.Property(x => x.SessionId).HasMaxLength(80);
             e.HasOne(x => x.Restaurant).WithMany(x => x.MenuItemViews).HasForeignKey(x => x.RestaurantId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.MenuItem).WithMany(x => x.Views).HasForeignKey(x => x.MenuItemId).OnDelete(DeleteBehavior.Cascade);
         });

@@ -29,6 +29,7 @@ export interface Category { id: string; name: string; icon: string; order: numbe
 export interface Product {
   id: string; categoryId: string; name: string; description: string; price: number;
   servingSize?: string | null; image: string; available: boolean; badges: BadgeType[]; allergens: string[];
+  ingredients?: string | null; calories?: number | null; protein?: number | null; carbs?: number | null; fat?: number | null; sugar?: number | null; salt?: number | null;
 }
 export interface DailyMenu { id: string; name: string; items: string[]; price: number; date: string; active: boolean; }
 export interface Offer { id: string; name: string; description: string; originalPrice: number; offerPrice: number; image: string; validUntil: string; active: boolean; }

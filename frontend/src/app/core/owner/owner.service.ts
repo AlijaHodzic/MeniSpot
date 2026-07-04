@@ -12,6 +12,9 @@ export class OwnerService {
 
   getRestaurant(): Observable<OwnerRestaurant> { return this.http.get<OwnerRestaurant>(this.endpoint); }
   getPublicMenu(slug: string): Observable<{ restaurant: OwnerRestaurant }> { return this.http.get<{ restaurant: OwnerRestaurant }>(`${API_URL}/public/menus/${slug}`); }
+  trackPublicMenuItem(slug: string, itemId: string, sessionId: string | null): Observable<void> {
+    return this.http.post<void>(`${API_URL}/public/menus/${slug}/items/${itemId}/view`, { sessionId });
+  }
   updateRestaurant(request: UpdateRestaurantRequest): Observable<void> { return this.http.put<void>(this.endpoint, request); }
   saveCategory(id: string | null, request: CategoryRequest): Observable<OwnerMenuCategory> {
     return id ? this.http.put<OwnerMenuCategory>(`${this.endpoint}/categories/${id}`, request) : this.http.post<OwnerMenuCategory>(`${this.endpoint}/categories`, request);

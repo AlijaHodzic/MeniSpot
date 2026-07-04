@@ -20,6 +20,13 @@ export interface OwnerMenuItem {
   servingSize: string | null;
   imageUrl: string | null;
   allergens: string | null;
+  ingredients: string | null;
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  sugar: number | null;
+  salt: number | null;
   sortOrder: number;
   isVisible: boolean;
   isAvailable: boolean;

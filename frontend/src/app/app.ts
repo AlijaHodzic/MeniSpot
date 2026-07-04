@@ -63,7 +63,34 @@ interface RestaurantForm {
 }
 
 interface CategoryForm { id: string | null; name: string; description: string; nameEn: string; descriptionEn: string; nameDe: string; descriptionDe: string; type: MenuCategoryType; sortOrder: number; isVisible: boolean }
-interface ProductForm { id: string | null; categoryId: string; globalDrinkId: string | null; name: string; description: string; nameEn: string; descriptionEn: string; nameDe: string; descriptionDe: string; price: number; servingSize: string; imageUrl: string; allergens: string; sortOrder: number; isVisible: boolean; isAvailable: boolean; isVegetarian: boolean; isSpicy: boolean; isFeatured: boolean }
+interface ProductForm {
+  id: string | null;
+  categoryId: string;
+  globalDrinkId: string | null;
+  name: string;
+  description: string;
+  nameEn: string;
+  descriptionEn: string;
+  nameDe: string;
+  descriptionDe: string;
+  price: number;
+  servingSize: string;
+  imageUrl: string;
+  allergens: string;
+  ingredients: string;
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  sugar: number | null;
+  salt: number | null;
+  sortOrder: number;
+  isVisible: boolean;
+  isAvailable: boolean;
+  isVegetarian: boolean;
+  isSpicy: boolean;
+  isFeatured: boolean;
+}
 interface OfferForm { id: string | null; kind: SpecialOfferKind; title: string; description: string; titleEn: string; descriptionEn: string; itemsEn: string; titleDe: string; descriptionDe: string; itemsDe: string; price: number; originalPrice: number; imageUrl: string; startsAt: string; endsAt: string; isVisible: boolean; items: string }
 interface AdminDrinkForm { id: string | null; name: string; slug: string; category: string; description: string; imageUrl: string; servingOptions: string; isByGlass: boolean; sortOrder: number; isActive: boolean }
 interface DrinkLibraryVariant { key: string; drink: GlobalDrinkSummary; servingSize: string | null }
@@ -82,9 +109,9 @@ type SubscriptionPlan = 'Start' | 'Pro' | 'Premium';
 
 const subscriptionPlanPrices: Record<SubscriptionPlan, number> = { Start: 29, Pro: 49, Premium: 79 };
 const subscriptionPlanFeatures: Record<SubscriptionPlan, string[]> = {
-  Start: ['QR meni', 'Proizvodi i kategorije', 'Biblioteka pica', 'Dnevni meni i ponude'],
-  Pro: ['Sve iz Start paketa', 'Vise tema', 'Tamni i svijetli izgled', 'Prioritetna pomoc'],
-  Premium: ['Sve iz Pro paketa', 'Personalizacija izgleda', 'Sezonske ponude', 'Naprednija priprema sadrzaja'],
+  Start: ['QR digitalni meni', 'Proizvodi i kategorije', 'Biblioteka pica za brzo dodavanje', 'Dnevni meni i posebne ponude'],
+  Pro: ['Sve iz Start paketa', 'Pregledi menija i QR counter', 'Sedmicna i 30 dana statistika', 'Prioritetna pomoc kod izmjena'],
+  Premium: ['Sve iz Pro paketa', 'Najgledaniji proizvodi', 'Nutritivne vrijednosti i sastojci', 'Brand tema po objektu'],
 };
 
 const themeGroupOptions: { id: ThemeGroupId; name: string; description: string }[] = [
@@ -348,6 +375,10 @@ export class App {
   offerForm: OfferForm = this.emptyOfferForm('Promotion');
   private readonly allowedImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
   private readonly maxImageUploadSize = 5 * 1024 * 1024;
+  private publicProductObserver: IntersectionObserver | null = null;
+  private publicTrackedProducts = new Set<string>();
+  private publicTrackingScheduled = false;
+  private publicTrackingSessionId = '';
 
   constructor() {
     this.syncRoute(this.router.url);
@@ -416,7 +447,9 @@ export class App {
   get ownerLast7DaysViews(): number { return this.ownerRestaurant?.analytics.last7DaysViews ?? 0; }
   get ownerLast30DaysViews(): number { return this.ownerRestaurant?.analytics.last30DaysViews ?? 0; }
   get ownerTopItems(): { itemId: string; name: string; views: number }[] { return this.ownerRestaurant?.analytics.topItems ?? []; }
+  get canUseMenuAnalytics(): boolean { return ['Pro', 'Premium'].includes(this.normalizePlan(this.ownerRestaurant?.plan ?? 'Start')); }
   get canUsePremiumAnalytics(): boolean { return this.normalizePlan(this.ownerRestaurant?.plan ?? 'Start') === 'Premium'; }
+  get canUsePremiumProductDetails(): boolean { return this.canUsePremiumAnalytics; }
   get adminTodoItems(): { label: string; value: number; hint: string; tab: AdminTab }[] {
     const dashboard = this.adminDashboard;
     return [
@@ -1440,6 +1473,7 @@ export class App {
       id: product.id, categoryId: product.categoryId, globalDrinkId: product.globalDrinkId, name: product.name, description: product.description ?? '', price: product.price, servingSize: product.servingSize ?? '',
       nameEn: product.nameEn ?? '', descriptionEn: product.descriptionEn ?? '', nameDe: product.nameDe ?? '', descriptionDe: product.descriptionDe ?? '',
       imageUrl: product.globalDrinkId ? '' : product.imageUrl ?? '', allergens: product.allergens ?? '', sortOrder: product.sortOrder, isVisible: product.isVisible,
+      ingredients: product.ingredients ?? '', calories: product.calories, protein: product.protein, carbs: product.carbs, fat: product.fat, sugar: product.sugar, salt: product.salt,
       isAvailable: product.isAvailable, isVegetarian: product.isVegetarian, isSpicy: product.isSpicy, isFeatured: product.isFeatured,
     } : this.emptyProductForm();
     this.showProductModal = true;
@@ -1453,6 +1487,13 @@ export class App {
       nameEn: this.nullIfEmpty(this.productForm.nameEn), descriptionEn: this.nullIfEmpty(this.productForm.descriptionEn),
       nameDe: this.nullIfEmpty(this.productForm.nameDe), descriptionDe: this.nullIfEmpty(this.productForm.descriptionDe),
       price: this.productForm.price, servingSize: this.nullIfEmpty(this.productForm.servingSize), imageUrl: this.nullIfEmpty(url ?? this.productForm.imageUrl), allergens: this.nullIfEmpty(this.productForm.allergens),
+      ingredients: this.canUsePremiumProductDetails ? this.nullIfEmpty(this.productForm.ingredients) : null,
+      calories: this.canUsePremiumProductDetails ? this.productForm.calories : null,
+      protein: this.canUsePremiumProductDetails ? this.productForm.protein : null,
+      carbs: this.canUsePremiumProductDetails ? this.productForm.carbs : null,
+      fat: this.canUsePremiumProductDetails ? this.productForm.fat : null,
+      sugar: this.canUsePremiumProductDetails ? this.productForm.sugar : null,
+      salt: this.canUsePremiumProductDetails ? this.productForm.salt : null,
       sortOrder: this.productForm.sortOrder, isVisible: this.productForm.isVisible, isAvailable: this.productForm.isAvailable,
       isVegetarian: this.productForm.isVegetarian, isSpicy: this.productForm.isSpicy, isFeatured: this.productForm.isFeatured,
     })), finalize(() => this.ownerSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
@@ -1525,7 +1566,9 @@ export class App {
       categoryId: source.categoryId, name: source.name, description: source.description,
       nameEn: source.nameEn, descriptionEn: source.descriptionEn, nameDe: source.nameDe, descriptionDe: source.descriptionDe,
       price: source.price,
-      servingSize: source.servingSize, imageUrl: source.globalDrinkId ? null : source.imageUrl, allergens: source.allergens, sortOrder: source.sortOrder,
+      servingSize: source.servingSize, imageUrl: source.globalDrinkId ? null : source.imageUrl, allergens: source.allergens,
+      ingredients: source.ingredients, calories: source.calories, protein: source.protein, carbs: source.carbs, fat: source.fat, sugar: source.sugar, salt: source.salt,
+      sortOrder: source.sortOrder,
       isVisible: source.isVisible, isAvailable: !source.isAvailable, isVegetarian: source.isVegetarian, isSpicy: source.isSpicy, isFeatured: source.isFeatured,
     })
       .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
@@ -1688,6 +1731,17 @@ export class App {
     const link = document.createElement('a'); link.href = this.ownerQrCode; link.download = `${this.ownerRestaurant.slug}-qr.png`; link.click();
   }
 
+  printOwnerQr(size: 'A5' | 'A6'): void {
+    if (!this.ownerQrCode || !this.ownerRestaurant) return;
+    this.printQrDocument({
+      qr: this.ownerQrCode,
+      size,
+      name: this.ownerRestaurant.name,
+      logo: this.ownerRestaurant.logoUrl || '/menispot-mark.png',
+      url: `${globalThis.location.origin}/menu/${this.ownerRestaurant.slug}?source=qr`,
+    });
+  }
+
   selectImage(event: Event, target: UploadTarget): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -1753,9 +1807,28 @@ export class App {
       (!term || this.localizedProductName(product).toLocaleLowerCase().includes(term) || this.localizedProductDescription(product).toLocaleLowerCase().includes(term)),
     );
   }
+
+  nutritionFacts(product: Product): { label: string; value: string }[] {
+    const facts = [
+      product.calories != null ? { label: 'kcal', value: `${product.calories}` } : null,
+      product.protein != null ? { label: 'proteini', value: `${product.protein}g` } : null,
+      product.carbs != null ? { label: 'ugljikohidrati', value: `${product.carbs}g` } : null,
+      product.fat != null ? { label: 'masti', value: `${product.fat}g` } : null,
+      product.sugar != null ? { label: 'seceri', value: `${product.sugar}g` } : null,
+      product.salt != null ? { label: 'so', value: `${product.salt}g` } : null,
+    ];
+    return facts.filter(Boolean) as { label: string; value: string }[];
+  }
+
   selectPublicMenuSection(section: 'food' | 'drink'): void {
     this.publicMenuSection = section;
     this.selectedCategory = 'all';
+    this.schedulePublicProductTracking();
+  }
+
+  selectPublicCategory(categoryId: string): void {
+    this.selectedCategory = categoryId;
+    this.schedulePublicProductTracking();
   }
   setMenuLanguage(language: MenuLanguage): void {
     if (!this.menuLanguageOptions.some((option) => option.value === language)) {
@@ -1914,12 +1987,14 @@ export class App {
   printRestaurantQr(item: AdminRestaurantSummary, size: 'A5' | 'A6'): void {
     const qr = this.adminQrCodes[item.id];
     if (!qr) return;
+    this.printQrDocument({ qr, size, name: item.name, logo: item.logoUrl || '/menispot-mark.png', url: this.publicMenuUrl(item) });
+  }
+
+  private printQrDocument(input: { qr: string; size: 'A5' | 'A6'; name: string; logo: string; url: string }): void {
     const win = window.open('', '_blank', 'width=720,height=900');
     if (!win) return;
-    const logo = item.logoUrl || '/menispot-mark.png';
-    const url = this.publicMenuUrl(item);
-    win.document.write(`<!doctype html><html><head><title>${item.name} QR</title><style>
-      @page { size: ${size}; margin: 14mm; }
+    win.document.write(`<!doctype html><html><head><title>${input.name} QR</title><style>
+      @page { size: ${input.size}; margin: 14mm; }
       * { box-sizing: border-box; }
       body { margin: 0; font-family: Inter, Arial, sans-serif; color: #111827; background: #f8fafc; }
       .card { min-height: 100vh; display: grid; place-items: center; padding: 18mm; }
@@ -1931,7 +2006,7 @@ export class App {
       .cta { display: inline-block; border-radius: 999px; background: #84cc16; color: #111827; padding: 12px 18px; font-weight: 800; letter-spacing: .02em; }
       small { display: block; margin-top: 14px; color: #64748b; word-break: break-all; }
       @media print { body { background: white; } .card { padding: 0; } .inner { box-shadow: none; } }
-    </style></head><body><main class="card"><section class="inner"><img class="logo" src="${logo}" alt=""><h1>${item.name}</h1><p>Digitalni meni je spreman za pregled.</p><img class="qr" src="${qr}" alt="QR"><span class="cta">Skeniraj meni</span><small>${url}</small></section></main><script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script></body></html>`);
+    </style></head><body><main class="card"><section class="inner"><img class="logo" src="${input.logo}" alt=""><h1>${input.name}</h1><p>Digitalni meni je spreman za pregled.</p><img class="qr" src="${input.qr}" alt="QR"><span class="cta">Skeniraj meni</span><small>${input.url}</small></section></main><script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script></body></html>`);
     win.document.close();
   }
 
@@ -2155,6 +2230,8 @@ export class App {
     if (!slug) return;
     this.ownerLoading = true;
     this.ownerError = '';
+    this.publicTrackedProducts = new Set<string>();
+    this.publicProductObserver?.disconnect();
     this.ownerService.getPublicMenu(slug).pipe(finalize(() => this.ownerLoading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: ({ restaurant }) => this.applyOwnerRestaurant(restaurant),
       error: () => { this.ownerRestaurant = null; this.ownerViewRestaurant = null; this.ownerError = 'Ovaj meni trenutno nije dostupan.'; },
@@ -2172,6 +2249,13 @@ export class App {
       image: item.imageUrl || '/menispot-mark.png', available: item.isAvailable && item.isVisible,
       badges: [item.isVegetarian ? 'vegetarian' : null, item.isSpicy ? 'spicy' : null, item.isFeatured ? 'chefs-choice' : null].filter(Boolean) as BadgeType[],
       allergens: (item.allergens ?? '').split(',').map((value) => value.trim()).filter(Boolean),
+      ingredients: item.ingredients,
+      calories: item.calories,
+      protein: item.protein,
+      carbs: item.carbs,
+      fat: item.fat,
+      sugar: item.sugar,
+      salt: item.salt,
     })));
     const fallbackCover = '/menispot-mark.png';
     this.ownerViewRestaurant = {
@@ -2193,6 +2277,56 @@ export class App {
     this.selectedCategory = 'all';
     this.updateBrowserChromeColor();
     void this.qrCodeService.createDataUrl(`${globalThis.location.origin}/menu/${restaurant.slug}`).then((value) => this.ownerQrCode = value);
+    this.schedulePublicProductTracking();
+  }
+
+  schedulePublicProductTracking(): void {
+    if (this.view !== 'public-menu' || this.publicTrackingScheduled) return;
+    this.publicTrackingScheduled = true;
+    globalThis.setTimeout(() => {
+      this.publicTrackingScheduled = false;
+      this.bindPublicProductTracking();
+    }, 120);
+  }
+
+  private bindPublicProductTracking(): void {
+    if (this.view !== 'public-menu' || !this.ownerRestaurant?.slug || !('IntersectionObserver' in globalThis)) return;
+    this.publicProductObserver?.disconnect();
+    this.publicProductObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const element = entry.target as HTMLElement;
+        const itemId = element.dataset['publicProductId'];
+        if (itemId) this.trackPublicProductView(itemId, element);
+      }
+    }, { threshold: 0.6 });
+    globalThis.document.querySelectorAll<HTMLElement>('[data-public-product-id]').forEach((element) => {
+      const itemId = element.dataset['publicProductId'];
+      if (itemId && !this.publicTrackedProducts.has(itemId)) this.publicProductObserver?.observe(element);
+    });
+  }
+
+  private trackPublicProductView(itemId: string, element: Element): void {
+    if (this.publicTrackedProducts.has(itemId) || !this.ownerRestaurant?.slug) return;
+    this.publicTrackedProducts.add(itemId);
+    this.publicProductObserver?.unobserve(element);
+    this.ownerService.trackPublicMenuItem(this.ownerRestaurant.slug, itemId, this.getPublicTrackingSessionId())
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ error: () => undefined });
+  }
+
+  private getPublicTrackingSessionId(): string {
+    if (this.publicTrackingSessionId) return this.publicTrackingSessionId;
+    const key = 'menispot-public-session-id';
+    try {
+      const existing = globalThis.sessionStorage?.getItem(key);
+      if (existing) return this.publicTrackingSessionId = existing;
+      const generated = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      globalThis.sessionStorage?.setItem(key, generated);
+      return this.publicTrackingSessionId = generated;
+    } catch {
+      return this.publicTrackingSessionId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
   }
 
   private updateBrowserChromeColor(): void {
@@ -2253,7 +2387,36 @@ export class App {
   }
 
   private emptyCategoryForm(): CategoryForm { return { id: null, name: '', description: '', nameEn: '', descriptionEn: '', nameDe: '', descriptionDe: '', type: 'Food', sortOrder: (this.ownerCategories.at(-1)?.sortOrder ?? 0) + 1, isVisible: true }; }
-  private emptyProductForm(): ProductForm { return { id: null, categoryId: this.ownerCategories[0]?.id ?? '', globalDrinkId: null, name: '', description: '', nameEn: '', descriptionEn: '', nameDe: '', descriptionDe: '', price: 0, servingSize: '', imageUrl: '', allergens: '', sortOrder: this.ownerItems.length + 1, isVisible: true, isAvailable: true, isVegetarian: false, isSpicy: false, isFeatured: false }; }
+  private emptyProductForm(): ProductForm {
+    return {
+      id: null,
+      categoryId: this.ownerCategories[0]?.id ?? '',
+      globalDrinkId: null,
+      name: '',
+      description: '',
+      nameEn: '',
+      descriptionEn: '',
+      nameDe: '',
+      descriptionDe: '',
+      price: 0,
+      servingSize: '',
+      imageUrl: '',
+      allergens: '',
+      ingredients: '',
+      calories: null,
+      protein: null,
+      carbs: null,
+      fat: null,
+      sugar: null,
+      salt: null,
+      sortOrder: this.ownerItems.length + 1,
+      isVisible: true,
+      isAvailable: true,
+      isVegetarian: false,
+      isSpicy: false,
+      isFeatured: false,
+    };
+  }
   private emptyOfferForm(kind: SpecialOfferKind): OfferForm { return { id: null, kind, title: '', description: '', titleEn: '', descriptionEn: '', itemsEn: '', titleDe: '', descriptionDe: '', itemsDe: '', price: 0, originalPrice: 0, imageUrl: '', startsAt: '', endsAt: '', isVisible: true, items: '' }; }
   private dateTimeInputValue(value: string | null): string { return value ? new Date(value).toISOString().slice(0, 16) : ''; }
   private isoDateTime(value: string): string | null { return value ? new Date(value).toISOString() : null; }

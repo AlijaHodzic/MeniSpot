@@ -40,7 +40,7 @@ public sealed record UpdateOwnerAccessRequest(string Email, string? NewPassword)
 public sealed record SetSubscriptionRequest(SubscriptionStatus Status, string Plan, decimal MonthlyPrice, DateOnly StartsOn, DateOnly ExpiresOn, DateOnly? GracePeriodEndsOn);
 public sealed record ThemeRequest(string ThemeKey, string PrimaryColor, string AccentColor, string? BackgroundImageUrl, string FontFamily);
 public sealed record CategoryRequest(string Name, string? Description, string? NameEn, string? DescriptionEn, string? NameDe, string? DescriptionDe, MenuCategoryType Type, int SortOrder, bool IsVisible);
-public sealed record MenuItemRequest(Guid CategoryId, string Name, string? Description, string? NameEn, string? DescriptionEn, string? NameDe, string? DescriptionDe, decimal Price, string? ServingSize, string? ImageUrl, string? Allergens, int SortOrder, bool IsVisible, bool IsAvailable, bool IsVegetarian, bool IsSpicy, bool IsFeatured);
+public sealed record MenuItemRequest(Guid CategoryId, string Name, string? Description, string? NameEn, string? DescriptionEn, string? NameDe, string? DescriptionDe, decimal Price, string? ServingSize, string? ImageUrl, string? Allergens, string? Ingredients, int? Calories, decimal? Protein, decimal? Carbs, decimal? Fat, decimal? Sugar, decimal? Salt, int SortOrder, bool IsVisible, bool IsAvailable, bool IsVegetarian, bool IsSpicy, bool IsFeatured);
 public sealed record GlobalDrinkSummary(Guid Id, string Name, string Category, string? Description, string? ImageUrl, string? ServingOptions, int SortOrder);
 public sealed record AdminGlobalDrink(Guid Id, string Name, string Slug, string Category, string? Description, string? ImageUrl, string? ServingOptions, int SortOrder, bool IsActive, DateTimeOffset UpdatedAt);
 public sealed record GlobalDrinkRequest(string Name, string? Slug, string Category, string? Description, string? ImageUrl, string? ServingOptions, int SortOrder, bool IsActive);
@@ -65,7 +65,8 @@ public sealed record SupportTicketSummary(Guid Id, Guid RestaurantId, string Res
 public sealed record CreateSupportTicketRequest(string Title, SupportTicketType Type, SupportTicketPriority Priority, string Message, string? AttachmentUrl);
 public sealed record UpdateSupportTicketRequest(SupportTicketStatus Status, string? AdminNote);
 public sealed record AuditLogRequest(string Action, string EntityType, Guid? EntityId, Guid? RestaurantId, string? Summary, Guid? ActorUserId, string? ActorEmail, string? ActorRole, string? IpAddress);
-public sealed record OwnerMenuItem(Guid Id, Guid CategoryId, Guid? GlobalDrinkId, string Name, string? Description, string? NameEn, string? DescriptionEn, string? NameDe, string? DescriptionDe, decimal Price, string? ServingSize, string? ImageUrl, string? Allergens, int SortOrder, bool IsVisible, bool IsAvailable, bool IsVegetarian, bool IsSpicy, bool IsFeatured);
+public sealed record TrackMenuItemViewRequest(string? SessionId);
+public sealed record OwnerMenuItem(Guid Id, Guid CategoryId, Guid? GlobalDrinkId, string Name, string? Description, string? NameEn, string? DescriptionEn, string? NameDe, string? DescriptionDe, decimal Price, string? ServingSize, string? ImageUrl, string? Allergens, string? Ingredients, int? Calories, decimal? Protein, decimal? Carbs, decimal? Fat, decimal? Sugar, decimal? Salt, int SortOrder, bool IsVisible, bool IsAvailable, bool IsVegetarian, bool IsSpicy, bool IsFeatured);
 public sealed record OwnerMenuCategory(Guid Id, string Name, string? Description, string? NameEn, string? DescriptionEn, string? NameDe, string? DescriptionDe, MenuCategoryType Type, int SortOrder, bool IsVisible, IReadOnlyList<OwnerMenuItem> Items);
 public sealed record OwnerSpecialOffer(Guid Id, string Title, string? Description, string? TitleEn, string? DescriptionEn, string? ItemsEn, string? TitleDe, string? DescriptionDe, string? ItemsDe, decimal? Price, decimal? OriginalPrice, string? ImageUrl, DateTimeOffset? StartsAt, DateTimeOffset? EndsAt, bool IsVisible, SpecialOfferKind Kind, string? Items);
 public sealed record OwnerBusinessHour(DayOfWeek DayOfWeek, TimeOnly? OpensAt, TimeOnly? ClosesAt, bool IsClosed);
@@ -86,6 +87,7 @@ public interface IAuthService
 public interface IRestaurantService
 {
     Task<IReadOnlyList<RestaurantSummary>> GetAllAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<RestaurantSummary>> GetArchivedAsync(CancellationToken cancellationToken);
     Task<AdminDashboardSummary> GetDashboardAsync(CancellationToken cancellationToken);
     Task<AdminRestaurantDetails?> GetAdminDetailsAsync(Guid id, CancellationToken cancellationToken);
     Task<OwnerRestaurantDetails?> GetAsync(Guid id, Guid? tenantId, bool isSuperAdmin, CancellationToken cancellationToken);
@@ -95,6 +97,7 @@ public interface IRestaurantService
     Task<bool> SetSubscriptionAsync(Guid id, SetSubscriptionRequest request, CancellationToken cancellationToken);
     Task<bool> UpdateOwnerAccessAsync(Guid id, UpdateOwnerAccessRequest request, CancellationToken cancellationToken);
     Task<bool> DeleteAsync(Guid id, Guid? archivedByUserId, CancellationToken cancellationToken);
+    Task<bool> RestoreAsync(Guid id, CancellationToken cancellationToken);
 }
 
 public interface IAuditLogService
@@ -126,6 +129,7 @@ public interface IGlobalDrinkService
 public interface IPublicMenuService
 {
     Task<PublicMenu?> GetAsync(string slug, CancellationToken cancellationToken);
+    Task TrackItemViewAsync(string slug, Guid itemId, TrackMenuItemViewRequest request, CancellationToken cancellationToken);
 }
 
 public interface IBillingService

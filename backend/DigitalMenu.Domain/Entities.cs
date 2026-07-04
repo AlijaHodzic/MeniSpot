@@ -93,6 +93,7 @@ public sealed class MenuItemView : Entity
     public Guid MenuItemId { get; set; }
     public DateOnly ViewedOn { get; set; }
     public string? Source { get; set; }
+    public string? SessionId { get; set; }
     public Restaurant Restaurant { get; set; } = null!;
     public MenuItem MenuItem { get; set; } = null!;
 }
@@ -176,6 +177,13 @@ public sealed class MenuItem : Entity
     public string? ServingSize { get; set; }
     public string? ImageUrl { get; set; }
     public string? Allergens { get; set; }
+    public string? Ingredients { get; set; }
+    public int? Calories { get; set; }
+    public decimal? Protein { get; set; }
+    public decimal? Carbs { get; set; }
+    public decimal? Fat { get; set; }
+    public decimal? Sugar { get; set; }
+    public decimal? Salt { get; set; }
     public int SortOrder { get; set; }
     public bool IsVisible { get; set; } = true;
     public bool IsAvailable { get; set; } = true;

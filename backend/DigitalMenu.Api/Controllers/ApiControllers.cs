@@ -343,6 +343,7 @@ public sealed class LeadsController(IHttpClientFactory httpClientFactory, IConfi
 public sealed class AdminRestaurantsController(IRestaurantService restaurants, IAuthService auth, IWebHostEnvironment environment, IAuditLogService audit) : ApiController
 {
     [HttpGet] public async Task<ActionResult> All(CancellationToken ct) => Ok(await restaurants.GetAllAsync(ct));
+    [HttpGet("archived")] public async Task<ActionResult> Archived(CancellationToken ct) => Ok(await restaurants.GetArchivedAsync(ct));
     [HttpGet("dashboard")] public async Task<ActionResult> Dashboard(CancellationToken ct) => Ok(await restaurants.GetDashboardAsync(ct));
     [HttpGet("{id:guid}")] public async Task<ActionResult> One(Guid id, CancellationToken ct) => await restaurants.GetAdminDetailsAsync(id, ct) is { } x ? Ok(x) : NotFound();
     [HttpPost]
@@ -406,6 +407,14 @@ public sealed class AdminRestaurantsController(IRestaurantService restaurants, I
     {
         if (!await restaurants.DeleteAsync(id, UserId, ct)) return NotFound();
         await audit.RecordAsync(Audit("RestaurantArchived", "Restaurant", id, id), ct);
+        return NoContent();
+    }
+
+    [HttpPost("{id:guid}/restore")]
+    public async Task<ActionResult> Restore(Guid id, CancellationToken ct)
+    {
+        if (!await restaurants.RestoreAsync(id, ct)) return NotFound();
+        await audit.RecordAsync(Audit("RestaurantRestored", "Restaurant", id, id), ct);
         return NoContent();
     }
 }
@@ -589,4 +598,11 @@ public sealed class RestaurantController(IRestaurantService restaurants, IMenuMa
 public sealed class PublicMenusController(IPublicMenuService menus) : ApiController
 {
     [HttpGet("{slug}"), AllowAnonymous] public async Task<ActionResult> Get(string slug, CancellationToken ct) => await menus.GetAsync(slug.Trim().ToLowerInvariant(), ct) is { } x ? Ok(x) : NotFound();
+
+    [HttpPost("{slug}/items/{itemId:guid}/view"), AllowAnonymous, EnableRateLimiting("forms")]
+    public async Task<ActionResult> TrackItemView(string slug, Guid itemId, TrackMenuItemViewRequest request, CancellationToken ct)
+    {
+        await menus.TrackItemViewAsync(slug.Trim().ToLowerInvariant(), itemId, request, ct);
+        return NoContent();
+    }
 }

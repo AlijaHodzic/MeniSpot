@@ -90,6 +90,14 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         return rows.Select(x => new RestaurantSummary(x.Id, x.Name, x.Slug, x.Type, AssetUrl.Normalize(x.LogoUrl), x.Address, x.Status, NormalizePlan(x.Plan), x.SubscriptionStatus, x.ExpiresOn)).ToList();
     }
 
+    public async Task<IReadOnlyList<RestaurantSummary>> GetArchivedAsync(CancellationToken ct)
+    {
+        var rows = await db.Restaurants.AsNoTracking()
+            .Where(x => x.Subscription != null && x.Status == RestaurantStatus.Archived).OrderByDescending(x => x.ArchivedAt ?? x.UpdatedAt)
+            .Select(x => new { x.Id, x.Name, x.Slug, x.Type, x.LogoUrl, x.Address, x.Status, x.Subscription!.Plan, SubscriptionStatus = x.Subscription.Status, x.Subscription.ExpiresOn }).ToListAsync(ct);
+        return rows.Select(x => new RestaurantSummary(x.Id, x.Name, x.Slug, x.Type, AssetUrl.Normalize(x.LogoUrl), x.Address, x.Status, NormalizePlan(x.Plan), x.SubscriptionStatus, x.ExpiresOn)).ToList();
+    }
+
     public async Task<AdminDashboardSummary> GetDashboardAsync(CancellationToken ct)
     {
         var rows = await db.Restaurants.AsNoTracking().Where(x => x.Subscription != null && x.Status != RestaurantStatus.Archived).Select(x => new
@@ -163,7 +171,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         .Include(x => x.Categories).ThenInclude(x => x.Items).ThenInclude(x => x.GlobalDrink).Include(x => x.SpecialOffers)
         .FirstOrDefaultAsync(x => x.Id == id && x.Status != RestaurantStatus.Archived && (admin || x.Id == tenantId), ct);
         if (restaurant is null) return null;
-        return ToOwnerDetails(restaurant, await GetMenuAnalyticsAsync(restaurant.Id, ct));
+        return ToOwnerDetails(restaurant, ApplyPlanToAnalytics(NormalizePlan(restaurant.Subscription?.Plan), await GetMenuAnalyticsAsync(restaurant.Id, ct)));
     }
 
     public async Task<Restaurant> CreateAsync(CreateRestaurantRequest request, CancellationToken ct)
@@ -330,6 +338,25 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         return true;
     }
 
+    public async Task<bool> RestoreAsync(Guid id, CancellationToken ct)
+    {
+        var restaurant = await db.Restaurants.Include(x => x.Subscription).FirstOrDefaultAsync(x => x.Id == id && x.Status == RestaurantStatus.Archived, ct);
+        if (restaurant is null) return false;
+        var now = DateTimeOffset.UtcNow;
+        restaurant.Status = RestaurantStatus.Active;
+        restaurant.ArchivedAt = null;
+        restaurant.ArchivedByUserId = null;
+        restaurant.UpdatedAt = now;
+        if (restaurant.Subscription is not null)
+        {
+            restaurant.Subscription.Status = ActiveSubscriptionStatus(restaurant.Subscription);
+            restaurant.Subscription.UpdatedAt = now;
+            if (restaurant.Subscription.Status == SubscriptionStatus.Suspended) restaurant.Status = RestaurantStatus.Suspended;
+        }
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
     private static string DefaultThemeKey(EstablishmentType type) => type switch
     {
         EstablishmentType.Cafe => "natural-green",
@@ -426,7 +453,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         new OwnerTheme(restaurant.Theme?.ThemeKey ?? NormalizeThemeKey(null, restaurant.Type), restaurant.Theme?.PrimaryColor ?? "#111827", restaurant.Theme?.AccentColor ?? "#84cc16", AssetUrl.Normalize(restaurant.Theme?.BackgroundImageUrl), restaurant.Theme?.FontFamily ?? "Inter"),
         restaurant.BusinessHours.OrderBy(x => x.DayOfWeek).Select(x => new OwnerBusinessHour(x.DayOfWeek, x.OpensAt, x.ClosesAt, x.IsClosed)).ToList(),
         restaurant.Categories.OrderBy(x => x.SortOrder).Select(x => new OwnerMenuCategory(x.Id, x.Name, x.Description, x.NameEn, x.DescriptionEn, x.NameDe, x.DescriptionDe, x.Type, x.SortOrder, x.IsVisible,
-            x.Items.OrderBy(i => i.SortOrder).Select(i => new OwnerMenuItem(i.Id, i.CategoryId, i.GlobalDrinkId, i.Name, i.Description, i.NameEn, i.DescriptionEn, i.NameDe, i.DescriptionDe, i.Price, i.ServingSize, AssetUrl.Normalize(i.ImageUrl ?? (i.GlobalDrink == null ? null : i.GlobalDrink.ImageUrl)), i.Allergens, i.SortOrder, i.IsVisible, i.IsAvailable, i.IsVegetarian, i.IsSpicy, i.IsFeatured)).ToList())).ToList(),
+            x.Items.OrderBy(i => i.SortOrder).Select(i => new OwnerMenuItem(i.Id, i.CategoryId, i.GlobalDrinkId, i.Name, i.Description, i.NameEn, i.DescriptionEn, i.NameDe, i.DescriptionDe, i.Price, i.ServingSize, AssetUrl.Normalize(i.ImageUrl ?? (i.GlobalDrink == null ? null : i.GlobalDrink.ImageUrl)), i.Allergens, i.Ingredients, i.Calories, i.Protein, i.Carbs, i.Fat, i.Sugar, i.Salt, i.SortOrder, i.IsVisible, i.IsAvailable, i.IsVegetarian, i.IsSpicy, i.IsFeatured)).ToList())).ToList(),
         restaurant.SpecialOffers.OrderByDescending(x => x.CreatedAt).Select(x => new OwnerSpecialOffer(x.Id, x.Title, x.Description, x.TitleEn, x.DescriptionEn, x.ItemsEn, x.TitleDe, x.DescriptionDe, x.ItemsDe, x.Price, x.OriginalPrice, AssetUrl.Normalize(x.ImageUrl), x.StartsAt, x.EndsAt, x.IsVisible, x.Kind, x.Items)).ToList(),
         analytics ?? EmptyMenuAnalytics());
 
@@ -442,14 +469,21 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             .ToListAsync(ct);
         var total = await db.MenuViews.AsNoTracking().CountAsync(x => x.RestaurantId == restaurantId, ct);
         var monthTotal = await db.MenuViews.AsNoTracking().CountAsync(x => x.RestaurantId == restaurantId && x.ViewedOn >= monthStart && x.ViewedOn <= today, ct);
-        var topItemRows = await db.MenuItemViews.AsNoTracking()
+        var topItemCounts = await db.MenuItemViews.AsNoTracking()
             .Where(x => x.RestaurantId == restaurantId && x.ViewedOn >= monthStart && x.ViewedOn <= today)
-            .GroupBy(x => new { x.MenuItemId, x.MenuItem.Name })
-            .Select(x => new { x.Key.MenuItemId, x.Key.Name, Views = x.Count() })
+            .GroupBy(x => x.MenuItemId)
+            .Select(x => new { MenuItemId = x.Key, Views = x.Count() })
             .OrderByDescending(x => x.Views)
             .Take(5)
             .ToListAsync(ct);
-        var topItems = topItemRows.Select(x => new OwnerTopMenuItem(x.MenuItemId, x.Name, x.Views)).ToList();
+        var topItemIds = topItemCounts.Select(x => x.MenuItemId).ToArray();
+        var topItemNames = await db.MenuItems.AsNoTracking()
+            .Where(x => topItemIds.Contains(x.Id))
+            .Select(x => new { x.Id, x.Name })
+            .ToDictionaryAsync(x => x.Id, x => x.Name, ct);
+        var topItems = topItemCounts
+            .Select(x => new OwnerTopMenuItem(x.MenuItemId, topItemNames.GetValueOrDefault(x.MenuItemId, "Proizvod"), x.Views))
+            .ToList();
         var weekly = Enumerable.Range(0, 7).Select(offset =>
         {
             var date = start.AddDays(offset);
@@ -464,6 +498,13 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             var date = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(offset - 6);
             return new OwnerMenuViewPoint(date, DayLabel(date.DayOfWeek), 0);
         }).ToList(), []);
+
+    private static OwnerMenuAnalytics ApplyPlanToAnalytics(string plan, OwnerMenuAnalytics analytics) => plan switch
+    {
+        "Premium" => analytics,
+        "Pro" => analytics with { TopItems = [] },
+        _ => EmptyMenuAnalytics()
+    };
 
     private static string DayLabel(DayOfWeek day) => day switch
     {
@@ -775,9 +816,12 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
         if (string.IsNullOrWhiteSpace(r.Name)) throw new InvalidOperationException("Menu item name is required.");
         if (r.Price < 0) throw new InvalidOperationException("Menu item price cannot be negative.");
         if (r.SortOrder < 0) throw new InvalidOperationException("Menu item sort order cannot be negative.");
+        if (r.Calories is < 0 || r.Protein is < 0 || r.Carbs is < 0 || r.Fat is < 0 || r.Sugar is < 0 || r.Salt is < 0) throw new InvalidOperationException("Nutrition values cannot be negative.");
         if (!await db.MenuCategories.AnyAsync(x => x.Id == r.CategoryId && x.RestaurantId == rid, ct)) return null;
+        var plan = await db.Subscriptions.Where(x => x.RestaurantId == rid).Select(x => x.Plan).FirstOrDefaultAsync(ct);
+        var canUseNutrition = NormalizePlan(plan) == "Premium";
         var x = id is null ? new MenuItem { RestaurantId = rid, CategoryId = r.CategoryId, Name = r.Name } : await db.MenuItems.FirstOrDefaultAsync(x => x.Id == id && x.RestaurantId == rid, ct);
-        if (x is null) return null; x.CategoryId = r.CategoryId; x.Name = r.Name.Trim(); x.Description = r.Description; x.NameEn = CleanOptional(r.NameEn); x.DescriptionEn = CleanOptional(r.DescriptionEn); x.NameDe = CleanOptional(r.NameDe); x.DescriptionDe = CleanOptional(r.DescriptionDe); x.Price = r.Price; x.ServingSize = NormalizeServingSize(r.ServingSize); x.ImageUrl = AssetUrl.Normalize(r.ImageUrl); x.Allergens = r.Allergens; x.SortOrder = r.SortOrder; x.IsVisible = r.IsVisible; x.IsAvailable = r.IsAvailable; x.IsVegetarian = r.IsVegetarian; x.IsSpicy = r.IsSpicy; x.IsFeatured = r.IsFeatured; x.UpdatedAt = DateTimeOffset.UtcNow;
+        if (x is null) return null; x.CategoryId = r.CategoryId; x.Name = r.Name.Trim(); x.Description = r.Description; x.NameEn = CleanOptional(r.NameEn); x.DescriptionEn = CleanOptional(r.DescriptionEn); x.NameDe = CleanOptional(r.NameDe); x.DescriptionDe = CleanOptional(r.DescriptionDe); x.Price = r.Price; x.ServingSize = NormalizeServingSize(r.ServingSize); x.ImageUrl = AssetUrl.Normalize(r.ImageUrl); x.Allergens = CleanOptional(r.Allergens); x.Ingredients = canUseNutrition ? CleanOptional(r.Ingredients) : null; x.Calories = canUseNutrition ? r.Calories : null; x.Protein = canUseNutrition ? r.Protein : null; x.Carbs = canUseNutrition ? r.Carbs : null; x.Fat = canUseNutrition ? r.Fat : null; x.Sugar = canUseNutrition ? r.Sugar : null; x.Salt = canUseNutrition ? r.Salt : null; x.SortOrder = r.SortOrder; x.IsVisible = r.IsVisible; x.IsAvailable = r.IsAvailable; x.IsVegetarian = r.IsVegetarian; x.IsSpicy = r.IsSpicy; x.IsFeatured = r.IsFeatured; x.UpdatedAt = DateTimeOffset.UtcNow;
         if (id is null) db.Add(x); await db.SaveChangesAsync(ct); return x;
     }
     public async Task<IReadOnlyList<GlobalDrinkSummary>> GetDrinkLibraryAsync(CancellationToken ct)
@@ -864,6 +908,14 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
     public Task<bool> DeleteOfferAsync(Guid rid, Guid id, CancellationToken ct) => DeleteAsync(db.SpecialOffers, rid, id, ct);
     private static string? NormalizeServingSize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static string? CleanOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static string NormalizePlan(string? value) => (value ?? string.Empty).Trim() switch
+    {
+        "Standard" => "Pro",
+        "Enterprise" => "Premium",
+        "Basic" or "" => "Start",
+        "Start" or "Pro" or "Premium" => value!.Trim(),
+        _ => "Start"
+    };
     private static string LibraryKey(Guid drinkId, string? servingSize) => $"{drinkId:N}:{NormalizeServingSize(servingSize)?.ToLowerInvariant() ?? string.Empty}";
     private async Task<bool> DeleteAsync<T>(DbSet<T> set, Guid rid, Guid id, CancellationToken ct) where T : Entity
     {
@@ -945,19 +997,65 @@ public sealed class PublicMenuService(ApplicationDbContext db) : IPublicMenuServ
             .FirstOrDefaultAsync(x => x.Slug == resolvedSlug && x.Status == RestaurantStatus.Active, ct);
         if (restaurant?.IsPubliclyAvailable(today) != true) return null;
         db.MenuViews.Add(new MenuView { RestaurantId = restaurant.Id, ViewedOn = today, Source = "menu" });
-        var itemViews = restaurant.Categories
-            .SelectMany(category => category.Items)
-            .Where(item => item.IsVisible && item.IsAvailable)
-            .Select(item => new MenuItemView { RestaurantId = restaurant.Id, MenuItemId = item.Id, ViewedOn = today, Source = "public-menu" })
-            .ToList();
-        if (itemViews.Count > 0) db.MenuItemViews.AddRange(itemViews);
         await db.SaveChangesAsync(ct);
         return new PublicMenu(RestaurantService.ToOwnerDetails(restaurant));
+    }
+
+    public async Task TrackItemViewAsync(string slug, Guid itemId, TrackMenuItemViewRequest request, CancellationToken ct)
+    {
+        var resolvedSlug = ResolvePublicSlug(slug);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var restaurant = await db.Restaurants.AsNoTracking()
+            .Include(x => x.Subscription)
+            .FirstOrDefaultAsync(x => x.Slug == resolvedSlug && x.Status == RestaurantStatus.Active, ct);
+        if (restaurant?.IsPubliclyAvailable(today) != true) return;
+        if (NormalizePlan(restaurant.Subscription?.Plan) != "Premium") return;
+
+        var itemExists = await db.MenuItems.AsNoTracking()
+            .AnyAsync(x => x.Id == itemId && x.RestaurantId == restaurant.Id && x.IsVisible && x.IsAvailable && x.Category.IsVisible, ct);
+        if (!itemExists) return;
+
+        var sessionId = NormalizeSessionId(request.SessionId);
+        if (sessionId is not null)
+        {
+            var alreadyTracked = await db.MenuItemViews.AsNoTracking().AnyAsync(x =>
+                x.RestaurantId == restaurant.Id &&
+                x.MenuItemId == itemId &&
+                x.ViewedOn == today &&
+                x.SessionId == sessionId, ct);
+            if (alreadyTracked) return;
+        }
+
+        db.MenuItemViews.Add(new MenuItemView
+        {
+            RestaurantId = restaurant.Id,
+            MenuItemId = itemId,
+            ViewedOn = today,
+            Source = "product-visible",
+            SessionId = sessionId
+        });
+        await db.SaveChangesAsync(ct);
     }
 
     private static string ResolvePublicSlug(string slug) => slug switch
     {
         "demo-meni" => "test",
         _ => slug
+    };
+
+    private static string? NormalizeSessionId(string? value)
+    {
+        var trimmed = value?.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed)) return null;
+        return trimmed.Length <= 80 ? trimmed : trimmed[..80];
+    }
+
+    private static string NormalizePlan(string? value) => (value ?? string.Empty).Trim() switch
+    {
+        "Standard" => "Pro",
+        "Enterprise" => "Premium",
+        "Basic" or "" => "Start",
+        "Start" or "Pro" or "Premium" => value!.Trim(),
+        _ => "Start"
     };
 }

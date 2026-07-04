@@ -632,6 +632,16 @@
 .top-products-list span { color: #94a3b8; font-size: 13px; white-space: nowrap; }
 .premium-lock { display: grid; gap: 8px; place-items: start; border: 1px dashed rgba(132,204,22,.35); border-radius: 16px; padding: 16px; color: #cbd5e1; }
 .premium-lock svg { color: #a3e635; }
+.premium-lock.compact { padding: 12px; font-size: 12px; }
+.locked-stat { opacity: .88; }
+.premium-lock-card { min-height: 180px; display: grid; align-items: center; }
+.premium-product-details { display: grid; gap: 12px; border: 1px solid rgba(132,204,22,.24); border-radius: 18px; padding: 14px; background: rgba(132,204,22,.06); }
+.premium-product-details h3 { margin: 0; font-weight: 900; color: #e2e8f0; }
+.premium-product-details p { margin: 2px 0 0; color: #9fb0c7; font-size: 13px; line-height: 1.45; }
+.nutrition-input-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.nutrition-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.nutrition-row span { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 4px 8px; background: color-mix(in srgb, var(--menu-accent) 16%, white); color: var(--menu-ink); font-size: 10px; font-weight: 800; }
+.nutrition-row b { color: var(--menu-accent); }
 .analytics-big-number { display: block; margin-top: 14px; font-size: clamp(42px, 8vw, 72px); line-height: 1; color: #e2e8f0; }
 
 .qr-card-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 14px; }
@@ -757,6 +767,7 @@
   .admin-restaurant-table .admin-row-actions .admin-delete-button { display: inline-grid; }
   .form-grid { grid-template-columns: 1fr; }
   .form-grid .sm\:col-span-2 { grid-column: auto; }
+  .nutrition-input-grid { grid-template-columns: 1fr 1fr; }
   .billing-table article { grid-template-columns: minmax(0,1fr) auto; }
   .billing-table article > :not(:first-child):not(:last-child) { display: none; }
   .admin-drink-card { grid-template-columns: 52px minmax(0,1fr); align-items: start; }
