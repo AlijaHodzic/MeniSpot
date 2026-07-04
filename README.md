@@ -13,11 +13,14 @@ The platform also includes a central administration panel for restaurant onboard
 - QR-based public menus without requiring a mobile app
 - Public restaurant pages optimized for desktop and mobile guests
 - Super admin dashboard for restaurants, licenses, themes, QR codes, and billing status
+- Subscription plans with active, trial, paused, and expiring license states
 - Restaurant owner dashboard for menu management, readiness checks, and weekly view analytics
 - Food and drink separation for cleaner public browsing
 - Global drink library for reusable drink data, serving sizes, and images
 - Daily menu and special offer management
+- Support tickets from owner panels, with screenshot attachments and admin status handling
 - Restaurant-specific logo, cover image, contact details, working hours, and menu theme
+- Public landing page with lead form and transactional email notifications
 - Image uploads with validation, WebP conversion, compression, and optimized public delivery
 - Authentication with role-based access for platform admins and restaurant owners
 - Docker-based production deployment with private PostgreSQL storage
@@ -60,29 +63,33 @@ Cloudflare handles DNS, public proxying, and TLS at the edge. Caddy runs on the 
 
 ## Screenshots
 
-### Platform Landing
+The README shows the main product flow without overloading the page. The full screenshot gallery is available in [docs/screenshots](docs/screenshots).
 
-![Landing page](docs/screenshots/landing.png)
+### Landing Page
 
-### Administration
+| Landing and lead form | Pricing plans |
+| --- | --- |
+| <img src="docs/screenshots/landing.png" alt="MeniSpot landing page"> | <img src="docs/screenshots/landing-pricing.png" alt="MeniSpot pricing section"> |
 
-![Admin dashboard](docs/screenshots/admin-dashboard.png)
+### Super Admin
 
-![Restaurant management](docs/screenshots/admin-restaurants.png)
+| Platform overview | Restaurant management |
+| --- | --- |
+| <img src="docs/screenshots/admin-dashboard.png" alt="MeniSpot admin dashboard"> | <img src="docs/screenshots/admin-restaurants.png" alt="MeniSpot restaurant management"> |
 
-### Owner Dashboard
+| Drink library | Support requests |
+| --- | --- |
+| <img src="docs/screenshots/admin-drink-library.png" alt="MeniSpot admin drink library"> | <img src="docs/screenshots/admin-support.png" alt="MeniSpot admin support requests"> |
 
-![Owner dashboard](docs/screenshots/owner-dashboard.png)
+### Owner Panel
 
-![Owner products](docs/screenshots/owner-products.png)
+| Owner dashboard | Product management |
+| --- | --- |
+| <img src="docs/screenshots/owner-dashboard.png" alt="MeniSpot owner dashboard"> | <img src="docs/screenshots/owner-products.png" alt="MeniSpot owner product management"> |
 
-### Public Menu
-
-![Public menu desktop](docs/screenshots/public-menu-desktop-home.png)
-
-![Public menu mobile](docs/screenshots/public-menu-mobile-home.png)
-
-More product screenshots are available in [docs/screenshots](docs/screenshots).
+| Theme and business settings | Owner support |
+| --- | --- |
+| <img src="docs/screenshots/owner-settings.png" alt="MeniSpot owner settings"> | <img src="docs/screenshots/owner-support.png" alt="MeniSpot owner support"> |
 
 ## Project Structure
 
