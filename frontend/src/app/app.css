@@ -469,6 +469,8 @@
 .category-heading p { margin: 2px 0 0; color: var(--muted); font-size: 9px; }
 .public-product-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
 .menu-product { display: grid; overflow: hidden; grid-template-columns: 125px 1fr; border: 1px solid color-mix(in srgb,var(--text) 8%,transparent); border-radius: 15px; background: var(--card); }
+.premium-product-card { cursor: pointer; transition: transform .15s, border-color .15s, box-shadow .15s; }
+.premium-product-card:hover, .premium-product-card:focus-visible { border-color: color-mix(in srgb,var(--menu-accent) 50%,transparent); box-shadow: 0 14px 34px color-mix(in srgb,var(--menu-accent) 14%,transparent); transform: translateY(-1px); outline: 0; }
 .product-image { position: relative; min-height: 150px; }
 .product-image img { width: 100%; height: 100%; object-fit: cover; }
 .product-image > span { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.62); padding: 10px; color: white; font-size: 9px; font-weight: 700; text-align: center; }
@@ -477,6 +479,7 @@
 .product-content h3 { margin: 5px 0 3px; font-family: 'Outfit',sans-serif; font-size: 14px; }
 .product-content > p { display: -webkit-box; overflow: hidden; margin: 0; color: var(--muted); font-size: 9px; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .product-content > small { margin-top: 6px; color: var(--muted); font-size: 8px; }
+.product-content > .premium-detail-hint { color: var(--menu-accent); font-weight: 850; letter-spacing: .02em; text-transform: uppercase; }
 .product-content > b { margin-top: auto; padding-top: 8px; color: var(--menu-accent); font-size: 13px; }
 .badge-row { display: flex; flex-wrap: wrap; gap: 3px; }
 .badge-row span { display: flex; align-items: center; gap: 3px; border-radius: 999px; background: #fff7ed; padding: 3px 5px; color: #c2410c; font-size: 7px; font-weight: 800; }
@@ -486,6 +489,24 @@
 .menu-footer { display: flex; justify-content: center; gap: 10px; border-top: 1px solid color-mix(in srgb,var(--text) 8%,transparent); padding: 28px; background: var(--card); }
 .menu-footer p { display: flex; flex-direction: column; margin: 0; font-size: 12px; }
 .menu-footer span { color: var(--muted); font-size: 9px; }
+.product-detail-backdrop { z-index: 240; align-items: end; background: rgba(3,7,18,.7); }
+.public-product-detail { display: grid; position: relative; overflow: hidden; width: min(100%,920px); max-height: min(90vh,760px); grid-template-columns: minmax(280px,.9fr) minmax(0,1fr); border: 1px solid rgba(255,255,255,.12); border-radius: 24px; background: #111827; color: #f8fafc; box-shadow: 0 30px 90px rgba(0,0,0,.4); }
+.public-product-detail-media { min-height: 420px; background: #020617; }
+.public-product-detail-media img { width: 100%; height: 100%; object-fit: cover; }
+.public-product-close { position: absolute; top: 14px; right: 14px; z-index: 2; border-color: rgba(255,255,255,.18); background: rgba(15,23,42,.72); color: white; backdrop-filter: blur(10px); }
+.public-product-detail-body { display: flex; min-width: 0; flex-direction: column; gap: 14px; overflow: auto; padding: clamp(22px,4vw,34px); }
+.public-product-detail-body h2 { margin: 0; font-family: 'Outfit',sans-serif; font-size: clamp(28px,5vw,46px); line-height: 1; }
+.public-product-detail-body > p { margin: 0; color: #cbd5e1; font-size: 15px; line-height: 1.65; }
+.public-product-detail-body > strong { width: fit-content; border-radius: 999px; background: var(--menu-accent); padding: 10px 14px; color: #111827; font-size: 18px; }
+.public-product-detail .serving-pill { width: fit-content; background: rgba(255,255,255,.08); color: color-mix(in srgb,var(--menu-accent) 72%,white); }
+.product-detail-section-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.product-detail-section-grid section, .product-detail-nutrition { border: 1px solid rgba(255,255,255,.1); border-radius: 16px; background: rgba(255,255,255,.055); padding: 14px; }
+.product-detail-section-grid span, .product-detail-nutrition > span { display: block; margin-bottom: 7px; color: color-mix(in srgb,var(--menu-accent) 72%,white); font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.product-detail-section-grid p { margin: 0; color: #dbe4f0; font-size: 13px; line-height: 1.55; }
+.product-detail-nutrition div { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+.product-detail-nutrition p { display: grid; gap: 2px; margin: 0; border-radius: 12px; background: rgba(15,23,42,.42); padding: 10px; }
+.product-detail-nutrition b { color: #f8fafc; font-size: 15px; }
+.product-detail-nutrition small { color: #94a3b8; font-size: 10px; }
 
 .modal-backdrop { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; background: rgba(15,23,42,.58); padding: 20px; backdrop-filter: blur(4px); }
 .modal { overflow: hidden; width: min(100%,600px); max-height: 92vh; overflow-y: auto; border-radius: 20px; background: white; box-shadow: 0 30px 80px rgba(0,0,0,.25); }
@@ -717,6 +738,10 @@
   .translation-grid { grid-template-columns: 1fr; }
   .admin-todo-grid { grid-template-columns: 1fr; }
   .menu-language-switch { justify-content: flex-start; }
+  .product-detail-backdrop { align-items: end; padding: 10px; }
+  .public-product-detail { max-height: 94vh; grid-template-columns: 1fr; border-radius: 22px 22px 16px 16px; }
+  .public-product-detail-media { min-height: 260px; max-height: 38vh; }
+  .product-detail-section-grid, .product-detail-nutrition div { grid-template-columns: 1fr; }
 }
 @media (max-width: 900px) {
   .landing-hero { grid-template-columns: 1fr; }

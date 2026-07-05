@@ -1103,7 +1103,7 @@ public sealed class PublicMenuService(ApplicationDbContext db) : IPublicMenuServ
             RestaurantId = restaurant.Id,
             MenuItemId = itemId,
             ViewedOn = today,
-            Source = "product-visible",
+            Source = "product-detail",
             SessionId = sessionId
         });
         await db.SaveChangesAsync(ct);

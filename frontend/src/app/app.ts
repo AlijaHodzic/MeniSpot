@@ -381,12 +381,11 @@ export class App {
   drinkSelections: Record<string, { drinkId: string; servingSize: string | null; selected: boolean; price: number }> = {};
   categoryForm: CategoryForm = this.emptyCategoryForm();
   productForm: ProductForm = this.emptyProductForm();
+  publicSelectedProduct: Product | null = null;
   offerForm: OfferForm = this.emptyOfferForm('Promotion');
   private readonly allowedImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
   private readonly maxImageUploadSize = 5 * 1024 * 1024;
-  private publicProductObserver: IntersectionObserver | null = null;
   private publicTrackedProducts = new Set<string>();
-  private publicTrackingScheduled = false;
   private publicTrackingSessionId = '';
 
   constructor() {
@@ -1895,12 +1894,20 @@ export class App {
   selectPublicMenuSection(section: 'food' | 'drink'): void {
     this.publicMenuSection = section;
     this.selectedCategory = 'all';
-    this.schedulePublicProductTracking();
   }
 
   selectPublicCategory(categoryId: string): void {
     this.selectedCategory = categoryId;
-    this.schedulePublicProductTracking();
+  }
+
+  openPublicProduct(product: Product): void {
+    if (!this.canUsePremiumProductDetails || !product.available) return;
+    this.publicSelectedProduct = product;
+    this.trackPublicProductView(product.id);
+  }
+
+  closePublicProduct(): void {
+    this.publicSelectedProduct = null;
   }
   setMenuLanguage(language: MenuLanguage): void {
     if (!this.menuLanguageOptions.some((option) => option.value === language)) {
@@ -2359,7 +2366,7 @@ export class App {
     this.ownerLoading = true;
     this.ownerError = '';
     this.publicTrackedProducts = new Set<string>();
-    this.publicProductObserver?.disconnect();
+    this.publicSelectedProduct = null;
     this.ownerService.getPublicMenu(slug).pipe(finalize(() => this.ownerLoading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: ({ restaurant }) => this.applyOwnerRestaurant(restaurant),
       error: () => { this.ownerRestaurant = null; this.ownerViewRestaurant = null; this.ownerError = 'Ovaj meni trenutno nije dostupan.'; },
@@ -2405,39 +2412,11 @@ export class App {
     this.selectedCategory = 'all';
     this.updateBrowserChromeColor();
     void this.qrCodeService.createDataUrl(`${globalThis.location.origin}/menu/${restaurant.slug}`).then((value) => this.ownerQrCode = value);
-    this.schedulePublicProductTracking();
   }
 
-  schedulePublicProductTracking(): void {
-    if (this.view !== 'public-menu' || this.publicTrackingScheduled) return;
-    this.publicTrackingScheduled = true;
-    globalThis.setTimeout(() => {
-      this.publicTrackingScheduled = false;
-      this.bindPublicProductTracking();
-    }, 120);
-  }
-
-  private bindPublicProductTracking(): void {
-    if (this.view !== 'public-menu' || !this.ownerRestaurant?.slug || !('IntersectionObserver' in globalThis)) return;
-    this.publicProductObserver?.disconnect();
-    this.publicProductObserver = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue;
-        const element = entry.target as HTMLElement;
-        const itemId = element.dataset['publicProductId'];
-        if (itemId) this.trackPublicProductView(itemId, element);
-      }
-    }, { threshold: 0.6 });
-    globalThis.document.querySelectorAll<HTMLElement>('[data-public-product-id]').forEach((element) => {
-      const itemId = element.dataset['publicProductId'];
-      if (itemId && !this.publicTrackedProducts.has(itemId)) this.publicProductObserver?.observe(element);
-    });
-  }
-
-  private trackPublicProductView(itemId: string, element: Element): void {
+  private trackPublicProductView(itemId: string): void {
     if (this.publicTrackedProducts.has(itemId) || !this.ownerRestaurant?.slug) return;
     this.publicTrackedProducts.add(itemId);
-    this.publicProductObserver?.unobserve(element);
     this.ownerService.trackPublicMenuItem(this.ownerRestaurant.slug, itemId, this.getPublicTrackingSessionId())
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({ error: () => undefined });
