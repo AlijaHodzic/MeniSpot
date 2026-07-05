@@ -22,6 +22,7 @@ internal static class ShowcaseSeeder
             .Include(x => x.BusinessHours)
             .FirstOrDefaultAsync(x => x.Slug == DelRioSlug);
 
+        var shouldSeedContent = restaurant is null;
         if (restaurant is null)
         {
             restaurant = new Restaurant
@@ -32,6 +33,13 @@ internal static class ShowcaseSeeder
                 Status = RestaurantStatus.Active
             };
             db.Restaurants.Add(restaurant);
+        }
+        else
+        {
+            shouldSeedContent =
+                restaurant.Categories.Count == 0 &&
+                restaurant.SpecialOffers.Count == 0 &&
+                restaurant.BusinessHours.Count == 0;
         }
 
         restaurant.Name = "Del Rio Restaurant";
@@ -70,26 +78,16 @@ internal static class ShowcaseSeeder
         restaurant.Theme.FontFamily = "Inter";
         restaurant.Theme.UpdatedAt = DateTimeOffset.UtcNow;
 
-        ReplaceRestaurantContent(db, restaurant);
-        await EnsureOwnerAsync(users, restaurant);
+        if (shouldSeedContent)
+            ReplaceRestaurantContent(restaurant);
+
         await db.SaveChangesAsync();
+        await EnsureOwnerAsync(users, restaurant);
         await SeedAnalyticsAsync(db, restaurant);
     }
 
-    private static void ReplaceRestaurantContent(ApplicationDbContext db, Restaurant restaurant)
+    private static void ReplaceRestaurantContent(Restaurant restaurant)
     {
-        if (restaurant.Categories.Count != 0)
-        {
-            db.MenuItems.RemoveRange(restaurant.Categories.SelectMany(x => x.Items));
-            db.MenuCategories.RemoveRange(restaurant.Categories);
-        }
-        if (restaurant.SpecialOffers.Count != 0) db.SpecialOffers.RemoveRange(restaurant.SpecialOffers);
-        if (restaurant.BusinessHours.Count != 0) db.BusinessHours.RemoveRange(restaurant.BusinessHours);
-
-        restaurant.Categories = [];
-        restaurant.SpecialOffers = [];
-        restaurant.BusinessHours = [];
-
         var chef = Category(restaurant.Id, "Chef preporuke", "Chef Recommendations", "Chef Empfehlungen", 1);
         var sea = Category(restaurant.Id, "Morski specijaliteti", "Seafood Specialties", "Meeresfruchte", 2);
         var grill = Category(restaurant.Id, "Grill & steak", "Grill & Steak", "Grill & Steak", 3);
@@ -199,14 +197,16 @@ internal static class ShowcaseSeeder
 
     private static async Task SeedAnalyticsAsync(ApplicationDbContext db, Restaurant restaurant)
     {
+        var seededAnalyticsExists =
+            await db.MenuViews.AnyAsync(x => x.RestaurantId == restaurant.Id && x.Source == "showcase-seed") ||
+            await db.MenuItemViews.AnyAsync(x => x.RestaurantId == restaurant.Id && x.Source == "showcase-seed");
+        if (seededAnalyticsExists) return;
+
         var items = await db.MenuItems
             .Where(x => x.RestaurantId == restaurant.Id && x.IsVisible)
             .OrderBy(x => x.SortOrder)
             .ToListAsync();
         if (items.Count == 0) return;
-
-        db.MenuViews.RemoveRange(await db.MenuViews.Where(x => x.RestaurantId == restaurant.Id && x.Source == "showcase-seed").ToListAsync());
-        db.MenuItemViews.RemoveRange(await db.MenuItemViews.Where(x => x.RestaurantId == restaurant.Id && x.Source == "showcase-seed").ToListAsync());
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var dailyCounts = new[] { 7, 12, 18, 24, 16, 31, 42 };
