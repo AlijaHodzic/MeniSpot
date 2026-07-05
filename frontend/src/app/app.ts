@@ -201,7 +201,7 @@ export class App {
     { value: 'Drink', label: 'Piće' },
   ];
   readonly adminTabs: { id: AdminTab; label: string }[] = [
-    { id: 'dashboard', label: 'Pregled' }, { id: 'restaurants', label: 'Restorani' },
+    { id: 'dashboard', label: 'Pregled' }, { id: 'restaurants', label: 'Restorani' }, { id: 'archived-restaurants', label: 'Arhiva' },
     { id: 'billing', label: 'Pretplate' }, { id: 'drink-library', label: 'Biblioteka pića' },
     { id: 'themes', label: 'Teme' }, { id: 'qr-codes', label: 'QR kodovi' }, { id: 'support', label: 'Podrska' },
   ];
@@ -291,6 +291,11 @@ export class App {
   adminRestaurantsLoaded = false;
   adminRestaurantsError = '';
   adminRestaurantSearch = '';
+  archivedRestaurants: AdminRestaurantSummary[] = [];
+  archivedRestaurantsLoading = false;
+  archivedRestaurantsLoaded = false;
+  archivedRestaurantsError = '';
+  archivedRestaurantSearch = '';
   showRestaurantModal = false;
   restaurantEditorMode: 'none' | 'create' | 'edit' = 'none';
   restaurantModalLoading = false;
@@ -513,6 +518,13 @@ export class App {
   get filteredAdminRestaurants(): AdminRestaurantSummary[] {
     const term = this.adminRestaurantSearch.trim().toLocaleLowerCase();
     return this.adminRestaurants.filter((item) => !term ||
+      item.name.toLocaleLowerCase().includes(term) ||
+      item.slug.toLocaleLowerCase().includes(term) ||
+      (item.address ?? '').toLocaleLowerCase().includes(term));
+  }
+  get filteredArchivedRestaurants(): AdminRestaurantSummary[] {
+    const term = this.archivedRestaurantSearch.trim().toLocaleLowerCase();
+    return this.archivedRestaurants.filter((item) => !term ||
       item.name.toLocaleLowerCase().includes(term) ||
       item.slug.toLocaleLowerCase().includes(term) ||
       (item.address ?? '').toLocaleLowerCase().includes(term));
@@ -790,6 +802,21 @@ export class App {
           void this.generateAdminQrCodes(restaurants);
         },
         error: () => this.adminRestaurantsError = 'Restorani se trenutno ne mogu učitati. Provjeri backend i pokušaj ponovo.',
+      });
+  }
+
+  loadArchivedRestaurants(force = false): void {
+    if (this.archivedRestaurantsLoading || this.archivedRestaurantsLoaded && !force) return;
+    this.archivedRestaurantsLoading = true;
+    this.archivedRestaurantsError = '';
+    this.adminRestaurantsService.getArchived()
+      .pipe(finalize(() => this.archivedRestaurantsLoading = false), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (items) => {
+          this.archivedRestaurants = items;
+          this.archivedRestaurantsLoaded = true;
+        },
+        error: () => this.archivedRestaurantsError = 'Arhiva restorana se trenutno ne moze ucitati. Pokusaj ponovo.',
       });
   }
 
@@ -1323,13 +1350,14 @@ export class App {
 
   deleteAdminRestaurant(item: AdminRestaurantSummary): void {
     this.askConfirm({
-      title: 'Obrisati restoran?',
-      message: `Restoran "${item.name}" će biti trajno obrisan zajedno sa vlasničkim pristupom, menijem, ponudama, plaćanjima i statistikama.`,
-      confirmText: 'Obriši restoran',
+      title: 'Arhivirati restoran?',
+      message: `Restoran "${item.name}" ce biti sklonjen iz aktivnih lista, ali ga mozes vratiti iz arhive.`,
+      confirmText: 'Arhiviraj restoran',
       tone: 'danger',
       onConfirm: () => this.adminRestaurantsService.delete(item.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: () => {
           this.adminRestaurants = this.adminRestaurants.filter((restaurant) => restaurant.id !== item.id);
+          this.archivedRestaurantsLoaded = false;
           this.adminDashboard = null;
           this.adminRestaurantsLoaded = false;
           this.loadAdminRestaurants(true);
@@ -1341,6 +1369,27 @@ export class App {
         },
       }),
     });
+  }
+
+  restoreAdminRestaurant(item: AdminRestaurantSummary): void {
+    if (this.restaurantStatusUpdating.has(item.id)) return;
+    this.restaurantStatusUpdating.add(item.id);
+    this.adminRestaurantsService.restore(item.id)
+      .pipe(finalize(() => this.restaurantStatusUpdating.delete(item.id)), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.archivedRestaurants = this.archivedRestaurants.filter((restaurant) => restaurant.id !== item.id);
+          this.adminRestaurantsLoaded = false;
+          this.adminDashboard = null;
+          this.loadArchivedRestaurants(true);
+          this.loadAdminRestaurants(true);
+          this.showToast('Restoran je vracen iz arhive.');
+        },
+        error: () => {
+          this.archivedRestaurantsError = 'Restoran nije vracen iz arhive. Pokusaj ponovo.';
+          this.showToast('Restoran nije vracen iz arhive.', 'error');
+        },
+      });
   }
 
   impersonateRestaurant(item: AdminRestaurantSummary): void {
@@ -2115,6 +2164,7 @@ export class App {
         this.showRestaurantModal = false;
       }
       if (this.adminTab === 'billing') this.loadBilling();
+      if (this.adminTab === 'archived-restaurants') this.loadArchivedRestaurants();
       if (this.adminTab === 'drink-library') this.loadAdminDrinks();
       if (this.adminTab === 'support') this.loadAdminSupport();
     } else if (segments[0] === 'restaurant') {

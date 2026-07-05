@@ -25,6 +25,10 @@ export class AdminRestaurantsService {
     return this.http.get<AdminRestaurantSummary[]>(this.endpoint);
   }
 
+  getArchived(): Observable<AdminRestaurantSummary[]> {
+    return this.http.get<AdminRestaurantSummary[]>(`${this.endpoint}/archived`);
+  }
+
   getDashboard(): Observable<AdminDashboardSummary> {
     return this.http.get<AdminDashboardSummary>(`${this.endpoint}/dashboard`);
   }
@@ -71,6 +75,10 @@ export class AdminRestaurantsService {
 
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.endpoint}/${id}`);
+  }
+
+  restore(id: string): Observable<void> {
+    return this.http.post<void>(`${this.endpoint}/${id}/restore`, {});
   }
 
   impersonate(id: string): Observable<AuthSession> {

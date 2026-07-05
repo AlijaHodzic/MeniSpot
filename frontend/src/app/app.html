@@ -226,6 +226,17 @@
           </div>
         }
 
+        @if (adminTab === 'archived-restaurants') {
+          <div class="page-heading"><div><p class="eyebrow">Arhiva</p><h2>Arhivirani restorani</h2><p>Restorani sklonjeni iz aktivnih lista. Po potrebi ih mozes vratiti nazad u rad.</p></div></div>
+          @if (archivedRestaurantsError) { <div class="admin-alert"><span>{{ archivedRestaurantsError }}</span><button (click)="loadArchivedRestaurants(true)">Pokusaj ponovo</button></div> }
+          <div class="panel-card overflow-hidden p-0">
+            <div class="table-toolbar"><div class="search-box"><svg lucideSearch [size]="17"></svg><input name="archivedRestaurantSearch" [(ngModel)]="archivedRestaurantSearch" placeholder="Pretrazi arhivu..." /></div><span class="text-sm text-slate-500">{{ filteredArchivedRestaurants.length }} arhivirano</span></div>
+            @if (archivedRestaurantsLoading) { <div class="table-state"><span class="auth-spinner"></span><p>Ucitavanje arhive...</p></div> }
+            @else if (!filteredArchivedRestaurants.length) { <div class="table-state"><svg lucideStore [size]="30"></svg><h3>Nema arhiviranih restorana</h3><p>Kada arhiviras restoran, pojavit ce se ovdje.</p></div> }
+            @else { <div class="restaurant-table admin-restaurant-table archived-restaurant-table">@for (item of filteredArchivedRestaurants; track item.id) { <article><img [src]="item.logoUrl || '/menispot-mark.png'" [alt]="item.name"><div class="min-w-0"><h3>{{ item.name }}</h3><p>{{ item.address || item.slug }} · {{ establishmentLabel(item.type) }}</p></div><span class="status-pill status-paused">{{ restaurantStatusLabel(item.status) }}</span><span class="plan-pill">{{ item.plan }} · {{ subscriptionStatusLabel(item.subscriptionStatus) }}</span><div class="text-right"><b>{{ item.expiresOn | date:'dd.MM.yyyy.' }}</b><p>zadnja licenca</p></div><div class="admin-row-actions"><button class="secondary-button" (click)="restoreAdminRestaurant(item)" [disabled]="restaurantStatusUpdating.has(item.id)"><svg lucidePower [size]="15"></svg> Vrati restoran</button></div></article> }</div> }
+          </div>
+        }
+
         @if (adminTab === 'billing') {
           <div class="page-heading"><div><p class="eyebrow">Finansije</p><h2>Pretplate i naplate</h2><p>Ručno evidentiraj uplate i prati trajanje licenci.</p></div></div>
           @if (billingError) { <div class="admin-alert"><span>{{ billingError }}</span><button (click)="loadBilling(true)">Pokušaj ponovo</button></div> }

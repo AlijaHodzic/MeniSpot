@@ -1,5 +1,5 @@
 export type AppView = 'login' | 'auth-login' | 'super-admin' | 'restaurant-owner' | 'public-menu';
-export type AdminTab = 'dashboard' | 'restaurants' | 'billing' | 'drink-library' | 'themes' | 'qr-codes' | 'support';
+export type AdminTab = 'dashboard' | 'restaurants' | 'archived-restaurants' | 'billing' | 'drink-library' | 'themes' | 'qr-codes' | 'support';
 export type OwnerTab = 'dashboard' | 'categories' | 'products' | 'daily-menu' | 'offers' | 'settings' | 'qr' | 'support';
 export type ThemeType =
   | 'classic-light'
