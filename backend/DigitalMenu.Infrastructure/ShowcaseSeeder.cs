@@ -44,14 +44,14 @@ internal static class ShowcaseSeeder
 
         restaurant.Name = "Del Rio Restaurant";
         restaurant.Slug = DelRioSlug;
-        restaurant.Description = "Premium demo meni za restoran u Mostaru, sa fokusom na steak, riblje specijalitete, sezonske ponude i elegantan vizuelni identitet.";
-        restaurant.LogoUrl = Asset("logo.jpg");
-        restaurant.CoverImageUrl = Asset("cover-chef-flame.jpg");
-        restaurant.Address = "Kardinala Stepinca 12, Mostar 88000";
-        restaurant.Phone = "+387 36 000 000";
-        restaurant.Email = "info@menispot.com";
-        restaurant.WebsiteUrl = "https://menispot.com/menu/del-rio-mostar";
-        restaurant.InstagramUrl = "https://www.instagram.com/delriomostar";
+        restaurant.Description = KeepExisting(restaurant.Description, "Premium demo meni za restoran u Mostaru, sa fokusom na steak, riblje specijalitete, sezonske ponude i elegantan vizuelni identitet.");
+        restaurant.LogoUrl = KeepExisting(restaurant.LogoUrl, Asset("logo.jpg"));
+        restaurant.CoverImageUrl = KeepExisting(restaurant.CoverImageUrl, Asset("cover-chef-flame.jpg"));
+        restaurant.Address = KeepExisting(restaurant.Address, "Kardinala Stepinca 12, Mostar 88000");
+        restaurant.Phone = KeepExisting(restaurant.Phone, "+387 36 000 000");
+        restaurant.Email = KeepExisting(restaurant.Email, "info@menispot.com");
+        restaurant.WebsiteUrl = KeepExisting(restaurant.WebsiteUrl, "https://menispot.com/menu/del-rio-mostar");
+        restaurant.InstagramUrl = KeepExisting(restaurant.InstagramUrl, "https://www.instagram.com/delriomostar");
         restaurant.Currency = "BAM";
         restaurant.DefaultLanguage = "bs";
         restaurant.EnabledLanguages = "bs,en,de";
@@ -302,4 +302,7 @@ internal static class ShowcaseSeeder
         };
 
     private static string Asset(string fileName) => $"{ShowcaseBasePath}/{fileName}";
+
+    private static string? KeepExisting(string? current, string fallback) =>
+        string.IsNullOrWhiteSpace(current) ? fallback : current;
 }
