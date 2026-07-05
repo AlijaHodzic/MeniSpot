@@ -130,7 +130,7 @@
 .owner-dark .readiness-list button.ready { border-color: color-mix(in srgb,var(--brand,#84cc16) 38%,#343b46); background: color-mix(in srgb,var(--brand,#84cc16) 12%,#20252e) !important; color: color-mix(in srgb,var(--brand,#84cc16) 70%,white) !important; }
 .owner-dark .menu-status { background: color-mix(in srgb,var(--brand,#84cc16) 14%,#20252e); color: color-mix(in srgb,var(--brand,#84cc16) 70%,white); }
 .owner-dark .menu-status-paused { border-color: #7f1d1d; background: #2a1f22; color: #fecaca; }
-.owner-dark .modal { color: #0f172a; }
+.owner-dark .modal { color: #f8fafc; }
 .nav-item { display: flex; width: 100%; align-items: center; gap: 11px; border: 0; border-radius: 11px; background: transparent; padding: 11px 13px; color: #64748b; font-size: 14px; font-weight: 600; text-align: left; transition: .15s; }
 .nav-item:hover { color: #0f172a; background: #f1f5f9; }
 .nav-active { color: var(--menispot-green-dark) !important; background: var(--menispot-green-soft) !important; }
@@ -539,6 +539,7 @@
 .drink-library-list article.drink-added { opacity: .62; }
 .drink-library-list img { width: 52px; height: 52px; border-radius: 13px; object-fit: cover; background: #f8fafc; }
 .drink-library-list h3 { margin: 0; font-size: 14px; font-weight: 800; }
+.drink-library-list h3 { color: #0f172a; }
 .drink-library-list p { margin: 3px 0 0; color: #94a3b8; font-size: 11px; }
 .drink-library-list label { color: #64748b; font-size: 10px; font-weight: 800; }
 .drink-library-list input { display: block; width: 100%; margin-top: 4px; border: 1px solid #dbe1e8; border-radius: 10px; padding: 8px 9px; color: #0f172a; }
@@ -546,6 +547,25 @@
 .drink-select span { display: block; width: 12px; height: 12px; border-radius: 999px; background: transparent; }
 .drink-selected .drink-select { border-color: var(--menispot-green); background: #f7fee7; }
 .drink-selected .drink-select span { background: var(--menispot-green); }
+.owner-dark-modal { border: 1px solid #343b46; background: #252a33; color: #f8fafc; }
+.owner-dark-modal .modal-header, .owner-dark-modal .modal-footer { border-color: #343b46; background: #1f242c; }
+.owner-dark-modal .modal-header h2, .owner-dark-modal .form-grid label, .owner-dark-modal .drink-library-tools label, .owner-dark-modal .drink-library-list label, .owner-dark-modal .check-label { color: #f8fafc; }
+.owner-dark-modal .modal-subtitle, .owner-dark-modal .form-help, .owner-dark-modal .field-hint { color: #aab4c3; }
+.owner-dark-modal .icon-button, .owner-dark-modal .secondary-button { border-color: #3a414d; background: #242932; color: #d6dbe5; }
+.owner-dark-modal .icon-button:hover, .owner-dark-modal .secondary-button:hover { background: #2d333d; }
+.owner-dark-modal .search-box, .owner-dark-modal .image-drop-zone, .owner-dark-modal .translation-grid, .owner-dark-modal .premium-product-details { border-color: #3a414d; background: #1f242c; color: #d6dbe5; }
+.owner-dark-modal .search-box input, .owner-dark-modal .form-grid input, .owner-dark-modal .form-grid textarea, .owner-dark-modal .drink-library-list input { border-color: #4b5563; background: #1f242c; color: #f8fafc; }
+.owner-dark-modal input::placeholder, .owner-dark-modal textarea::placeholder { color: #94a3b8; }
+.owner-dark-modal .drink-library-chips button { border-color: #3a414d; background: #20252e; color: #d6dbe5; }
+.owner-dark-modal .drink-library-chips button.active { border-color: var(--brand,var(--menispot-green)); background: color-mix(in srgb,var(--brand,#84cc16) 16%,#20252e); color: color-mix(in srgb,var(--brand,#84cc16) 72%,white); }
+.owner-dark-modal .drink-library-chips span, .owner-dark-modal .drink-library-list p { color: #aab4c3; }
+.owner-dark-modal .drink-library-list article { border-color: #343b46; background: #20252e; }
+.owner-dark-modal .drink-library-list article.drink-selected { border-color: var(--brand,var(--menispot-green)); box-shadow: 0 0 0 3px color-mix(in srgb,var(--brand,#84cc16) 18%,transparent); }
+.owner-dark-modal .drink-library-list h3 { color: #f8fafc; }
+.owner-dark-modal .drink-library-list img { background: #171b22; }
+.owner-dark-modal .drink-select { border-color: #4b5563; background: #242932; }
+.owner-dark-modal .drink-selected .drink-select { border-color: var(--brand,var(--menispot-green)); background: color-mix(in srgb,var(--brand,#84cc16) 18%,#242932); }
+.owner-dark-modal .serving-pill, .owner-dark-modal .status-pill { background: #303640; color: #d6dbe5; }
 .admin-qr-image { display: block; width: min(100%,260px); margin: 18px auto; border: 1px solid #e2e8f0; border-radius: 16px; }
 .qr-placeholder { display: grid; width: 260px; height: 260px; max-width: 100%; place-items: center; margin: 18px auto; border: 1px dashed #cbd5e1; border-radius: 16px; background: #f8fafc; }
 .upload-box { display: grid; height: 90px; place-items: center; margin-top: 7px; border: 1px dashed #cbd5e1; border-radius: 11px; color: #94a3b8; font-weight: 500; }

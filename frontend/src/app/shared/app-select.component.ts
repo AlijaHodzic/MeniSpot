@@ -132,7 +132,8 @@ export interface AppSelectOption<T = string | number | null> {
       --select-option-active: #334155;
       --select-option-active-text: #d9f99d;
     }
-    :host-context(.owner-dark) {
+    :host-context(.owner-dark),
+    :host-context(.owner-dark-modal) {
       --select-bg: #1f242c;
       --select-hover: #242932;
       --select-border: #3a414d;
