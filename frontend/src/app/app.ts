@@ -702,7 +702,7 @@ export class App {
         error: (error: HttpErrorResponse) => {
           this.loginError = error.status === 401
             ? 'Email ili lozinka nisu ispravni.'
-            : 'Prijava trenutno nije dostupna. Provjeri da li je backend pokrenut.';
+            : 'Prijava trenutno nije dostupna.';
         },
       });
   }
@@ -2546,5 +2546,3 @@ export class App {
     return days.map((day) => hours.find((hour) => hour.dayOfWeek === day) ?? { dayOfWeek: day, opensAt: '09:00:00', closesAt: '23:00:00', isClosed: false });
   }
 }
-
-
