@@ -35,6 +35,7 @@ public sealed class Restaurant : Entity
     public string EnabledLanguages { get; set; } = "bs,en";
     public EstablishmentType Type { get; set; }
     public RestaurantStatus Status { get; set; } = RestaurantStatus.Draft;
+    public DateTimeOffset? QrDownloadedAt { get; set; }
     public DateTimeOffset? ArchivedAt { get; set; }
     public Guid? ArchivedByUserId { get; set; }
     public Subscription? Subscription { get; set; }

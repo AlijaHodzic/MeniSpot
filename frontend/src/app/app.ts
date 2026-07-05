@@ -15,6 +15,8 @@ import {
 import { AdminTab, AppView, BadgeType, Category, DailyMenu, Offer, OwnerTab, Product, Restaurant, ThemeType } from './models';
 import { AuthService } from './core/auth/auth.service';
 import {
+  AdminReadinessIssue,
+  AdminRestaurantReadiness,
   AdminRestaurantDetails,
   AdminRestaurantSummary,
   AdminDashboardSummary,
@@ -299,6 +301,8 @@ export class App {
   restaurantStatusUpdating = new Set<string>();
   restaurantImpersonating = new Set<string>();
   adminQrCodes: Record<string, string> = {};
+  adminReadiness: Record<string, AdminRestaurantReadiness> = {};
+  qrPrintStyle: 'light' | 'dark' = 'light';
   adminSupportTickets: SupportTicket[] = [];
   adminSupportLoading = false;
   adminSupportLoaded = false;
@@ -771,12 +775,17 @@ export class App {
     if (this.adminRestaurantsLoading || this.adminRestaurantsLoaded && !force) return;
     this.adminRestaurantsLoading = true;
     this.adminRestaurantsError = '';
-    forkJoin({ restaurants: this.adminRestaurantsService.getAll(), dashboard: this.adminRestaurantsService.getDashboard() })
+    forkJoin({
+      restaurants: this.adminRestaurantsService.getAll(),
+      dashboard: this.adminRestaurantsService.getDashboard(),
+      readiness: this.adminRestaurantsService.getReadiness(),
+    })
       .pipe(finalize(() => this.adminRestaurantsLoading = false), takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ({ restaurants, dashboard }) => {
+        next: ({ restaurants, dashboard, readiness }) => {
           this.adminRestaurants = restaurants;
           this.adminDashboard = dashboard;
+          this.adminReadiness = Object.fromEntries(readiness.map((item) => [item.restaurantId, item]));
           this.adminRestaurantsLoaded = true;
           void this.generateAdminQrCodes(restaurants);
         },
@@ -1244,22 +1253,36 @@ export class App {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
+    this.uploadAdminRestaurantImage(file, target, () => input.value = '');
+  }
+
+  dropAdminRestaurantImage(event: DragEvent, target: 'logo' | 'cover'): void {
+    event.preventDefault();
+    const file = event.dataTransfer?.files?.[0];
+    if (file) this.uploadAdminRestaurantImage(file, target);
+  }
+
+  allowAdminRestaurantImageDrop(event: DragEvent): void {
+    event.preventDefault();
+  }
+
+  private uploadAdminRestaurantImage(file: File, target: 'logo' | 'cover', cleanup?: () => void): void {
     if (!this.restaurantForm.id) {
       this.restaurantFormError = 'Prvo kreiraj restoran, pa dodaj logo ili naslovnu fotografiju.';
-      input.value = '';
+      cleanup?.();
       return;
     }
     const validationError = this.validateImageFile(file);
     if (validationError) {
       this.restaurantFormError = validationError;
-      input.value = '';
+      cleanup?.();
       return;
     }
 
     this.restaurantImageUploading = target;
     this.restaurantFormError = '';
     this.adminRestaurantsService.uploadImage(this.restaurantForm.id, file)
-      .pipe(finalize(() => { this.restaurantImageUploading = null; input.value = ''; }), takeUntilDestroyed(this.destroyRef))
+      .pipe(finalize(() => { this.restaurantImageUploading = null; cleanup?.(); }), takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: ({ url }) => {
           if (target === 'logo') this.restaurantForm.logoUrl = url;
@@ -1944,6 +1967,33 @@ export class App {
     return this.supportStatusOptions.find((item) => item.value === status)?.label ?? status;
   }
 
+  restaurantOnboardingItems(): { label: string; ready: boolean; hint: string }[] {
+    const languages = this.parseEnabledLanguages(this.restaurantForm.enabledLanguages);
+    const subscriptionReady = this.restaurantForm.subscriptionStatus === 'Active' || this.restaurantForm.subscriptionStatus === 'Trial' || this.restaurantForm.subscriptionStatus === 'Overdue';
+    return [
+      { label: 'Paket', ready: !!this.restaurantForm.plan, hint: this.restaurantForm.plan || 'Odaberi paket' },
+      { label: 'Tema', ready: !!this.restaurantForm.themeKey, hint: this.themeLabel(this.restaurantForm.themeKey) },
+      { label: 'Jezici', ready: languages.includes('bs') && languages.includes('en'), hint: languages.map((item) => item.toUpperCase()).join(' + ') },
+      { label: 'Owner login', ready: !!this.restaurantForm.ownerEmail && (!!this.restaurantForm.id || this.restaurantForm.ownerPassword.length >= 5), hint: 'Email i pristup' },
+      { label: 'Licenca', ready: !!this.restaurantForm.expiresOn && subscriptionReady, hint: this.restaurantForm.expiresOn || 'Datum isteka' },
+      { label: 'Logo', ready: !!this.restaurantForm.logoUrl, hint: this.restaurantForm.logoUrl ? 'Dodano' : 'Nedostaje' },
+      { label: 'Cover', ready: !!this.restaurantForm.coverImageUrl, hint: this.restaurantForm.coverImageUrl ? 'Dodano' : 'Nedostaje' },
+      { label: 'QR kod', ready: !!this.restaurantForm.id, hint: this.restaurantForm.id ? 'Generisan' : 'Nakon kreiranja' },
+    ];
+  }
+
+  readinessForRestaurant(id: string): AdminRestaurantReadiness | null {
+    return this.adminReadiness[id] ?? null;
+  }
+
+  missingReadinessForRestaurant(id: string): AdminReadinessIssue[] {
+    return (this.readinessForRestaurant(id)?.items ?? []).filter((item) => !item.ready && item.key !== 'menu');
+  }
+
+  isRestaurantReady(id: string): boolean {
+    return this.readinessForRestaurant(id)?.isMenuReady ?? false;
+  }
+
   formatMoney(amount: number, currency = 'BAM'): string {
     return new Intl.NumberFormat('bs-BA', { style: 'currency', currency }).format(amount);
   }
@@ -1982,32 +2032,60 @@ export class App {
     link.href = dataUrl;
     link.download = `${item.slug}-qr.png`;
     link.click();
+    this.markRestaurantQrDownloaded(item.id);
   }
 
-  printRestaurantQr(item: AdminRestaurantSummary, size: 'A5' | 'A6'): void {
+  printRestaurantQr(item: AdminRestaurantSummary, size: 'A5' | 'A6', style = this.qrPrintStyle): void {
     const qr = this.adminQrCodes[item.id];
     if (!qr) return;
-    this.printQrDocument({ qr, size, name: item.name, logo: item.logoUrl || '/menispot-mark.png', url: this.publicMenuUrl(item) });
+    this.printQrDocument({ qr, size, name: item.name, logo: item.logoUrl || '/menispot-mark.png', url: this.publicMenuUrl(item), style });
+    this.markRestaurantQrDownloaded(item.id);
   }
 
-  private printQrDocument(input: { qr: string; size: 'A5' | 'A6'; name: string; logo: string; url: string }): void {
+  private printQrDocument(input: { qr: string; size: 'A5' | 'A6'; name: string; logo: string; url: string; style?: 'light' | 'dark' }): void {
     const win = window.open('', '_blank', 'width=720,height=900');
     if (!win) return;
+    const dark = input.style === 'dark';
+    const bodyBg = dark ? '#0f1115' : '#f8fafc';
+    const cardBg = dark ? '#1f242c' : '#ffffff';
+    const border = dark ? '#3a414d' : '#dbe3ef';
+    const ink = dark ? '#f8fafc' : '#111827';
+    const muted = dark ? '#c7d1e0' : '#475569';
+    const shadow = dark ? '0 24px 70px rgba(0,0,0,.35)' : '0 24px 70px rgba(15, 23, 42, .12)';
     win.document.write(`<!doctype html><html><head><title>${input.name} QR</title><style>
       @page { size: ${input.size}; margin: 14mm; }
       * { box-sizing: border-box; }
-      body { margin: 0; font-family: Inter, Arial, sans-serif; color: #111827; background: #f8fafc; }
+      body { margin: 0; font-family: Inter, Arial, sans-serif; color: ${ink}; background: ${bodyBg}; }
       .card { min-height: 100vh; display: grid; place-items: center; padding: 18mm; }
-      .inner { width: 100%; border: 1px solid #dbe3ef; border-radius: 28px; background: white; padding: 28px; text-align: center; box-shadow: 0 24px 70px rgba(15, 23, 42, .12); }
-      .logo { width: 78px; height: 78px; object-fit: cover; border-radius: 22px; margin-bottom: 18px; }
+      .inner { width: 100%; border: 1px solid ${border}; border-radius: 28px; background: ${cardBg}; padding: 28px; text-align: center; box-shadow: ${shadow}; }
+      .logo { width: 78px; height: 78px; object-fit: cover; border-radius: 22px; margin-bottom: 18px; background: white; padding: 4px; }
       h1 { margin: 0 0 10px; font-size: 30px; line-height: 1.05; }
-      p { margin: 0; color: #475569; font-size: 15px; }
-      .qr { width: min(70vw, 280px); margin: 26px auto; display: block; }
+      p { margin: 0; color: ${muted}; font-size: 15px; }
+      .qr { width: min(70vw, 280px); margin: 26px auto; display: block; border-radius: 18px; background: white; padding: 12px; }
       .cta { display: inline-block; border-radius: 999px; background: #84cc16; color: #111827; padding: 12px 18px; font-weight: 800; letter-spacing: .02em; }
-      small { display: block; margin-top: 14px; color: #64748b; word-break: break-all; }
+      small { display: block; margin-top: 14px; color: ${muted}; word-break: break-all; }
       @media print { body { background: white; } .card { padding: 0; } .inner { box-shadow: none; } }
     </style></head><body><main class="card"><section class="inner"><img class="logo" src="${input.logo}" alt=""><h1>${input.name}</h1><p>Digitalni meni je spreman za pregled.</p><img class="qr" src="${input.qr}" alt="QR"><span class="cta">Skeniraj meni</span><small>${input.url}</small></section></main><script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script></body></html>`);
     win.document.close();
+  }
+
+  private markRestaurantQrDownloaded(id: string): void {
+    this.adminRestaurantsService.markQrDownloaded(id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          const current = this.adminReadiness[id];
+          if (!current) return;
+          this.adminReadiness = {
+            ...this.adminReadiness,
+            [id]: {
+              ...current,
+              qrDownloadedAt: new Date().toISOString(),
+              items: current.items.map((item) => item.key === 'qr' ? { ...item, ready: true } : item),
+            },
+          };
+        },
+      });
   }
 
   chartHeight(value: number, maximum: number): number {

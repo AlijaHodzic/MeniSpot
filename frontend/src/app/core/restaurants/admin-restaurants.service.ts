@@ -6,6 +6,7 @@ import { AuthSession } from '../auth/auth.models';
 import { SupportTicket, UpdateSupportTicketRequest } from '../owner/owner.models';
 import {
   AdminRestaurantDetails,
+  AdminRestaurantReadiness,
   AdminRestaurantSummary,
   AdminDashboardSummary,
   CreateRestaurantRequest,
@@ -26,6 +27,10 @@ export class AdminRestaurantsService {
 
   getDashboard(): Observable<AdminDashboardSummary> {
     return this.http.get<AdminDashboardSummary>(`${this.endpoint}/dashboard`);
+  }
+
+  getReadiness(): Observable<AdminRestaurantReadiness[]> {
+    return this.http.get<AdminRestaurantReadiness[]>(`${this.endpoint}/readiness`);
   }
 
   get(id: string): Observable<AdminRestaurantDetails> {
@@ -58,6 +63,10 @@ export class AdminRestaurantsService {
     const form = new FormData();
     form.append('file', file);
     return this.http.post<{ url: string }>(`${this.endpoint}/${id}/images`, form);
+  }
+
+  markQrDownloaded(id: string): Observable<void> {
+    return this.http.post<void>(`${this.endpoint}/${id}/qr-downloaded`, {});
   }
 
   delete(id: string): Observable<void> {

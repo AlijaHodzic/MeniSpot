@@ -38,6 +38,13 @@ internal static class ImageUploadHelper
         "image/png",
         "image/webp"
     };
+    private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp"
+    };
 
     public static async Task<ActionResult> SaveOptimizedWebpAsync(
         ControllerBase controller,
@@ -48,6 +55,7 @@ internal static class ImageUploadHelper
     {
         if (file.Length is <= 0 or > MaxUploadBytes) return controller.BadRequest("Image must be smaller than 5 MB.");
         if (!SupportedContentTypes.Contains(file.ContentType)) return controller.BadRequest("Only JPEG, PNG and WebP images are supported.");
+        if (!SupportedExtensions.Contains(Path.GetExtension(file.FileName))) return controller.BadRequest("Only .jpg, .jpeg, .png and .webp files are supported.");
 
         var webRoot = environment.WebRootPath ?? Path.Combine(environment.ContentRootPath, "wwwroot");
         if (Path.IsPathRooted(relativeDirectory) || relativeDirectory.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(x => x == ".."))
@@ -345,6 +353,7 @@ public sealed class AdminRestaurantsController(IRestaurantService restaurants, I
     [HttpGet] public async Task<ActionResult> All(CancellationToken ct) => Ok(await restaurants.GetAllAsync(ct));
     [HttpGet("archived")] public async Task<ActionResult> Archived(CancellationToken ct) => Ok(await restaurants.GetArchivedAsync(ct));
     [HttpGet("dashboard")] public async Task<ActionResult> Dashboard(CancellationToken ct) => Ok(await restaurants.GetDashboardAsync(ct));
+    [HttpGet("readiness")] public async Task<ActionResult> Readiness(CancellationToken ct) => Ok(await restaurants.GetReadinessAsync(ct));
     [HttpGet("{id:guid}")] public async Task<ActionResult> One(Guid id, CancellationToken ct) => await restaurants.GetAdminDetailsAsync(id, ct) is { } x ? Ok(x) : NotFound();
     [HttpPost]
     public async Task<ActionResult> Create(CreateRestaurantRequest request, CancellationToken ct)
@@ -392,6 +401,14 @@ public sealed class AdminRestaurantsController(IRestaurantService restaurants, I
         if (await auth.ImpersonateRestaurantOwnerAsync(id, ct) is not { } result) return NotFound();
         await audit.RecordAsync(Audit("RestaurantImpersonated", "Restaurant", id, id), ct);
         return Ok(result);
+    }
+
+    [HttpPost("{id:guid}/qr-downloaded")]
+    public async Task<ActionResult> MarkQrDownloaded(Guid id, CancellationToken ct)
+    {
+        if (!await restaurants.MarkQrDownloadedAsync(id, ct)) return NotFound();
+        await audit.RecordAsync(Audit("RestaurantQrDownloaded", "Restaurant", id, id), ct);
+        return NoContent();
     }
 
     [HttpPost("{id:guid}/images"), RequestSizeLimit(6_000_000), EnableRateLimiting("uploads")]

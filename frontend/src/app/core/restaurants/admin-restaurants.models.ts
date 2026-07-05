@@ -60,6 +60,21 @@ export interface AdminDashboardSummary {
   themeUsage: { themeKey: string; count: number }[];
 }
 
+export interface AdminReadinessIssue {
+  key: string;
+  label: string;
+  ready: boolean;
+}
+
+export interface AdminRestaurantReadiness {
+  restaurantId: string;
+  restaurantName: string;
+  slug: string;
+  isMenuReady: boolean;
+  qrDownloadedAt: string | null;
+  items: AdminReadinessIssue[];
+}
+
 export interface CreateRestaurantRequest {
   name: string;
   slug: string;

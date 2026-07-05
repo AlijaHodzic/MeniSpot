@@ -141,6 +141,57 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             growth, breakdown, recent, themeUsage);
     }
 
+    public async Task<IReadOnlyList<AdminRestaurantReadiness>> GetReadinessAsync(CancellationToken ct)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var rows = await db.Restaurants.AsNoTracking()
+            .Where(x => x.Subscription != null && x.Status != RestaurantStatus.Archived)
+            .OrderBy(x => x.Name)
+            .Select(x => new
+            {
+                x.Id,
+                x.Name,
+                x.Slug,
+                x.Status,
+                x.LogoUrl,
+                x.CoverImageUrl,
+                x.QrDownloadedAt,
+                ProductCount = x.Categories.SelectMany(c => c.Items).Count(i => i.IsVisible && i.IsAvailable),
+                BusinessHourCount = x.BusinessHours.Count(h => !h.IsClosed && h.OpensAt != null && h.ClosesAt != null),
+                SubscriptionStatus = x.Subscription!.Status,
+                x.Subscription.ExpiresOn,
+                x.Subscription.GracePeriodEndsOn
+            })
+            .ToListAsync(ct);
+
+        return rows.Select(row =>
+        {
+        var subscriptionAvailable = row.SubscriptionStatus is SubscriptionStatus.Active or SubscriptionStatus.Trial ||
+                row.SubscriptionStatus == SubscriptionStatus.Overdue && row.GracePeriodEndsOn is not null && row.GracePeriodEndsOn.Value >= today;
+            var licenseExpiring = row.ExpiresOn >= today && row.ExpiresOn <= today.AddDays(14);
+            var hasLogo = !string.IsNullOrWhiteSpace(row.LogoUrl);
+            var hasCover = !string.IsNullOrWhiteSpace(row.CoverImageUrl);
+            var hasProducts = row.ProductCount > 0;
+            var hasHours = row.BusinessHourCount > 0;
+            var qrDownloaded = row.QrDownloadedAt is not null;
+            var licenseReady = subscriptionAvailable && !licenseExpiring;
+            var menuReady = row.Status == RestaurantStatus.Active && subscriptionAvailable && hasLogo && hasCover && hasProducts && hasHours && qrDownloaded;
+
+            IReadOnlyList<AdminReadinessIssue> items =
+            [
+                new("logo", "Logo dodan", hasLogo),
+                new("cover", "Cover slika dodana", hasCover),
+                new("products", "Proizvodi dodani", hasProducts),
+                new("hours", "Radno vrijeme uneseno", hasHours),
+                new("qr", "QR preuzet", qrDownloaded),
+                new("license", licenseExpiring ? "Licenca uskoro istice" : "Licenca uredna", licenseReady),
+                new("menu", "Meni spreman", menuReady)
+            ];
+
+            return new AdminRestaurantReadiness(row.Id, row.Name, row.Slug, menuReady, row.QrDownloadedAt, items);
+        }).ToList();
+    }
+
     public async Task<AdminRestaurantDetails?> GetAdminDetailsAsync(Guid id, CancellationToken ct)
     {
         var item = await db.Restaurants.AsNoTracking().Where(x => x.Id == id && x.Subscription != null && x.Status != RestaurantStatus.Archived).Select(x => new
@@ -353,6 +404,16 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             restaurant.Subscription.UpdatedAt = now;
             if (restaurant.Subscription.Status == SubscriptionStatus.Suspended) restaurant.Status = RestaurantStatus.Suspended;
         }
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    public async Task<bool> MarkQrDownloadedAsync(Guid id, CancellationToken ct)
+    {
+        var restaurant = await db.Restaurants.FirstOrDefaultAsync(x => x.Id == id && x.Status != RestaurantStatus.Archived, ct);
+        if (restaurant is null) return false;
+        restaurant.QrDownloadedAt = DateTimeOffset.UtcNow;
+        restaurant.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
         return true;
     }
@@ -714,6 +775,7 @@ public sealed class SupportTicketService(ApplicationDbContext db) : ISupportTick
         var message = request.Message.Trim();
         if (title.Length < 3) throw new InvalidOperationException("Support ticket title is required.");
         if (message.Length < 5) throw new InvalidOperationException("Support ticket message is required.");
+        var attachmentUrl = NormalizeSupportAttachmentUrl(restaurantId, request.AttachmentUrl);
 
         var ticket = new SupportTicket
         {
@@ -722,7 +784,7 @@ public sealed class SupportTicketService(ApplicationDbContext db) : ISupportTick
             Type = request.Type,
             Priority = request.Priority,
             Message = message,
-            AttachmentUrl = string.IsNullOrWhiteSpace(request.AttachmentUrl) ? null : request.AttachmentUrl.Trim(),
+            AttachmentUrl = attachmentUrl,
             Status = SupportTicketStatus.New
         };
         db.SupportTickets.Add(ticket);
@@ -773,6 +835,16 @@ public sealed class SupportTicketService(ApplicationDbContext db) : ISupportTick
         x.CreatedAt,
         x.UpdatedAt,
         x.ResolvedAt);
+
+    private static string? NormalizeSupportAttachmentUrl(Guid restaurantId, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var trimmed = value.Trim();
+        var expectedPrefix = $"/uploads/{restaurantId:N}/support/";
+        if (!trimmed.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Attachment must be uploaded through the restaurant support form.");
+        return AssetUrl.Normalize(trimmed);
+    }
 
     private static string NormalizePlan(string? value) => (value ?? string.Empty).Trim() switch
     {

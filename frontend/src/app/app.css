@@ -191,7 +191,7 @@
 .search-box, .menu-search { display: flex; align-items: center; gap: 9px; border: 1px solid #e2e8f0; border-radius: 11px; background: white; padding: 0 12px; color: #94a3b8; }
 .search-box { max-width: 420px; }
 .search-box input, .menu-search input { width: 100%; border: 0; outline: 0; background: transparent; padding: 10px 0; color: #0f172a; }
-.restaurant-table article { display: grid; grid-template-columns: 52px minmax(180px,1fr) auto auto 90px minmax(250px,auto); align-items: center; gap: 15px; border-bottom: 1px solid #f1f5f9; padding: 15px 17px; }
+.restaurant-table article { display: grid; grid-template-columns: 52px minmax(180px,1fr) minmax(150px,1fr) auto auto 90px minmax(250px,auto); align-items: center; gap: 15px; border-bottom: 1px solid #f1f5f9; padding: 15px 17px; }
 .restaurant-table article:last-child { border-bottom: 0; }
 .restaurant-table img { width: 48px; height: 48px; border-radius: 13px; object-fit: cover; }
 .restaurant-table h3, .category-row h3, .product-admin-card h3 { margin: 0; font-size: 14px; font-weight: 700; }
@@ -612,8 +612,8 @@
   .featured-plan { transform: none; }
   .stat-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .product-admin-grid { grid-template-columns: repeat(auto-fill,minmax(190px,1fr)); }
-  .restaurant-table article { grid-template-columns: 48px minmax(160px,1fr) auto auto minmax(220px,auto); }
-  .restaurant-table article > :nth-child(5), .restaurant-table article > :nth-child(4) { display: none; }
+  .restaurant-table article { grid-template-columns: 48px minmax(160px,1fr) minmax(140px,1fr) auto minmax(220px,auto); }
+  .restaurant-table article > :nth-child(6), .restaurant-table article > :nth-child(5) { display: none; }
   .billing-table article { grid-template-columns: minmax(160px,1fr) auto auto auto; }
   .billing-table article > :nth-child(4), .billing-table article > :nth-child(5) { display: none; }
   .admin-drink-card { grid-template-columns: 58px minmax(0,1fr); }
@@ -653,6 +653,31 @@
 .image-drop-zone > span { pointer-events: none; font-weight: 700; font-size: 13px; }
 .image-drop-zone > img { max-height: 96px; max-width: 100%; object-fit: contain; border-radius: 12px; background: white; padding: 6px; }
 .image-drop-zone .upload-preview-wrap { position: relative; z-index: 1; }
+.admin-shell .image-drop-zone { margin-top: 8px; border-color: #556175; background: rgba(15,23,42,.24); color: #dbe7f6; }
+.admin-shell .image-drop-zone:hover { border-color: rgba(132,204,22,.72); background: rgba(132,204,22,.06); }
+.admin-upload-zone .upload-preview { max-height: 110px; object-fit: contain; background: #fff; }
+.admin-upload-zone.cover-zone .upload-preview { max-height: 180px; object-fit: cover; }
+.onboarding-checklist { display: grid; gap: 12px; border: 1px solid rgba(132,204,22,.24); border-radius: 16px; background: rgba(132,204,22,.06); padding: 14px; }
+.onboarding-checklist h3 { margin: 2px 0 0; color: #f8fafc; font-family: var(--font-display); font-size: 17px; font-weight: 900; }
+.onboarding-checks { display: grid; grid-template-columns: repeat(auto-fit,minmax(170px,1fr)); gap: 8px; }
+.onboarding-check { display: grid; grid-template-columns: 22px 1fr; gap: 1px 8px; align-items: center; border: 1px solid #3f4858; border-radius: 12px; background: #20252e; padding: 9px 10px; color: #c7d1e0; }
+.onboarding-check i { display: grid; grid-row: 1 / span 2; width: 22px; height: 22px; place-items: center; border-radius: 999px; background: #303744; color: #fbbf24; font-size: 10px; font-style: normal; font-weight: 900; }
+.onboarding-check b { color: #edf2f7; font-size: 12px; }
+.onboarding-check small { color: #94a3b8; font-size: 10px; font-weight: 700; }
+.onboarding-check.ready { border-color: rgba(74,222,128,.28); background: rgba(34,197,94,.08); }
+.onboarding-check.ready i { background: #dcfce7; color: #047857; }
+.restaurant-readiness { display: grid; gap: 5px; min-width: 150px; color: #fef3c7; font-size: 11px; font-weight: 850; }
+.restaurant-readiness.ready { color: #bbf7d0; }
+.restaurant-readiness span { display: flex; flex-wrap: wrap; gap: 5px; }
+.restaurant-readiness em { border-radius: 999px; background: rgba(251,191,36,.12); padding: 4px 7px; color: inherit; font-style: normal; }
+.restaurant-readiness.ready em { background: rgba(34,197,94,.12); }
+.qr-style-row { display: inline-flex; gap: 6px; border: 1px solid rgba(148,163,184,.28); border-radius: 999px; background: rgba(15,23,42,.1); padding: 4px; }
+.qr-style-row button { border: 0; border-radius: 999px; background: transparent; padding: 7px 11px; color: #94a3b8; font-size: 12px; font-weight: 900; }
+.qr-style-row button.active { background: var(--menispot-green); color: #10200a; }
+.support-admin-note { display: grid; gap: 7px; }
+.support-admin-note span { color: #c7d1e0; font-size: 12px; font-weight: 900; }
+.support-admin-note textarea { min-height: 74px; border: 1px solid #465061; border-radius: 14px; background: #20252e; padding: 12px; color: #edf2f7; resize: vertical; }
+.support-admin-note textarea::placeholder { color: #94a3b8; }
 .translation-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; border: 1px solid rgba(148,163,184,.18); border-radius: 16px; padding: 12px; background: rgba(148,163,184,.06); }
 
 .menu-language-switch { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 14px; }
@@ -758,7 +783,7 @@
   .restaurant-table article { grid-template-columns: 44px 1fr auto; gap: 10px; }
   .restaurant-table article > :nth-child(n+4) { display: none; }
   .admin-restaurant-table article > :nth-child(3) { display: inline-flex; }
-  .admin-restaurant-table article > :nth-child(6) { display: flex; grid-column: 3; grid-row: 1 / span 2; align-self: center; }
+  .admin-restaurant-table article > :nth-child(7) { display: flex; grid-column: 3; grid-row: 1 / span 2; align-self: center; }
   .admin-restaurant-table .admin-row-actions { gap: 0; }
   .admin-restaurant-table .admin-row-actions .owner-login-button { display: inline-flex; width: 38px; height: 38px; padding: 0; border-radius: 12px; }
   .admin-restaurant-table .owner-login-button span,

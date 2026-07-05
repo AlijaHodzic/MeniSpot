@@ -56,6 +56,8 @@ public sealed record AdminStatusCount(string Status, int Count);
 public sealed record AdminRecentRestaurant(Guid Id, string Name, RestaurantStatus Status, string Plan, DateTimeOffset UpdatedAt);
 public sealed record AdminThemeUsage(string ThemeKey, int Count);
 public sealed record AdminDashboardSummary(int TotalRestaurants, int ActiveRestaurants, int ActiveLicenses, int TrialLicenses, int ExpiringSoon, int NewSupportRequests, int NewLeads, int RestaurantsMissingProducts, int RestaurantsMissingImages, IReadOnlyList<AdminGrowthPoint> Growth, IReadOnlyList<AdminStatusCount> SubscriptionBreakdown, IReadOnlyList<AdminRecentRestaurant> RecentRestaurants, IReadOnlyList<AdminThemeUsage> ThemeUsage);
+public sealed record AdminReadinessIssue(string Key, string Label, bool Ready);
+public sealed record AdminRestaurantReadiness(Guid RestaurantId, string RestaurantName, string Slug, bool IsMenuReady, DateTimeOffset? QrDownloadedAt, IReadOnlyList<AdminReadinessIssue> Items);
 public sealed record BillingAccountSummary(Guid RestaurantId, string RestaurantName, string Slug, string Plan, decimal MonthlyPrice, string Currency, SubscriptionStatus Status, DateOnly ExpiresOn, DateOnly? GracePeriodEndsOn, DateOnly? LastPaidOn, decimal? LastPaymentAmount);
 public sealed record BillingMoneyTotal(string Currency, decimal Amount);
 public sealed record BillingOverview(IReadOnlyList<BillingMoneyTotal> MonthlyRecurringRevenue, IReadOnlyList<BillingMoneyTotal> PaidThisMonth, int OverdueCount, int ExpiringSoon, IReadOnlyList<BillingAccountSummary> Accounts);
@@ -89,6 +91,7 @@ public interface IRestaurantService
     Task<IReadOnlyList<RestaurantSummary>> GetAllAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<RestaurantSummary>> GetArchivedAsync(CancellationToken cancellationToken);
     Task<AdminDashboardSummary> GetDashboardAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<AdminRestaurantReadiness>> GetReadinessAsync(CancellationToken cancellationToken);
     Task<AdminRestaurantDetails?> GetAdminDetailsAsync(Guid id, CancellationToken cancellationToken);
     Task<OwnerRestaurantDetails?> GetAsync(Guid id, Guid? tenantId, bool isSuperAdmin, CancellationToken cancellationToken);
     Task<Restaurant> CreateAsync(CreateRestaurantRequest request, CancellationToken cancellationToken);
@@ -98,6 +101,7 @@ public interface IRestaurantService
     Task<bool> UpdateOwnerAccessAsync(Guid id, UpdateOwnerAccessRequest request, CancellationToken cancellationToken);
     Task<bool> DeleteAsync(Guid id, Guid? archivedByUserId, CancellationToken cancellationToken);
     Task<bool> RestoreAsync(Guid id, CancellationToken cancellationToken);
+    Task<bool> MarkQrDownloadedAsync(Guid id, CancellationToken cancellationToken);
 }
 
 public interface IAuditLogService
