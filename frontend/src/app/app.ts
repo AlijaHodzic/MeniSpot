@@ -1915,7 +1915,7 @@ export class App {
       return;
     }
     this.menuLanguage = language;
-    if (this.ownerRestaurant) this.applyOwnerRestaurant(this.ownerRestaurant);
+    if (this.ownerRestaurant) this.applyOwnerRestaurant(this.ownerRestaurant, true);
   }
 
   parseEnabledLanguages(value: string | null | undefined): MenuLanguage[] {
@@ -2373,7 +2373,9 @@ export class App {
     });
   }
 
-  private applyOwnerRestaurant(restaurant: OwnerRestaurant): void {
+  private applyOwnerRestaurant(restaurant: OwnerRestaurant, preservePublicMenuPosition = false): void {
+    const previousPublicSection = this.publicMenuSection;
+    const previousSelectedCategory = this.selectedCategory;
     this.ownerRestaurant = { ...restaurant, businessHours: this.completeBusinessHours(restaurant.businessHours) };
     if (!this.parseEnabledLanguages(restaurant.enabledLanguages).includes(this.menuLanguage)) {
       this.menuLanguage = 'bs';
@@ -2408,8 +2410,21 @@ export class App {
     const foodCategoryIds = new Set(restaurant.categories.filter((category) => category.type === 'Food').map((category) => category.id));
     const hasDrinkProducts = products.some((product) => drinkCategoryIds.has(product.categoryId) && product.available);
     const hasFoodProducts = products.some((product) => foodCategoryIds.has(product.categoryId) && product.available);
-    this.publicMenuSection = hasDrinkProducts && (!hasFoodProducts || restaurant.type !== 'Restaurant' && restaurant.type !== 'FastFood') ? 'drink' : 'food';
-    this.selectedCategory = 'all';
+    const defaultSection = hasDrinkProducts && (!hasFoodProducts || restaurant.type !== 'Restaurant' && restaurant.type !== 'FastFood') ? 'drink' : 'food';
+    const canKeepSection = previousPublicSection === 'drink' ? hasDrinkProducts : hasFoodProducts;
+    this.publicMenuSection = preservePublicMenuPosition && canKeepSection ? previousPublicSection : defaultSection;
+
+    const activeCategoryIds = new Set(
+      restaurant.categories
+        .filter((category) =>
+          category.isVisible &&
+          category.type === (this.publicMenuSection === 'drink' ? 'Drink' : 'Food') &&
+          products.some((product) => product.categoryId === category.id && product.available))
+        .map((category) => category.id),
+    );
+    this.selectedCategory = preservePublicMenuPosition && (previousSelectedCategory === 'all' || activeCategoryIds.has(previousSelectedCategory))
+      ? previousSelectedCategory
+      : 'all';
     this.updateBrowserChromeColor();
     void this.qrCodeService.createDataUrl(`${globalThis.location.origin}/menu/${restaurant.slug}`).then((value) => this.ownerQrCode = value);
   }
