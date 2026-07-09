@@ -564,12 +564,12 @@ public static class DatabaseInitializer
 
         foreach (var category in restaurant.Categories)
         {
-            if (string.IsNullOrWhiteSpace(category.NameEn))
+            if (ShouldReplaceDemoEnglish(category.NameEn, category.Name))
             {
                 category.NameEn = TranslateDemoCategory(category.Name);
                 changed = true;
             }
-            if (string.IsNullOrWhiteSpace(category.DescriptionEn) && !string.IsNullOrWhiteSpace(category.Description))
+            if (!string.IsNullOrWhiteSpace(category.Description) && ShouldReplaceDemoEnglish(category.DescriptionEn, category.Description))
             {
                 category.DescriptionEn = TranslateDemoText(category.Description);
                 changed = true;
@@ -577,12 +577,12 @@ public static class DatabaseInitializer
 
             foreach (var item in category.Items)
             {
-                if (string.IsNullOrWhiteSpace(item.NameEn))
+                if (ShouldReplaceDemoEnglish(item.NameEn, item.Name))
                 {
-                    item.NameEn = item.GlobalDrink?.Name ?? TranslateDemoText(item.Name);
+                    item.NameEn = item.GlobalDrink?.Name ?? TranslateDemoItemName(item.Name);
                     changed = true;
                 }
-                if (string.IsNullOrWhiteSpace(item.DescriptionEn) && !string.IsNullOrWhiteSpace(item.Description))
+                if (!string.IsNullOrWhiteSpace(item.Description) && ShouldReplaceDemoEnglish(item.DescriptionEn, item.Description))
                 {
                     item.DescriptionEn = item.GlobalDrink?.Description ?? TranslateDemoText(item.Description);
                     changed = true;
@@ -592,19 +592,19 @@ public static class DatabaseInitializer
 
         foreach (var offer in restaurant.SpecialOffers)
         {
-            if (string.IsNullOrWhiteSpace(offer.TitleEn))
+            if (ShouldReplaceDemoEnglish(offer.TitleEn, offer.Title))
             {
-                offer.TitleEn = TranslateDemoText(offer.Title);
+                offer.TitleEn = TranslateDemoItemName(offer.Title);
                 changed = true;
             }
-            if (string.IsNullOrWhiteSpace(offer.DescriptionEn) && !string.IsNullOrWhiteSpace(offer.Description))
+            if (!string.IsNullOrWhiteSpace(offer.Description) && ShouldReplaceDemoEnglish(offer.DescriptionEn, offer.Description))
             {
                 offer.DescriptionEn = TranslateDemoText(offer.Description);
                 changed = true;
             }
-            if (string.IsNullOrWhiteSpace(offer.ItemsEn) && !string.IsNullOrWhiteSpace(offer.Items))
+            if (!string.IsNullOrWhiteSpace(offer.Items) && ShouldReplaceDemoEnglish(offer.ItemsEn, offer.Items))
             {
-                offer.ItemsEn = string.Join('\n', offer.Items.Split('\n').Select(TranslateDemoText));
+                offer.ItemsEn = string.Join('\n', offer.Items.Split('\n').Select(TranslateDemoItemName));
                 changed = true;
             }
         }
@@ -646,14 +646,54 @@ public static class DatabaseInitializer
         };
     }
 
+    private static string TranslateDemoItemName(string value)
+    {
+        var key = NormalizeDemoTranslationKey(value);
+        return key switch
+        {
+            "bosanski-lonac" => "Bosnian pot stew",
+            "omlet" => "Omelette",
+            "grah" => "Bean stew",
+            "grah-sa-teletinom" => "Bean stew with veal",
+            "cevapi" or "cevapcici" => "Cevapi",
+            "pljeskavica" => "Grilled burger patty",
+            "pileci-file" => "Chicken fillet",
+            "teleci-medaljoni" => "Veal medallions",
+            "begova-corba" => "Bey's soup",
+            "tarhana" => "Tarhana soup",
+            "mijesano-meso" => "Mixed grill",
+            "piletina" => "Chicken",
+            "teletina" => "Veal",
+            "riba" => "Fish",
+            "salata" => "Salad",
+            "sopska-salata" => "Shopska salad",
+            "palacinke" => "Pancakes",
+            "baklava" => "Baklava",
+            "tufahija" => "Stuffed apple dessert",
+            _ => TranslateDemoText(value)
+        };
+    }
+
     private static string TranslateDemoText(string value) =>
         value.Trim()
             .Replace("Ponuda:", "Selection:", StringComparison.OrdinalIgnoreCase)
+            .Replace("Grah sa teletinom", "Bean stew with veal", StringComparison.OrdinalIgnoreCase)
+            .Replace("Bosanski lonac", "Bosnian pot stew", StringComparison.OrdinalIgnoreCase)
             .Replace("domaće", "homemade", StringComparison.OrdinalIgnoreCase)
             .Replace("domaći", "homemade", StringComparison.OrdinalIgnoreCase)
             .Replace("svježe", "fresh", StringComparison.OrdinalIgnoreCase)
             .Replace("svježi", "fresh", StringComparison.OrdinalIgnoreCase)
+            .Replace("telećim", "veal", StringComparison.OrdinalIgnoreCase)
+            .Replace("teletinom", "veal", StringComparison.OrdinalIgnoreCase)
             .Replace("porcija", "serving", StringComparison.OrdinalIgnoreCase);
+
+    private static bool ShouldReplaceDemoEnglish(string? current, string source)
+    {
+        if (string.IsNullOrWhiteSpace(current)) return true;
+        var trimmed = current.Trim();
+        return string.Equals(trimmed, source.Trim(), StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(trimmed, TranslateDemoText(source), StringComparison.OrdinalIgnoreCase);
+    }
 
     private static string NormalizeDemoTranslationKey(string value)
     {
