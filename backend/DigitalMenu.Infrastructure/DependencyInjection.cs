@@ -59,6 +59,7 @@ public static class DatabaseInitializer
         await db.Database.MigrateAsync();
         await SeedGlobalDrinksAsync(db);
         await NormalizeGlobalDrinkCategoriesAsync(db);
+        await EnsureDemoMenuEnglishAsync(db);
         var roles = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
         foreach (var role in new[] { Roles.SuperAdmin, Roles.RestaurantOwner, Roles.RestaurantStaff })
             if (!await roles.RoleExistsAsync(role)) await roles.CreateAsync(new IdentityRole<Guid>(role));
@@ -539,4 +540,125 @@ public static class DatabaseInitializer
         "crno-vino-01" => "crno-vino",
         _ => slug
     };
+
+    private static async Task EnsureDemoMenuEnglishAsync(ApplicationDbContext db)
+    {
+        var restaurant = await db.Restaurants
+            .Include(x => x.Categories).ThenInclude(x => x.Items).ThenInclude(x => x.GlobalDrink)
+            .Include(x => x.SpecialOffers)
+            .FirstOrDefaultAsync(x => x.Slug == "test");
+        if (restaurant is null) return;
+
+        var changed = false;
+        var enabledLanguages = restaurant.EnabledLanguages.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => x.ToLowerInvariant())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        enabledLanguages.Add("bs");
+        enabledLanguages.Add("en");
+        var normalizedLanguages = string.Join(',', new[] { "bs", "en", "de" }.Where(enabledLanguages.Contains));
+        if (restaurant.EnabledLanguages != normalizedLanguages)
+        {
+            restaurant.EnabledLanguages = normalizedLanguages;
+            changed = true;
+        }
+
+        foreach (var category in restaurant.Categories)
+        {
+            if (string.IsNullOrWhiteSpace(category.NameEn))
+            {
+                category.NameEn = TranslateDemoCategory(category.Name);
+                changed = true;
+            }
+            if (string.IsNullOrWhiteSpace(category.DescriptionEn) && !string.IsNullOrWhiteSpace(category.Description))
+            {
+                category.DescriptionEn = TranslateDemoText(category.Description);
+                changed = true;
+            }
+
+            foreach (var item in category.Items)
+            {
+                if (string.IsNullOrWhiteSpace(item.NameEn))
+                {
+                    item.NameEn = item.GlobalDrink?.Name ?? TranslateDemoText(item.Name);
+                    changed = true;
+                }
+                if (string.IsNullOrWhiteSpace(item.DescriptionEn) && !string.IsNullOrWhiteSpace(item.Description))
+                {
+                    item.DescriptionEn = item.GlobalDrink?.Description ?? TranslateDemoText(item.Description);
+                    changed = true;
+                }
+            }
+        }
+
+        foreach (var offer in restaurant.SpecialOffers)
+        {
+            if (string.IsNullOrWhiteSpace(offer.TitleEn))
+            {
+                offer.TitleEn = TranslateDemoText(offer.Title);
+                changed = true;
+            }
+            if (string.IsNullOrWhiteSpace(offer.DescriptionEn) && !string.IsNullOrWhiteSpace(offer.Description))
+            {
+                offer.DescriptionEn = TranslateDemoText(offer.Description);
+                changed = true;
+            }
+            if (string.IsNullOrWhiteSpace(offer.ItemsEn) && !string.IsNullOrWhiteSpace(offer.Items))
+            {
+                offer.ItemsEn = string.Join('\n', offer.Items.Split('\n').Select(TranslateDemoText));
+                changed = true;
+            }
+        }
+
+        if (changed) await db.SaveChangesAsync();
+    }
+
+    private static string TranslateDemoCategory(string value)
+    {
+        var key = NormalizeDemoTranslationKey(value);
+        return key switch
+        {
+            "hrana" => "Food",
+            "pica" => "Drinks",
+            "predjela" => "Starters",
+            "glavna-jela" => "Main Dishes",
+            "jela-sa-rostilja" or "rostilj" or "grill" => "Grill",
+            "pizza" or "pizze" => "Pizza",
+            "burgeri" => "Burgers",
+            "paste" or "tjestenine" => "Pasta",
+            "salate" => "Salads",
+            "supe" or "juhe" => "Soups",
+            "deserti" => "Desserts",
+            "topli-napici" => "Hot Drinks",
+            "gazirana-pica" => "Soft Drinks",
+            "negazirana-pica" => "Still Drinks",
+            "cijedeni-sokovi" => "Fresh Juices",
+            "energetska-pica" => "Energy Drinks",
+            "vode" => "Water",
+            "pivo" or "piva" => "Beer",
+            "toceno-pivo" => "Draft Beer",
+            "alkoholni-napici" => "Spirits",
+            "rakije" => "Fruit Brandies",
+            "likeri-i-aperitivi" => "Liqueurs and Aperitifs",
+            "crna-vina" => "Red Wines",
+            "bijela-vina" => "White Wines",
+            "rose-vina" => "Rose Wines",
+            _ => TranslateDemoText(value)
+        };
+    }
+
+    private static string TranslateDemoText(string value) =>
+        value.Trim()
+            .Replace("Ponuda:", "Selection:", StringComparison.OrdinalIgnoreCase)
+            .Replace("domaće", "homemade", StringComparison.OrdinalIgnoreCase)
+            .Replace("domaći", "homemade", StringComparison.OrdinalIgnoreCase)
+            .Replace("svježe", "fresh", StringComparison.OrdinalIgnoreCase)
+            .Replace("svježi", "fresh", StringComparison.OrdinalIgnoreCase)
+            .Replace("porcija", "serving", StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizeDemoTranslationKey(string value)
+    {
+        var normalized = value.Trim().ToLowerInvariant()
+            .Replace("č", "c").Replace("ć", "c").Replace("š", "s").Replace("ž", "z").Replace("đ", "d");
+        return System.Text.RegularExpressions.Regex.Replace(normalized, @"[^a-z0-9]+", "-").Trim('-');
+    }
 }

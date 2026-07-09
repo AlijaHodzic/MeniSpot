@@ -1882,11 +1882,11 @@ export class App {
   nutritionFacts(product: Product): { label: string; value: string }[] {
     const facts = [
       product.calories != null ? { label: 'kcal', value: `${product.calories}` } : null,
-      product.protein != null ? { label: 'proteini', value: `${product.protein}g` } : null,
-      product.carbs != null ? { label: 'ugljikohidrati', value: `${product.carbs}g` } : null,
-      product.fat != null ? { label: 'masti', value: `${product.fat}g` } : null,
-      product.sugar != null ? { label: 'seceri', value: `${product.sugar}g` } : null,
-      product.salt != null ? { label: 'so', value: `${product.salt}g` } : null,
+      product.protein != null ? { label: this.publicText('protein'), value: `${product.protein}g` } : null,
+      product.carbs != null ? { label: this.publicText('carbs'), value: `${product.carbs}g` } : null,
+      product.fat != null ? { label: this.publicText('fat'), value: `${product.fat}g` } : null,
+      product.sugar != null ? { label: this.publicText('sugar'), value: `${product.sugar}g` } : null,
+      product.salt != null ? { label: this.publicText('salt'), value: `${product.salt}g` } : null,
     ];
     return facts.filter(Boolean) as { label: string; value: string }[];
   }
@@ -1984,7 +1984,71 @@ export class App {
   dayName(day: string): string { return this.dayLabel(day); }
 
   badgeLabel(badge: BadgeType): string {
-    return ({ new: 'Novo', popular: 'Popularno', spicy: 'Ljuto', vegetarian: 'Veg', 'chefs-choice': 'Chef preporučuje' })[badge];
+    const english: Record<BadgeType, string> = { new: 'New', popular: 'Popular', spicy: 'Spicy', vegetarian: 'Veg', 'chefs-choice': 'Chef recommends' };
+    const bosnian: Record<BadgeType, string> = { new: 'Novo', popular: 'Popularno', spicy: 'Ljuto', vegetarian: 'Veg', 'chefs-choice': 'Chef preporučuje' };
+    return (this.menuLanguage === 'en' ? english : bosnian)[badge];
+  }
+
+  publicText(key: string): string {
+    const english: Record<string, string> = {
+      all: 'All',
+      allergens: 'Allergens',
+      callUs: 'Call us',
+      carbs: 'carbs',
+      closed: 'Closed',
+      dailyOffer: 'Daily offer',
+      detailsFallback: 'Product details are available from the staff.',
+      drinks: 'Drinks',
+      emptyBody: 'Change the search or choose another category.',
+      emptyTitle: 'There are no products to show right now',
+      fat: 'fat',
+      food: 'Food',
+      hours: 'Opening hours',
+      ingredients: 'Ingredients',
+      nutrition: 'Nutrition facts',
+      openNow: 'Open now',
+      protein: 'protein',
+      salt: 'salt',
+      searchPlaceholder: 'Search menu...',
+      specialOffer: 'Special offer',
+      sugar: 'sugar',
+      tapDetails: 'Tap for details',
+      unavailable: 'Currently unavailable',
+      viewSchedule: 'View schedule',
+      website: 'Website',
+    };
+    const bosnian: Record<string, string> = {
+      all: 'Sve',
+      allergens: 'Alergeni',
+      callUs: 'Pozovi nas',
+      carbs: 'ugljikohidrati',
+      closed: 'Zatvoreno',
+      dailyOffer: 'Dnevna ponuda',
+      detailsFallback: 'Detalji proizvoda su dostupni kod osoblja.',
+      drinks: 'Pica',
+      emptyBody: 'Promijeni pretragu ili odaberi drugu kategoriju.',
+      emptyTitle: 'Trenutno nema proizvoda za prikaz',
+      fat: 'masti',
+      food: 'Hrana',
+      hours: 'Radno vrijeme',
+      ingredients: 'Sastojci',
+      nutrition: 'Nutritivne vrijednosti',
+      openNow: 'Otvoreno sada',
+      protein: 'proteini',
+      salt: 'so',
+      searchPlaceholder: 'Pretrazi meni...',
+      specialOffer: 'Specijalna ponuda',
+      sugar: 'seceri',
+      tapDetails: 'Dodirni za detalje',
+      unavailable: 'Trenutno nedostupno',
+      viewSchedule: 'Pogledaj raspored',
+      website: 'Web stranica',
+    };
+    return (this.menuLanguage === 'en' ? english : bosnian)[key] ?? key;
+  }
+
+  publicProductsLabel(count: number): string {
+    return this.menuLanguage === 'en' ? (count === 1 ? 'item' : 'items') : 'proizvoda';
   }
 
   formatPrice(price: number): string {
