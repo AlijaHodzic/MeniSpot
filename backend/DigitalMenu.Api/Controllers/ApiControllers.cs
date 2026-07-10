@@ -471,6 +471,14 @@ public sealed class AdminSupportController(ISupportTicketService support, IAudit
     }
 }
 
+[Route("api/admin/audit-logs"), Authorize(Roles = Roles.SuperAdmin)]
+public sealed class AdminAuditLogsController(IAuditLogService audit) : ApiController
+{
+    [HttpGet]
+    public async Task<ActionResult> Recent([FromQuery] int take = 200, CancellationToken ct = default) =>
+        Ok(await audit.GetRecentAsync(take, ct));
+}
+
 [Route("api/admin/drinks"), Authorize(Roles = Roles.SuperAdmin)]
 public sealed class AdminDrinksController(IGlobalDrinkService drinks, IWebHostEnvironment environment, IAuditLogService audit) : ApiController
 {
@@ -519,19 +527,94 @@ public sealed class RestaurantController(IRestaurantService restaurants, IMenuMa
         await audit.RecordAsync(Audit("OwnerRestaurantUpdated", "Restaurant", rid, rid, request.Name), ct);
         return NoContent();
     }
-    [HttpPost("categories")] public async Task<ActionResult> AddCategory(CategoryRequest request, CancellationToken ct) => RestaurantId is { } rid ? Ok(await menu.SaveCategoryAsync(rid, null, request, ct)) : MissingTenant();
-    [HttpPut("categories/{id:guid}")] public async Task<ActionResult> EditCategory(Guid id, CategoryRequest request, CancellationToken ct) => RestaurantId is { } rid && await menu.SaveCategoryAsync(rid, id, request, ct) is { } x ? Ok(x) : NotFound();
-    [HttpDelete("categories/{id:guid}")] public async Task<ActionResult> DeleteCategory(Guid id, CancellationToken ct) => RestaurantId is { } rid && await menu.DeleteCategoryAsync(rid, id, ct) ? NoContent() : NotFound();
-    [HttpPost("items")] public async Task<ActionResult> AddItem(MenuItemRequest request, CancellationToken ct) => RestaurantId is { } rid && await menu.SaveItemAsync(rid, null, request, ct) is { } x ? Ok(x) : BadRequest();
-    [HttpPut("items/{id:guid}")] public async Task<ActionResult> EditItem(Guid id, MenuItemRequest request, CancellationToken ct) => RestaurantId is { } rid && await menu.SaveItemAsync(rid, id, request, ct) is { } x ? Ok(x) : NotFound();
-    [HttpDelete("items/{id:guid}")] public async Task<ActionResult> DeleteItem(Guid id, CancellationToken ct) => RestaurantId is { } rid && await menu.DeleteItemAsync(rid, id, ct) ? NoContent() : NotFound();
+    [HttpPost("categories")]
+    public async Task<ActionResult> AddCategory(CategoryRequest request, CancellationToken ct)
+    {
+        if (RestaurantId is not { } rid) return MissingTenant();
+        var item = await menu.SaveCategoryAsync(rid, null, request, ct);
+        if (item is not null) await audit.RecordAsync(Audit("MenuCategoryCreated", "MenuCategory", item.Id, rid, item.Name), ct);
+        return Ok(item);
+    }
+    [HttpPut("categories/{id:guid}")]
+    public async Task<ActionResult> EditCategory(Guid id, CategoryRequest request, CancellationToken ct)
+    {
+        if (RestaurantId is not { } rid || await menu.SaveCategoryAsync(rid, id, request, ct) is not { } item) return NotFound();
+        await audit.RecordAsync(Audit("MenuCategoryUpdated", "MenuCategory", id, rid, item.Name), ct);
+        return Ok(item);
+    }
+    [HttpDelete("categories/{id:guid}")]
+    public async Task<ActionResult> DeleteCategory(Guid id, CancellationToken ct)
+    {
+        if (RestaurantId is not { } rid || !await menu.DeleteCategoryAsync(rid, id, ct)) return NotFound();
+        await audit.RecordAsync(Audit("MenuCategoryDeleted", "MenuCategory", id, rid), ct);
+        return NoContent();
+    }
+    [HttpPost("items")]
+    public async Task<ActionResult> AddItem(MenuItemRequest request, CancellationToken ct)
+    {
+        if (RestaurantId is not { } rid || await menu.SaveItemAsync(rid, null, request, ct) is not { } item) return BadRequest();
+        await audit.RecordAsync(Audit("MenuItemCreated", "MenuItem", item.Id, rid, item.Name), ct);
+        return Ok(item);
+    }
+    [HttpPut("items/{id:guid}")]
+    public async Task<ActionResult> EditItem(Guid id, MenuItemRequest request, CancellationToken ct)
+    {
+        if (RestaurantId is not { } rid || await menu.SaveItemAsync(rid, id, request, ct) is not { } item) return NotFound();
+        await audit.RecordAsync(Audit("MenuItemUpdated", "MenuItem", id, rid, item.Name), ct);
+        return Ok(item);
+    }
+    [HttpDelete("items/{id:guid}")]
+    public async Task<ActionResult> DeleteItem(Guid id, CancellationToken ct)
+    {
+        if (RestaurantId is not { } rid || !await menu.DeleteItemAsync(rid, id, ct)) return NotFound();
+        await audit.RecordAsync(Audit("MenuItemDeleted", "MenuItem", id, rid), ct);
+        return NoContent();
+    }
     [HttpGet("drink-library")] public async Task<ActionResult> DrinkLibrary(CancellationToken ct) => Ok(await menu.GetDrinkLibraryAsync(ct));
-    [HttpPost("drink-library/items")] public async Task<ActionResult> AddLibraryDrinks(AddLibraryDrinksRequest request, CancellationToken ct) => RestaurantId is { } rid ? Ok(await menu.AddLibraryDrinksAsync(rid, request, ct)) : MissingTenant();
-    [HttpPost("offers")] public async Task<ActionResult> AddOffer(SpecialOfferRequest request, CancellationToken ct) => RestaurantId is { } rid ? Ok(await menu.SaveOfferAsync(rid, null, request, ct)) : MissingTenant();
-    [HttpPut("offers/{id:guid}")] public async Task<ActionResult> EditOffer(Guid id, SpecialOfferRequest request, CancellationToken ct) => RestaurantId is { } rid && await menu.SaveOfferAsync(rid, id, request, ct) is { } x ? Ok(x) : NotFound();
-    [HttpDelete("offers/{id:guid}")] public async Task<ActionResult> DeleteOffer(Guid id, CancellationToken ct) => RestaurantId is { } rid && await menu.DeleteOfferAsync(rid, id, ct) ? NoContent() : NotFound();
-    [HttpPut("theme")] public async Task<ActionResult> Theme(ThemeRequest request, CancellationToken ct) => RestaurantId is { } rid && await menu.SetThemeAsync(rid, request, ct) ? NoContent() : NotFound();
-    [HttpPut("business-hours")] public async Task<ActionResult> Hours(IReadOnlyCollection<BusinessHourRequest> request, CancellationToken ct) => RestaurantId is { } rid && await menu.SetBusinessHoursAsync(rid, request, ct) ? NoContent() : MissingTenant();
+    [HttpPost("drink-library/items")]
+    public async Task<ActionResult> AddLibraryDrinks(AddLibraryDrinksRequest request, CancellationToken ct)
+    {
+        if (RestaurantId is not { } rid) return MissingTenant();
+        var items = await menu.AddLibraryDrinksAsync(rid, request, ct);
+        await audit.RecordAsync(Audit("DrinkLibraryItemsAdded", "MenuItem", null, rid, $"{items.Count} pića"), ct);
+        return Ok(items);
+    }
+    [HttpPost("offers")]
+    public async Task<ActionResult> AddOffer(SpecialOfferRequest request, CancellationToken ct)
+    {
+        if (RestaurantId is not { } rid) return MissingTenant();
+        var offer = await menu.SaveOfferAsync(rid, null, request, ct);
+        if (offer is not null) await audit.RecordAsync(Audit("OfferCreated", "SpecialOffer", offer.Id, rid, offer.Title), ct);
+        return Ok(offer);
+    }
+    [HttpPut("offers/{id:guid}")]
+    public async Task<ActionResult> EditOffer(Guid id, SpecialOfferRequest request, CancellationToken ct)
+    {
+        if (RestaurantId is not { } rid || await menu.SaveOfferAsync(rid, id, request, ct) is not { } offer) return NotFound();
+        await audit.RecordAsync(Audit("OfferUpdated", "SpecialOffer", id, rid, offer.Title), ct);
+        return Ok(offer);
+    }
+    [HttpDelete("offers/{id:guid}")]
+    public async Task<ActionResult> DeleteOffer(Guid id, CancellationToken ct)
+    {
+        if (RestaurantId is not { } rid || !await menu.DeleteOfferAsync(rid, id, ct)) return NotFound();
+        await audit.RecordAsync(Audit("OfferDeleted", "SpecialOffer", id, rid), ct);
+        return NoContent();
+    }
+    [HttpPut("theme")]
+    public async Task<ActionResult> Theme(ThemeRequest request, CancellationToken ct)
+    {
+        if (RestaurantId is not { } rid || !await menu.SetThemeAsync(rid, request, ct)) return NotFound();
+        await audit.RecordAsync(Audit("ThemeUpdated", "ThemeSettings", rid, rid, request.ThemeKey), ct);
+        return NoContent();
+    }
+    [HttpPut("business-hours")]
+    public async Task<ActionResult> Hours(IReadOnlyCollection<BusinessHourRequest> request, CancellationToken ct)
+    {
+        if (RestaurantId is not { } rid || !await menu.SetBusinessHoursAsync(rid, request, ct)) return MissingTenant();
+        await audit.RecordAsync(Audit("BusinessHoursUpdated", "BusinessHour", rid, rid), ct);
+        return NoContent();
+    }
     [HttpPost("images"), RequestSizeLimit(6_000_000), EnableRateLimiting("uploads")]
     public async Task<ActionResult> UploadImage(IFormFile file, CancellationToken ct)
     {

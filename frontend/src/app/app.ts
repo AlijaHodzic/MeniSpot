@@ -20,6 +20,7 @@ import {
   AdminRestaurantDetails,
   AdminRestaurantSummary,
   AdminDashboardSummary,
+  AuditLogSummary,
   EstablishmentType,
   RestaurantStatus,
   SubscriptionStatus,
@@ -203,7 +204,7 @@ export class App {
   readonly adminTabs: { id: AdminTab; label: string }[] = [
     { id: 'dashboard', label: 'Pregled' }, { id: 'restaurants', label: 'Restorani' }, { id: 'archived-restaurants', label: 'Arhiva' },
     { id: 'billing', label: 'Pretplate' }, { id: 'drink-library', label: 'Biblioteka pića' },
-    { id: 'themes', label: 'Teme' }, { id: 'qr-codes', label: 'QR kodovi' }, { id: 'support', label: 'Podrska' },
+    { id: 'themes', label: 'Teme' }, { id: 'qr-codes', label: 'QR kodovi' }, { id: 'support', label: 'Podrska' }, { id: 'audit-logs', label: 'Logovi' },
   ];
   readonly ownerTabs: { id: OwnerTab; label: string }[] = [
     { id: 'dashboard', label: 'Pregled' }, { id: 'categories', label: 'Kategorije' },
@@ -314,6 +315,11 @@ export class App {
   adminSupportError = '';
   supportStatusFilter: SupportTicketStatus | 'all' = 'all';
   supportUpdating = new Set<string>();
+  auditLogs: AuditLogSummary[] = [];
+  auditLogsLoading = false;
+  auditLogsLoaded = false;
+  auditLogsError = '';
+  auditLogSearch = '';
   billingOverview: BillingOverview | null = null;
   billingLoading = false;
   billingLoaded = false;
@@ -545,6 +551,17 @@ export class App {
   }
   get filteredAdminSupportTickets(): SupportTicket[] {
     return this.adminSupportTickets.filter((ticket) => this.supportStatusFilter === 'all' || ticket.status === this.supportStatusFilter);
+  }
+  get filteredAuditLogs(): AuditLogSummary[] {
+    const term = this.auditLogSearch.trim().toLocaleLowerCase();
+    return this.auditLogs.filter((item) =>
+      !term ||
+      item.action.toLocaleLowerCase().includes(term) ||
+      item.entityType.toLocaleLowerCase().includes(term) ||
+      (item.restaurantName ?? '').toLocaleLowerCase().includes(term) ||
+      (item.summary ?? '').toLocaleLowerCase().includes(term) ||
+      (item.actorEmail ?? '').toLocaleLowerCase().includes(term) ||
+      (item.ipAddress ?? '').toLocaleLowerCase().includes(term));
   }
   get adminDrinkCategoryStats(): { name: string; count: number }[] {
     return this.drinkCategories.map((name) => ({ name, count: this.adminDrinks.filter((item) => item.category === name).length }));
@@ -861,6 +878,21 @@ export class App {
           this.adminSupportLoaded = true;
         },
         error: () => this.adminSupportError = 'Zahtjevi za podrsku se trenutno ne mogu ucitati.',
+      });
+  }
+
+  loadAuditLogs(force = false): void {
+    if (this.auditLogsLoading || this.auditLogsLoaded && !force) return;
+    this.auditLogsLoading = true;
+    this.auditLogsError = '';
+    this.adminRestaurantsService.getAuditLogs(250)
+      .pipe(finalize(() => this.auditLogsLoading = false), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (items) => {
+          this.auditLogs = items;
+          this.auditLogsLoaded = true;
+        },
+        error: () => this.auditLogsError = 'Logovi se trenutno ne mogu ucitati.',
       });
   }
 
@@ -2238,6 +2270,7 @@ export class App {
       if (this.adminTab === 'archived-restaurants') this.loadArchivedRestaurants();
       if (this.adminTab === 'drink-library') this.loadAdminDrinks();
       if (this.adminTab === 'support') this.loadAdminSupport();
+      if (this.adminTab === 'audit-logs') this.loadAuditLogs();
     } else if (segments[0] === 'restaurant') {
       this.view = 'restaurant-owner';
       this.ownerTab = this.isOwnerTab(segments[2]) ? segments[2] : 'dashboard';

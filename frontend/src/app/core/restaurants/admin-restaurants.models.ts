@@ -75,6 +75,20 @@ export interface AdminRestaurantReadiness {
   items: AdminReadinessIssue[];
 }
 
+export interface AuditLogSummary {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  restaurantId: string | null;
+  restaurantName: string | null;
+  summary: string | null;
+  actorEmail: string | null;
+  actorRole: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+}
+
 export interface CreateRestaurantRequest {
   name: string;
   slug: string;

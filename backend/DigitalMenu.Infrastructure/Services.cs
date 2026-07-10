@@ -594,6 +594,30 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
 
 public sealed class AuditLogService(ApplicationDbContext db) : IAuditLogService
 {
+    public async Task<IReadOnlyList<AuditLogSummary>> GetRecentAsync(int take, CancellationToken cancellationToken)
+    {
+        var limit = Math.Clamp(take, 25, 500);
+        var rows = await db.AuditLogs.AsNoTracking()
+            .GroupJoin(db.Restaurants.AsNoTracking(), log => log.RestaurantId, restaurant => restaurant.Id, (log, restaurants) => new { log, restaurants })
+            .SelectMany(x => x.restaurants.DefaultIfEmpty(), (x, restaurant) => new { x.log, RestaurantName = restaurant == null ? null : restaurant.Name })
+            .OrderByDescending(x => x.log.CreatedAt)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(x => new AuditLogSummary(
+            x.log.Id,
+            x.log.Action,
+            x.log.EntityType,
+            x.log.EntityId,
+            x.log.RestaurantId,
+            x.RestaurantName,
+            x.log.Summary,
+            x.log.ActorEmail,
+            x.log.ActorRole,
+            x.log.IpAddress,
+            x.log.CreatedAt)).ToList();
+    }
+
     public async Task RecordAsync(AuditLogRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Action) || string.IsNullOrWhiteSpace(request.EntityType)) return;

@@ -67,6 +67,7 @@ public sealed record SupportTicketSummary(Guid Id, Guid RestaurantId, string Res
 public sealed record CreateSupportTicketRequest(string Title, SupportTicketType Type, SupportTicketPriority Priority, string Message, string? AttachmentUrl);
 public sealed record UpdateSupportTicketRequest(SupportTicketStatus Status, string? AdminNote);
 public sealed record AuditLogRequest(string Action, string EntityType, Guid? EntityId, Guid? RestaurantId, string? Summary, Guid? ActorUserId, string? ActorEmail, string? ActorRole, string? IpAddress);
+public sealed record AuditLogSummary(Guid Id, string Action, string EntityType, Guid? EntityId, Guid? RestaurantId, string? RestaurantName, string? Summary, string? ActorEmail, string? ActorRole, string? IpAddress, DateTimeOffset CreatedAt);
 public sealed record TrackMenuItemViewRequest(string? SessionId);
 public sealed record OwnerMenuItem(Guid Id, Guid CategoryId, Guid? GlobalDrinkId, string Name, string? Description, string? NameEn, string? DescriptionEn, string? NameDe, string? DescriptionDe, decimal Price, string? ServingSize, string? ImageUrl, string? Allergens, string? Ingredients, int? Calories, decimal? Protein, decimal? Carbs, decimal? Fat, decimal? Sugar, decimal? Salt, int SortOrder, bool IsVisible, bool IsAvailable, bool IsVegetarian, bool IsSpicy, bool IsFeatured);
 public sealed record OwnerMenuCategory(Guid Id, string Name, string? Description, string? NameEn, string? DescriptionEn, string? NameDe, string? DescriptionDe, MenuCategoryType Type, int SortOrder, bool IsVisible, IReadOnlyList<OwnerMenuItem> Items);
@@ -107,6 +108,7 @@ public interface IRestaurantService
 public interface IAuditLogService
 {
     Task RecordAsync(AuditLogRequest request, CancellationToken cancellationToken);
+    Task<IReadOnlyList<AuditLogSummary>> GetRecentAsync(int take, CancellationToken cancellationToken);
 }
 
 public interface IMenuManagementService

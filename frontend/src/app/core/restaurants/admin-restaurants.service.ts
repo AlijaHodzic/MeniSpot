@@ -9,6 +9,7 @@ import {
   AdminRestaurantReadiness,
   AdminRestaurantSummary,
   AdminDashboardSummary,
+  AuditLogSummary,
   CreateRestaurantRequest,
   RestaurantStatus,
   SetSubscriptionRequest,
@@ -35,6 +36,10 @@ export class AdminRestaurantsService {
 
   getReadiness(): Observable<AdminRestaurantReadiness[]> {
     return this.http.get<AdminRestaurantReadiness[]>(`${this.endpoint}/readiness`);
+  }
+
+  getAuditLogs(take = 200): Observable<AuditLogSummary[]> {
+    return this.http.get<AuditLogSummary[]>(`${API_URL}/admin/audit-logs`, { params: { take } });
   }
 
   get(id: string): Observable<AdminRestaurantDetails> {
