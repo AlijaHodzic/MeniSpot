@@ -489,7 +489,8 @@
 .menu-footer { display: flex; justify-content: center; gap: 10px; border-top: 1px solid color-mix(in srgb,var(--text) 8%,transparent); padding: 28px; background: var(--card); }
 .menu-footer p { display: flex; flex-direction: column; margin: 0; font-size: 12px; }
 .menu-footer span { color: var(--muted); font-size: 9px; }
-.product-detail-backdrop { z-index: 240; align-items: end; background: rgba(3,7,18,.7); }
+.public-product-modal-open { overflow: hidden; }
+.product-detail-backdrop { z-index: 240; align-items: end; overflow-y: auto; background: rgba(3,7,18,.7); overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .public-product-detail { display: grid; position: relative; overflow: hidden; width: min(100%,920px); max-height: min(90vh,760px); grid-template-columns: minmax(280px,.9fr) minmax(0,1fr); border: 1px solid rgba(255,255,255,.12); border-radius: 24px; background: #111827; color: #f8fafc; box-shadow: 0 30px 90px rgba(0,0,0,.4); }
 .public-product-detail-media { min-height: 420px; background: #020617; }
 .public-product-detail-media img { width: 100%; height: 100%; object-fit: cover; }
@@ -738,9 +739,11 @@
   .translation-grid { grid-template-columns: 1fr; }
   .admin-todo-grid { grid-template-columns: 1fr; }
   .menu-language-switch { justify-content: flex-start; }
-  .product-detail-backdrop { align-items: end; padding: 10px; }
-  .public-product-detail { max-height: 94vh; grid-template-columns: 1fr; border-radius: 22px 22px 16px 16px; }
-  .public-product-detail-media { min-height: 260px; max-height: 38vh; }
+  .product-detail-backdrop { align-items: start; padding: max(10px,env(safe-area-inset-top)) 10px max(22px,env(safe-area-inset-bottom)); }
+  .public-product-detail { max-height: none; grid-template-columns: 1fr; overflow: visible; border-radius: 22px 22px 16px 16px; }
+  .public-product-detail-media { display: grid; min-height: 0; height: min(48vh,340px); background: #020617; }
+  .public-product-detail-media img { object-fit: contain; background: #020617; }
+  .public-product-detail-body { overflow: visible; padding: 24px 22px max(26px,env(safe-area-inset-bottom)); }
   .product-detail-section-grid, .product-detail-nutrition div { grid-template-columns: 1fr; }
 }
 @media (max-width: 900px) {

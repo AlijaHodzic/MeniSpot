@@ -1935,11 +1935,13 @@ export class App {
   openPublicProduct(product: Product): void {
     if (!this.canUsePremiumProductDetails || !product.available) return;
     this.publicSelectedProduct = product;
+    this.setPublicProductModalOpen(true);
     this.trackPublicProductView(product.id);
   }
 
   closePublicProduct(): void {
     this.publicSelectedProduct = null;
+    this.setPublicProductModalOpen(false);
   }
   setMenuLanguage(language: MenuLanguage): void {
     if (!this.menuLanguageOptions.some((option) => option.value === language)) {
@@ -2252,6 +2254,7 @@ export class App {
 
   private syncRoute(url: string): void {
     const segments = url.split('?')[0].split('/').filter(Boolean).map(decodeURIComponent);
+    if (segments[0] !== 'menu') this.setPublicProductModalOpen(false);
     if (segments[0] === 'auth' && segments[1] === 'login') {
       this.view = 'auth-login';
     } else if (segments[0] === 'admin') {
@@ -2464,10 +2467,15 @@ export class App {
     this.ownerError = '';
     this.publicTrackedProducts = new Set<string>();
     this.publicSelectedProduct = null;
+    this.setPublicProductModalOpen(false);
     this.ownerService.getPublicMenu(slug).pipe(finalize(() => this.ownerLoading = false), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: ({ restaurant }) => this.applyOwnerRestaurant(restaurant),
       error: () => { this.ownerRestaurant = null; this.ownerViewRestaurant = null; this.ownerError = 'Ovaj meni trenutno nije dostupan.'; },
     });
+  }
+
+  private setPublicProductModalOpen(open: boolean): void {
+    globalThis.document?.body.classList.toggle('public-product-modal-open', open);
   }
 
   private applyOwnerRestaurant(restaurant: OwnerRestaurant, preservePublicMenuPosition = false): void {
