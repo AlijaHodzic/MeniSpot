@@ -199,6 +199,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             x.Id, x.Name, x.Slug, x.Description, x.LogoUrl, x.CoverImageUrl, x.Address, x.Phone, x.Email,
             x.WebsiteUrl, x.InstagramUrl, x.Currency, x.DefaultLanguage, x.EnabledLanguages, x.Type, x.Status,
             ThemeKey = x.Theme != null ? x.Theme.ThemeKey : null,
+            AdditionalThemeKeys = x.Theme != null ? x.Theme.AdditionalThemeKeys : string.Empty,
             SubscriptionStatus = x.Subscription!.Status, x.Subscription.Plan, x.Subscription.MonthlyPrice, x.Subscription.StartsOn,
             x.Subscription.ExpiresOn, x.Subscription.GracePeriodEndsOn
         }).FirstOrDefaultAsync(ct);
@@ -211,7 +212,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         return new AdminRestaurantDetails(
             item.Id, item.Name, item.Slug, item.Description, AssetUrl.Normalize(item.LogoUrl), AssetUrl.Normalize(item.CoverImageUrl), item.Address, item.Phone,
             item.Email, item.WebsiteUrl, item.InstagramUrl, item.Currency, item.DefaultLanguage, NormalizeEnabledLanguages(item.EnabledLanguages, item.DefaultLanguage), item.Type, item.Status,
-            NormalizeThemeKey(item.ThemeKey, item.Type), ownerEmail,
+            NormalizeThemeKey(item.ThemeKey, item.Type), ThemeAccessPolicy.ParseAdditionalThemes(item.AdditionalThemeKeys), ownerEmail,
             new AdminSubscriptionDetails(item.SubscriptionStatus, item.Plan, item.MonthlyPrice, item.StartsOn, item.ExpiresOn, item.GracePeriodEndsOn));
     }
 
@@ -232,7 +233,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         if (string.IsNullOrWhiteSpace(request.OwnerEmail)) throw new InvalidOperationException("Owner email is required.");
         if (request.TrialDays is < 1 or > 365) throw new InvalidOperationException("Trial period must be between 1 and 365 days.");
         if (string.IsNullOrWhiteSpace(request.Currency) || request.Currency.Trim().Length != 3) throw new InvalidOperationException("Currency must use a three-letter code.");
-        if (!SupportedThemes.Contains(request.ThemeKey)) throw new InvalidOperationException("Selected theme is not supported.");
+        if (!ThemeAccessPolicy.IsSupported(request.ThemeKey)) throw new InvalidOperationException("Selected theme is not supported.");
         var slug = request.Slug.Trim().ToLowerInvariant();
         if (await db.Restaurants.AnyAsync(x => x.Slug == slug, ct)) throw new InvalidOperationException("Slug is already in use.");
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -255,8 +256,13 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             DefaultLanguage = NormalizeDefaultLanguage(request.DefaultLanguage),
             EnabledLanguages = NormalizeEnabledLanguages(request.EnabledLanguages, request.DefaultLanguage)
         };
-        var themeColors = ThemeColors(request.ThemeKey);
         var plan = NormalizePlan(request.Plan);
+        var additionalThemes = ThemeAccessPolicy.ValidateAdditionalThemes(plan, request.AdditionalThemeKeys);
+        var additionalThemeKeys = ThemeAccessPolicy.SerializeAdditionalThemes(additionalThemes);
+        var selectedTheme = ThemeAccessPolicy.IsAllowed(plan, additionalThemeKeys, request.ThemeKey)
+            ? request.ThemeKey
+            : ThemeAccessPolicy.ClassicLight;
+        var themeColors = ThemeColors(selectedTheme);
         restaurant.Subscription = new Subscription
         {
             RestaurantId = restaurant.Id,
@@ -266,7 +272,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
             Plan = plan,
             MonthlyPrice = NormalizeMonthlyPrice(plan, request.MonthlyPrice)
         };
-        restaurant.Theme = new ThemeSettings { RestaurantId = restaurant.Id, ThemeKey = request.ThemeKey, PrimaryColor = themeColors.Primary, AccentColor = themeColors.Accent };
+        restaurant.Theme = new ThemeSettings { RestaurantId = restaurant.Id, ThemeKey = selectedTheme, AdditionalThemeKeys = additionalThemeKeys, PrimaryColor = themeColors.Primary, AccentColor = themeColors.Accent };
         db.Restaurants.Add(restaurant);
         await db.SaveChangesAsync(ct);
         var user = new ApplicationUser { UserName = request.OwnerEmail, Email = request.OwnerEmail, EmailConfirmed = true, RestaurantId = restaurant.Id, DisplayName = request.Name };
@@ -281,9 +287,15 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
     {
         if (string.IsNullOrWhiteSpace(r.Name)) throw new InvalidOperationException("Restaurant name is required.");
         if (string.IsNullOrWhiteSpace(r.Currency) || r.Currency.Trim().Length != 3) throw new InvalidOperationException("Currency must use a three-letter code.");
-        var x = await db.Restaurants.Include(x => x.Theme).FirstOrDefaultAsync(x => x.Id == id && x.Status != RestaurantStatus.Archived && (admin || x.Id == tenantId), ct);
+        var x = await db.Restaurants.Include(x => x.Theme).Include(x => x.Subscription).FirstOrDefaultAsync(x => x.Id == id && x.Status != RestaurantStatus.Archived && (admin || x.Id == tenantId), ct);
         if (x is null) return false;
-        if (!SupportedThemes.Contains(r.ThemeKey)) throw new InvalidOperationException("Selected theme is not supported.");
+        if (!ThemeAccessPolicy.IsSupported(r.ThemeKey)) throw new InvalidOperationException("Selected theme is not supported.");
+        if (!admin)
+        {
+            var plan = NormalizePlan(x.Subscription?.Plan);
+            if (!ThemeAccessPolicy.IsAllowed(plan, x.Theme?.AdditionalThemeKeys, r.ThemeKey))
+                throw new InvalidOperationException("Selected theme is not available in the current plan.");
+        }
         if (admin && !string.IsNullOrWhiteSpace(r.Slug))
         {
             var slug = NormalizeRestaurantSlug(r.Slug);
@@ -328,8 +340,22 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         if (r.MonthlyPrice < 0) throw new InvalidOperationException("Monthly price cannot be negative.");
         if (r.ExpiresOn < r.StartsOn) throw new InvalidOperationException("Subscription expiry cannot be before its start date.");
         if (r.GracePeriodEndsOn < r.ExpiresOn) throw new InvalidOperationException("Grace period cannot end before the subscription expiry date.");
-        var x = await db.Subscriptions.Include(x => x.Restaurant).SingleOrDefaultAsync(x => x.RestaurantId == id && x.Restaurant.Status != RestaurantStatus.Archived, ct); if (x is null) return false;
+        var x = await db.Subscriptions.Include(x => x.Restaurant).ThenInclude(x => x.Theme).SingleOrDefaultAsync(x => x.RestaurantId == id && x.Restaurant.Status != RestaurantStatus.Archived, ct); if (x is null) return false;
+        var additionalThemes = ThemeAccessPolicy.ValidateAdditionalThemes(plan, r.AdditionalThemeKeys);
+        var additionalThemeKeys = ThemeAccessPolicy.SerializeAdditionalThemes(additionalThemes);
         x.Status = r.Status; x.Plan = plan; x.MonthlyPrice = r.MonthlyPrice; x.StartsOn = r.StartsOn; x.ExpiresOn = r.ExpiresOn; x.GracePeriodEndsOn = r.GracePeriodEndsOn; x.UpdatedAt = DateTimeOffset.UtcNow;
+        if (x.Restaurant.Theme is not null)
+        {
+            x.Restaurant.Theme.AdditionalThemeKeys = additionalThemeKeys;
+            if (!ThemeAccessPolicy.IsAllowed(plan, additionalThemeKeys, x.Restaurant.Theme.ThemeKey))
+            {
+                var colors = ThemeColors(ThemeAccessPolicy.ClassicLight);
+                x.Restaurant.Theme.ThemeKey = ThemeAccessPolicy.ClassicLight;
+                x.Restaurant.Theme.PrimaryColor = colors.Primary;
+                x.Restaurant.Theme.AccentColor = colors.Accent;
+            }
+            x.Restaurant.Theme.UpdatedAt = DateTimeOffset.UtcNow;
+        }
         x.Restaurant.Status = r.Status switch
         {
             SubscriptionStatus.Suspended => RestaurantStatus.Suspended,
@@ -472,18 +498,11 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         return string.Join(",", SupportedLanguages.Where(selected.Contains));
     }
 
-    private static readonly string[] SupportedThemes =
-    [
-        "classic-light", "premium-gold", "burgundy-dining", "mediterranean-blue", "olive-linen", "ocean-slate",
-        "coffee-cream", "urban-espresso", "soft-pastel", "natural-green", "rose-latte", "cocoa-mint",
-        "neon-night", "royal-violet",
-        "warm-orange", "street-red", "yellow-pop", "burger-black", "lime-street", "modern-dark"
-    ];
-
-    internal static bool IsSupportedTheme(string themeKey) => SupportedThemes.Contains(themeKey);
+    internal static bool IsSupportedTheme(string themeKey) => ThemeAccessPolicy.IsSupported(themeKey);
 
     private static (string Primary, string Accent) ThemeColors(string themeKey) => themeKey switch
     {
+        "classic-dark" => ("#1f2937", "#84cc16"),
         "premium-gold" => ("#27272a", "#c8a96e"),
         "burgundy-dining" => ("#27272a", "#be123c"),
         "mediterranean-blue" => ("#ffffff", "#2563eb"),
@@ -510,7 +529,7 @@ public sealed class RestaurantService(ApplicationDbContext db, UserManager<Appli
         restaurant.Id, restaurant.Name, restaurant.Slug, restaurant.Description, AssetUrl.Normalize(restaurant.LogoUrl), AssetUrl.Normalize(restaurant.CoverImageUrl),
         restaurant.Address, restaurant.Phone, restaurant.Email, restaurant.WebsiteUrl, restaurant.InstagramUrl,
         restaurant.Currency, restaurant.DefaultLanguage, NormalizeEnabledLanguages(restaurant.EnabledLanguages, restaurant.DefaultLanguage), restaurant.Type, restaurant.Status,
-        NormalizePlan(restaurant.Subscription?.Plan),
+        NormalizePlan(restaurant.Subscription?.Plan), ThemeAccessPolicy.AvailableThemeKeys(NormalizePlan(restaurant.Subscription?.Plan), restaurant.Theme?.AdditionalThemeKeys),
         new OwnerTheme(restaurant.Theme?.ThemeKey ?? NormalizeThemeKey(null, restaurant.Type), restaurant.Theme?.PrimaryColor ?? "#111827", restaurant.Theme?.AccentColor ?? "#84cc16", AssetUrl.Normalize(restaurant.Theme?.BackgroundImageUrl), restaurant.Theme?.FontFamily ?? "Inter"),
         restaurant.BusinessHours.OrderBy(x => x.DayOfWeek).Select(x => new OwnerBusinessHour(x.DayOfWeek, x.OpensAt, x.ClosesAt, x.IsClosed)).ToList(),
         restaurant.Categories.OrderBy(x => x.SortOrder).Select(x => new OwnerMenuCategory(x.Id, x.Name, x.Description, x.NameEn, x.DescriptionEn, x.NameDe, x.DescriptionDe, x.Type, x.SortOrder, x.IsVisible,
@@ -989,7 +1008,10 @@ public sealed class MenuManagementService(ApplicationDbContext db) : IMenuManage
     public async Task<bool> SetThemeAsync(Guid rid, ThemeRequest r, CancellationToken ct)
     {
         if (!RestaurantService.IsSupportedTheme(r.ThemeKey)) throw new InvalidOperationException("Selected theme is not supported.");
-        var x = await db.ThemeSettings.SingleOrDefaultAsync(x => x.RestaurantId == rid, ct); if (x is null) return false;
+        var x = await db.ThemeSettings.Include(x => x.Restaurant).ThenInclude(x => x.Subscription).SingleOrDefaultAsync(x => x.RestaurantId == rid, ct); if (x is null) return false;
+        var plan = NormalizePlan(x.Restaurant.Subscription?.Plan);
+        if (!ThemeAccessPolicy.IsAllowed(plan, x.AdditionalThemeKeys, r.ThemeKey))
+            throw new InvalidOperationException("Selected theme is not available in the current plan.");
         x.ThemeKey = r.ThemeKey; x.PrimaryColor = r.PrimaryColor; x.AccentColor = r.AccentColor; x.BackgroundImageUrl = AssetUrl.Normalize(r.BackgroundImageUrl); x.FontFamily = r.FontFamily; x.UpdatedAt = DateTimeOffset.UtcNow; await db.SaveChangesAsync(ct); return true;
     }
     public async Task<bool> SetBusinessHoursAsync(Guid rid, IReadOnlyCollection<BusinessHourRequest> r, CancellationToken ct)

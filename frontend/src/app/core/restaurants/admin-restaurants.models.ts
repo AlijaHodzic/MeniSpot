@@ -33,6 +33,7 @@ export interface AdminRestaurantDetails {
   type: EstablishmentType;
   status: RestaurantStatus;
   themeKey: string;
+  additionalThemeKeys: string[];
   ownerEmail: string | null;
   subscription: {
     status: SubscriptionStatus;
@@ -111,6 +112,7 @@ export interface CreateRestaurantRequest {
   plan: string;
   monthlyPrice: number;
   themeKey: string;
+  additionalThemeKeys: string[];
 }
 
 export interface UpdateRestaurantRequest {
@@ -138,6 +140,7 @@ export interface SetSubscriptionRequest {
   startsOn: string;
   expiresOn: string;
   gracePeriodEndsOn: string | null;
+  additionalThemeKeys: string[];
 }
 
 export interface UpdateOwnerAccessRequest {

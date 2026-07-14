@@ -154,6 +154,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.IpAddress).HasMaxLength(80);
         });
         builder.Entity<Subscription>().Property(x => x.MonthlyPrice).HasPrecision(12, 2);
+        builder.Entity<ThemeSettings>().Property(x => x.AdditionalThemeKeys).HasMaxLength(800).HasDefaultValue(string.Empty);
         builder.Entity<ApplicationUser>().HasIndex(x => x.RestaurantId);
     }
 }

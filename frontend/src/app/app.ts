@@ -57,6 +57,7 @@ interface RestaurantForm {
   defaultLanguage: string;
   enabledLanguages: string;
   themeKey: string;
+  additionalThemeKeys: ThemeType[];
   plan: string;
   monthlyPrice: number;
   subscriptionStatus: SubscriptionStatus;
@@ -126,6 +127,7 @@ const themeGroupOptions: { id: ThemeGroupId; name: string; description: string }
 
 const themeOptions: ThemeOption[] = [
   { id: 'classic-light', group: 'restaurant', name: 'Classic Light', description: 'Cista svijetla tema za restorane i porodicne objekte.', colors: ['#f8fafc', '#ffffff', '#84cc16'] },
+  { id: 'classic-dark', group: 'restaurant', name: 'Classic Dark', description: 'Tamna Classic tema sa prepoznatljivim MeniSpot zelenim akcentom.', colors: ['#0f172a', '#1f2937', '#84cc16'] },
   { id: 'premium-gold', group: 'restaurant', name: 'Premium Gold', description: 'Tamna elegantna tema sa zlatnim akcentom.', colors: ['#111827', '#27272a', '#c8a96e'] },
   { id: 'burgundy-dining', group: 'restaurant', name: 'Burgundy Dining', description: 'Bordo akcent za steakhouse, vino i tradicionalni restoran.', colors: ['#18181b', '#27272a', '#be123c'] },
   { id: 'mediterranean-blue', group: 'restaurant', name: 'Mediterranean Blue', description: 'Svjeza plava paleta za riblje i moderne restorane.', colors: ['#eff6ff', '#ffffff', '#2563eb'] },
@@ -416,16 +418,62 @@ export class App {
     const enabled = this.parseEnabledLanguages(this.ownerRestaurant?.enabledLanguages ?? 'bs,en');
     return this.allMenuLanguageOptions.filter((option) => enabled.includes(option.value as MenuLanguage));
   }
+  get classicThemeOptions(): ThemeOption[] {
+    return this.themes.filter((theme) => theme.id === 'classic-light' || theme.id === 'classic-dark');
+  }
+  get restaurantThemeCatalog(): ThemeOption[] {
+    if (this.restaurantPlan === 'Premium') return this.themes;
+    return this.themesForEstablishmentGroup(this.themeGroupForEstablishmentType(this.restaurantForm.type));
+  }
+  get proAdditionalThemeOptions(): ThemeOption[] {
+    return this.restaurantThemeCatalog.filter((theme) => !this.isClassicTheme(theme.id));
+  }
+  get restaurantAvailableThemeOptions(): ThemeOption[] {
+    return this.restaurantThemeCatalog.filter((theme) => this.isRestaurantThemeAvailable(theme.id));
+  }
   get restaurantFormThemeOptions(): AppSelectOption[] {
-    return this.themesForGroup(this.themeGroupForEstablishmentType(this.restaurantForm.type))
-      .map((theme) => ({ value: theme.id, label: theme.name }));
+    return this.restaurantAvailableThemeOptions.map((theme) => ({ value: theme.id, label: theme.name }));
+  }
+  get restaurantPlan(): SubscriptionPlan {
+    return this.normalizePlan(this.restaurantForm.plan);
   }
   get ownerThemeGroups(): typeof themeGroupOptions {
+    if (this.normalizePlan(this.ownerRestaurant?.plan ?? 'Start') === 'Premium') return themeGroupOptions;
     return themeGroupOptions.filter((group) => group.id === this.ownerThemeGroupId);
   }
   themesForGroup(group: ThemeGroupId): ThemeOption[] {
     if (group === 'bar') return this.themes.filter((theme) => theme.group === 'bar' || ['premium-gold', 'burgundy-dining', 'urban-espresso', 'modern-dark'].includes(theme.id));
     return this.themes.filter((theme) => theme.group === group);
+  }
+  themesForOwnerGroup(group: ThemeGroupId): ThemeOption[] {
+    const available = new Set(this.ownerRestaurant?.availableThemeKeys ?? ['classic-light', 'classic-dark']);
+    const catalog = this.normalizePlan(this.ownerRestaurant?.plan ?? 'Start') === 'Premium'
+      ? this.themes.filter((theme) => theme.group === group)
+      : this.themesForEstablishmentGroup(group);
+    return catalog.filter((theme) => available.has(theme.id));
+  }
+  selectRestaurantTheme(theme: ThemeType): void {
+    if (!this.isRestaurantThemeAvailable(theme)) return;
+    this.restaurantForm.themeKey = theme;
+  }
+  toggleRestaurantAdditionalTheme(theme: ThemeType): void {
+    if (this.restaurantPlan !== 'Pro' || this.isClassicTheme(theme)) return;
+    const selected = this.restaurantForm.additionalThemeKeys;
+    if (selected.includes(theme)) {
+      this.restaurantForm.additionalThemeKeys = selected.filter((item) => item !== theme);
+      if (this.restaurantForm.themeKey === theme) this.restaurantForm.themeKey = 'classic-light';
+      return;
+    }
+    if (selected.length >= 2) return;
+    this.restaurantForm.additionalThemeKeys = [...selected, theme];
+  }
+  isRestaurantAdditionalTheme(theme: ThemeType): boolean {
+    return this.restaurantForm.additionalThemeKeys.includes(theme);
+  }
+  isRestaurantThemeAvailable(theme: ThemeType): boolean {
+    if (this.restaurantPlan === 'Premium') return this.restaurantThemeCatalog.some((item) => item.id === theme);
+    if (this.isClassicTheme(theme)) return true;
+    return this.restaurantPlan === 'Pro' && this.isRestaurantAdditionalTheme(theme);
   }
   private get ownerThemeGroupId(): ThemeGroupId {
     return this.themeGroupForEstablishmentType(this.ownerRestaurant?.type);
@@ -440,10 +488,20 @@ export class App {
         : 'restaurant';
   }
   syncRestaurantTypeTheme(): void {
-    const themeOptions = this.restaurantFormThemeOptions;
-    if (!themeOptions.some((option) => option.value === this.restaurantForm.themeKey)) {
-      this.restaurantForm.themeKey = String(themeOptions[0]?.value ?? 'classic-light');
-    }
+    const candidates = new Set(this.proAdditionalThemeOptions.map((theme) => theme.id));
+    this.restaurantForm.additionalThemeKeys = this.restaurantForm.additionalThemeKeys.filter((theme) => candidates.has(theme)).slice(0, 2);
+    this.syncRestaurantPlanThemes();
+  }
+  private themesForEstablishmentGroup(group: ThemeGroupId): ThemeOption[] {
+    const classicIds = new Set(this.classicThemeOptions.map((theme) => theme.id));
+    return [...this.classicThemeOptions, ...this.themesForGroup(group).filter((theme) => !classicIds.has(theme.id))];
+  }
+  private isClassicTheme(theme: ThemeType): boolean {
+    return theme === 'classic-light' || theme === 'classic-dark';
+  }
+  private syncRestaurantPlanThemes(): void {
+    if (this.restaurantPlan !== 'Pro') this.restaurantForm.additionalThemeKeys = [];
+    if (!this.isRestaurantThemeAvailable(this.restaurantForm.themeKey as ThemeType)) this.restaurantForm.themeKey = 'classic-light';
   }
   get ownerCategoryOptions(): AppSelectOption[] { return this.ownerCategories.map((category) => ({ value: category.id, label: category.name })); }
   get ownerCategoryFilterOptions(): AppSelectOption[] { return [{ value: 'all', label: 'Sve kategorije' }, ...this.ownerCategoryOptions]; }
@@ -1246,6 +1304,10 @@ export class App {
       this.restaurantFormError = 'Slug, email vlasnika i lozinka od najmanje 5 znakova su obavezni.';
       return;
     }
+    if (this.normalizePlan(form.plan) === 'Pro' && form.additionalThemeKeys.length !== 2) {
+      this.restaurantFormError = 'Za Pro paket izaberi tačno dvije dodatne teme.';
+      return;
+    }
 
     this.restaurantSaving = true;
     this.restaurantFormError = '';
@@ -1271,7 +1333,7 @@ export class App {
               ? form.status
               : form.subscriptionStatus,
             plan: this.normalizePlan(form.plan), monthlyPrice: form.monthlyPrice, startsOn: form.startsOn,
-            expiresOn: form.expiresOn, gracePeriodEndsOn: this.nullIfEmpty(form.gracePeriodEndsOn),
+            expiresOn: form.expiresOn, gracePeriodEndsOn: this.nullIfEmpty(form.gracePeriodEndsOn), additionalThemeKeys: form.additionalThemeKeys,
           })),
         )
       : this.adminRestaurantsService.create({
@@ -1283,7 +1345,7 @@ export class App {
           websiteUrl: this.nullIfEmpty(form.websiteUrl), instagramUrl: this.nullIfEmpty(form.instagramUrl),
           currency: form.currency.trim() || 'BAM', defaultLanguage: form.defaultLanguage.trim() || 'bs', enabledLanguages: form.enabledLanguages,
           plan: this.normalizePlan(form.plan), monthlyPrice: form.monthlyPrice,
-          themeKey: form.themeKey,
+          themeKey: form.themeKey, additionalThemeKeys: form.additionalThemeKeys,
         });
 
     request.pipe(finalize(() => this.restaurantSaving = false), takeUntilDestroyed(this.destroyRef)).subscribe({
@@ -2165,6 +2227,7 @@ export class App {
     const plan = this.normalizePlan(this.restaurantForm.plan);
     this.restaurantForm.plan = plan;
     this.restaurantForm.monthlyPrice = subscriptionPlanPrices[plan];
+    this.syncRestaurantPlanThemes();
   }
 
   get restaurantPlanFeatures(): string[] {
@@ -2307,7 +2370,7 @@ export class App {
     return {
       id: null, name: '', slug: '', type: 'Restaurant', status: 'Active', ownerEmail: '', ownerPassword: '', trialDays: 30,
       description: '', logoUrl: '', coverImageUrl: '', address: '', phone: '', email: '', websiteUrl: '', instagramUrl: '',
-      currency: 'BAM', defaultLanguage: 'bs', enabledLanguages: 'bs,en', themeKey: 'classic-light', plan: 'Start', monthlyPrice: 29, subscriptionStatus: 'Trial',
+      currency: 'BAM', defaultLanguage: 'bs', enabledLanguages: 'bs,en', themeKey: 'classic-light', additionalThemeKeys: [], plan: 'Start', monthlyPrice: 29, subscriptionStatus: 'Trial',
       startsOn: this.dateInputValue(today), expiresOn: this.dateInputValue(expires), gracePeriodEndsOn: '',
     };
   }
@@ -2319,6 +2382,7 @@ export class App {
       description: item.description ?? '', logoUrl: item.logoUrl ?? '', coverImageUrl: item.coverImageUrl ?? '',
       address: item.address ?? '', phone: item.phone ?? '', email: item.email ?? '', websiteUrl: item.websiteUrl ?? '',
       instagramUrl: item.instagramUrl ?? '', currency: item.currency, defaultLanguage: item.defaultLanguage, enabledLanguages: item.enabledLanguages ?? 'bs,en', themeKey: item.themeKey,
+      additionalThemeKeys: (item.additionalThemeKeys ?? []).filter((theme): theme is ThemeType => this.themes.some((item) => item.id === theme)).slice(0, 2),
       plan: this.normalizePlan(item.subscription.plan), monthlyPrice: item.subscription.monthlyPrice, subscriptionStatus: item.subscription.status, startsOn: item.subscription.startsOn,
       expiresOn: item.subscription.expiresOn, gracePeriodEndsOn: item.subscription.gracePeriodEndsOn ?? '',
     };
@@ -2576,6 +2640,7 @@ export class App {
   private publicThemeSurfaceColor(theme: ThemeType): string {
     const colors: Record<ThemeType, string> = {
       'classic-light': '#fdf8f3',
+      'classic-dark': '#0f172a',
       'premium-gold': '#0d0b08',
       'burgundy-dining': '#18181b',
       'mediterranean-blue': '#eff6ff',

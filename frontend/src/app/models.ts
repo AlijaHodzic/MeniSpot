@@ -3,6 +3,7 @@ export type AdminTab = 'dashboard' | 'restaurants' | 'archived-restaurants' | 'b
 export type OwnerTab = 'dashboard' | 'categories' | 'products' | 'daily-menu' | 'offers' | 'settings' | 'qr' | 'support';
 export type ThemeType =
   | 'classic-light'
+  | 'classic-dark'
   | 'premium-gold'
   | 'burgundy-dining'
   | 'mediterranean-blue'

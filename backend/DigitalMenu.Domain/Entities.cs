@@ -140,6 +140,7 @@ public sealed class ThemeSettings : Entity
 {
     public Guid RestaurantId { get; set; }
     public string ThemeKey { get; set; } = "restaurant";
+    public string AdditionalThemeKeys { get; set; } = string.Empty;
     public string PrimaryColor { get; set; } = "#111827";
     public string AccentColor { get; set; } = "#F59E0B";
     public string? BackgroundImageUrl { get; set; }

@@ -108,6 +108,7 @@ export interface OwnerRestaurant {
   type: EstablishmentType;
   status: RestaurantStatus;
   plan: string;
+  availableThemeKeys: string[];
   theme: { themeKey: string; primaryColor: string; accentColor: string; backgroundImageUrl: string | null; fontFamily: string };
   businessHours: OwnerBusinessHour[];
   categories: OwnerMenuCategory[];
