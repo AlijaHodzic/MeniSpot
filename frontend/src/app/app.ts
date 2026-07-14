@@ -9,7 +9,7 @@ import {
   LucideArrowLeft, LucideAward, LucideCalendar, LucideChefHat, LucideClock, LucideEdit2,
   LucideDownload, LucideEye, LucideEyeOff, LucideFlame, LucideGlobe, LucideLeaf, LucideLock, LucideLogIn, LucideLogOut, LucideMail,
   LucideMapPin, LucideMenu, LucideMoon, LucidePercent, LucidePhone, LucidePlus,
-  LucidePower, LucideQrCode, LucideSearch, LucideShield, LucideSparkles,
+  LucidePower, LucideQrCode, LucideSearch, LucideShield,
   LucideStore, LucideSun, LucideTrash2, LucideTrendingUp, LucideUtensilsCrossed, LucideX,
 } from '@lucide/angular';
 import { AdminTab, AppView, BadgeType, Category, DailyMenu, Offer, OwnerTab, Product, Restaurant, ThemeType } from './models';
@@ -170,7 +170,7 @@ const drinkCategories = [
     LucideClock, LucideDownload, LucideEdit2, LucideEye, LucideFlame, LucideGlobe,
     LucideLeaf, LucideLock, LucideLogIn, LucideLogOut, LucideMail, LucideMapPin, LucideMenu, LucidePercent,
     LucidePhone, LucidePlus, LucidePower, LucideQrCode, LucideSearch,
-    LucideShield, LucideSparkles, LucideStore, LucideTrash2, LucideTrendingUp,
+    LucideShield, LucideStore, LucideTrash2, LucideTrendingUp,
     LucideUtensilsCrossed, LucideX, LucideEyeOff, LucideMoon, LucideSun, AppSelectComponent,
   ],
   templateUrl: './app.html',
