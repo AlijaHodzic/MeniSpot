@@ -317,13 +317,29 @@
         }
 
         @if (adminTab === 'audit-logs') {
-          <div class="page-heading"><div><p class="eyebrow">Historija izmjena</p><h2>Logovi</h2><p>Prati ko je sta mijenjao u adminu i owner panelu.</p></div><button class="secondary-button" (click)="loadAuditLogs(true)"><svg lucideClock [size]="16"></svg> Osvjezi</button></div>
+          <div class="page-heading"><div><p class="eyebrow">Historija izmjena</p><h2>Logovi</h2><p>Prati ko je šta mijenjao u admin i owner panelu.</p></div><button class="secondary-button" (click)="loadAuditLogs(true)"><svg lucideClock [size]="16"></svg> Osvježi</button></div>
           @if (auditLogsError) { <div class="admin-alert"><span>{{ auditLogsError }}</span><button (click)="loadAuditLogs(true)">Pokusaj ponovo</button></div> }
           <div class="panel-card overflow-hidden p-0">
-            <div class="table-toolbar"><div class="search-box"><svg lucideSearch [size]="17"></svg><input name="auditLogSearch" [(ngModel)]="auditLogSearch" placeholder="Pretrazi akciju, restoran, korisnika ili IP..." /></div><span class="text-sm text-slate-500">{{ filteredAuditLogs.length }} zapisa</span></div>
+            <div class="table-toolbar audit-toolbar"><div class="search-box"><svg lucideSearch [size]="17"></svg><input name="auditLogSearch" [(ngModel)]="auditLogSearch" placeholder="Pretraži akciju, objekat, korisnika ili IP..." /></div><span class="audit-log-count"><b>{{ filteredAuditLogs.length }}</b> zapisa</span></div>
             @if (auditLogsLoading) { <div class="table-state"><span class="auth-spinner"></span><p>Ucitavanje logova...</p></div> }
             @else if (!filteredAuditLogs.length) { <div class="table-state"><svg lucideShield [size]="30"></svg><h3>Nema logova</h3><p>Kada se napravi izmjena, zapis ce se pojaviti ovdje.</p></div> }
-            @else { <div class="audit-log-list">@for (log of filteredAuditLogs; track log.id) { <article><div><b>{{ log.action }}</b><p>{{ log.restaurantName || log.entityType }} @if (log.summary) { <span>· {{ log.summary }}</span> }</p></div><div><span>{{ log.actorEmail || 'Sistem' }}</span><small>{{ log.actorRole || log.ipAddress || 'bez uloge' }}</small></div><time>{{ log.createdAt | date:'dd.MM.yyyy. HH:mm:ss' }}</time></article> }</div> }
+            @else {
+              <div class="audit-table-wrap">
+                <table class="audit-table">
+                  <thead><tr><th>Vrijeme</th><th>Akcija</th><th>Objekat</th><th>Detalji</th><th>Korisnik</th><th>Uloga</th></tr></thead>
+                  <tbody>@for (log of filteredAuditLogs; track log.id) {
+                    <tr>
+                      <td data-label="Vrijeme"><time><b>{{ log.createdAt | date:'dd.MM.yyyy.' }}</b><small>{{ log.createdAt | date:'HH:mm:ss' }}</small></time></td>
+                      <td data-label="Akcija"><span class="audit-action" [attr.data-tone]="auditActionTone(log.action)"><i></i>{{ auditActionLabel(log.action) }}</span><code>{{ log.action }}</code></td>
+                      <td data-label="Objekat"><b class="audit-primary">{{ log.restaurantName || auditEntityLabel(log.entityType) }}</b><small class="audit-secondary">{{ auditEntityLabel(log.entityType) }}</small></td>
+                      <td data-label="Detalji"><span class="audit-summary" [class.audit-empty]="!log.summary">{{ log.summary || 'Bez dodatnih detalja' }}</span></td>
+                      <td data-label="Korisnik"><b class="audit-primary">{{ log.actorEmail || 'Sistem' }}</b><small class="audit-secondary">{{ log.ipAddress || 'IP nije zabilježen' }}</small></td>
+                      <td data-label="Uloga"><span class="audit-role" [class.audit-role-owner]="log.actorRole === 'RestaurantOwner'">{{ auditRoleLabel(log.actorRole) }}</span></td>
+                    </tr>
+                  }</tbody>
+                </table>
+              </div>
+            }
           </div>
         }
       </main>

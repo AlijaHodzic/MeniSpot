@@ -621,6 +621,64 @@ export class App {
       (item.actorEmail ?? '').toLocaleLowerCase().includes(term) ||
       (item.ipAddress ?? '').toLocaleLowerCase().includes(term));
   }
+  auditActionLabel(action: string): string {
+    const labels: Record<string, string> = {
+      SubscriptionChanged: 'Promijenjena pretplata',
+      RestaurantStatusChanged: 'Promijenjen status',
+      RestaurantUpdated: 'Uređen objekat',
+      OwnerRestaurantUpdated: 'Vlasnik uredio objekat',
+      OwnerAccessUpdated: 'Promijenjen pristup vlasnika',
+      RestaurantImpersonated: 'Otvoren panel vlasnika',
+      RestaurantCreated: 'Kreiran objekat',
+      RestaurantArchived: 'Arhiviran objekat',
+      RestaurantRestored: 'Vraćen objekat',
+      RestaurantQrDownloaded: 'Preuzet QR kod',
+      RestaurantImageUploaded: 'Dodana slika objekta',
+      OwnerImageUploaded: 'Vlasnik dodao sliku',
+      ThemeUpdated: 'Promijenjena tema',
+      BusinessHoursUpdated: 'Promijenjeno radno vrijeme',
+      MenuCategoryCreated: 'Kreirana kategorija',
+      MenuCategoryUpdated: 'Uređena kategorija',
+      MenuCategoryDeleted: 'Obrisana kategorija',
+      MenuItemCreated: 'Kreiran proizvod',
+      MenuItemUpdated: 'Uređen proizvod',
+      MenuItemDeleted: 'Obrisan proizvod',
+      DrinkLibraryItemsAdded: 'Dodana pića iz biblioteke',
+      OfferCreated: 'Kreirana ponuda',
+      OfferUpdated: 'Uređena ponuda',
+      OfferDeleted: 'Obrisana ponuda',
+      PaymentRecorded: 'Evidentirana uplata',
+      SupportTicketCreated: 'Kreiran zahtjev podrške',
+      SupportTicketUpdated: 'Ažuriran zahtjev podrške',
+      SupportTicketDeleted: 'Obrisan zahtjev podrške',
+      SupportAttachmentUploaded: 'Dodan prilog podrške',
+      GlobalDrinkCreated: 'Kreirano piće',
+      GlobalDrinkUpdated: 'Uređeno piće',
+      GlobalDrinkDeleted: 'Obrisano piće',
+      GlobalDrinkImageUploaded: 'Dodana slika pića',
+    };
+    return labels[action] ?? action.replace(/([a-z])([A-Z])/g, '$1 $2');
+  }
+  auditActionTone(action: string): 'success' | 'info' | 'danger' | 'access' | 'neutral' {
+    if (/(Deleted|Archived)$/i.test(action)) return 'danger';
+    if (/(Created|Restored|Recorded|Added)$/i.test(action)) return 'success';
+    if (/(Impersonated|Access|Downloaded)$/i.test(action)) return 'access';
+    if (/(Updated|Changed|Uploaded)$/i.test(action)) return 'info';
+    return 'neutral';
+  }
+  auditRoleLabel(role: string | null): string {
+    if (role === 'SuperAdmin') return 'Super Admin';
+    if (role === 'RestaurantOwner') return 'Vlasnik';
+    return role || 'Sistem';
+  }
+  auditEntityLabel(entityType: string): string {
+    const labels: Record<string, string> = {
+      Restaurant: 'Objekat', Subscription: 'Pretplata', SubscriptionPayment: 'Uplata',
+      MenuCategory: 'Kategorija', MenuItem: 'Proizvod', SpecialOffer: 'Ponuda',
+      ThemeSettings: 'Tema', BusinessHour: 'Radno vrijeme', SupportTicket: 'Podrška', GlobalDrink: 'Piće',
+    };
+    return labels[entityType] ?? entityType;
+  }
   get adminDrinkCategoryStats(): { name: string; count: number }[] {
     return this.drinkCategories.map((name) => ({ name, count: this.adminDrinks.filter((item) => item.category === name).length }));
   }
